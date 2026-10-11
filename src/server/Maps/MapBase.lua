@@ -59,6 +59,7 @@ export type ArenaTheme = {
 	TreeCount: number?,
 	TreeScale: number?,
 	Camp: CampTheme?,
+	TerrainColors: { [string]: Color3 }?, -- couleurs de matières propres à la map
 }
 
 export type CampTheme = {
@@ -104,6 +105,7 @@ local ARENA_HEIGHT = 320
 
 function MapBase.ClearArena(origin: Vector3)
 	TerrainKit.Clear(origin + Vector3.new(0, ARENA_HEIGHT / 2 - 40, 0), Vector3.new(ARENA_EXTENT, ARENA_HEIGHT, ARENA_EXTENT))
+	TerrainKit.ApplyPalette()
 end
 
 -- Murs invisibles (et pas de plafond) pour qu'on ne sorte pas de la map.
@@ -352,6 +354,7 @@ function MapBase.BuildArena(folder: Instance, origin: Vector3, cfg: ArenaConfig,
 	TerrainKit.ResetRelief(origin.Y)
 	local size = cfg.GroundSize
 	MapBase.ClearArena(origin)
+	TerrainKit.ApplyOverrides(theme.TerrainColors)
 	-- Vallée + sol de jeu plat
 	if theme.Valley.Style == "Canyon" then
 		TerrainKit.Canyon(origin, size, theme.Valley, random)

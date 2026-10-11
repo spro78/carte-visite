@@ -319,10 +319,12 @@ function buildTerrain(scene, data, center, extent) {
 // ---------------------------------------------------------------------------
 function skyTexture(L) {
   const c = document.createElement("canvas"); c.width = 16; c.height = 512; const g = c.getContext("2d");
-  const warm = L && L.clock > 16.8;
+  const clock = L ? L.clock : 14;
+  const stops = clock > 17.8 ? ["#2c3f6e", "#6f78a8", "#f2a77c", "#ffcf9a"]
+    : clock > 16.8 ? ["#4f86d8", "#a9c4ee", "#ffd7b0", "#ffc89a"]
+    : ["#2f7fe6", "#7cbcff", "#cfe7ff", "#e8f4ff"];
   const grad = g.createLinearGradient(0, 0, 0, 512);
-  grad.addColorStop(0, warm ? "#4f86d8" : "#2f7fe6"); grad.addColorStop(0.55, warm ? "#a9c4ee" : "#7cbcff");
-  grad.addColorStop(0.85, warm ? "#ffd7b0" : "#cfe7ff"); grad.addColorStop(1, warm ? "#ffc89a" : "#e8f4ff");
+  grad.addColorStop(0, stops[0]); grad.addColorStop(0.55, stops[1]); grad.addColorStop(0.85, stops[2]); grad.addColorStop(1, stops[3]);
   g.fillStyle = grad; g.fillRect(0, 0, 16, 512);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
@@ -338,7 +340,7 @@ function cloudLayer(scene, center, L) {
     }
   }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  const tint = L && L.clock > 16.8 ? new THREE.Color("#ffe6d2") : new THREE.Color("#ffffff");
+  const tint = L && L.clock > 17.8 ? new THREE.Color("#f4b8a0") : L && L.clock > 16.8 ? new THREE.Color("#ffe6d2") : new THREE.Color("#ffffff");
   const m = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, fog: false, color: tint, opacity: 0.9 }));
   m.rotation.x = Math.PI / 2; m.position.set(center[0], 700, center[2]); scene.add(m);
 }
@@ -375,7 +377,10 @@ export async function render3D(data, { W, H, drawGui, layoutChildren }) {
   const outdoor = L && L.outdoor ? rgb(L.outdoor) : new THREE.Color("#9aa0b0");
   scene.add(new THREE.HemisphereLight(new THREE.Color("#cfe4ff").lerp(outdoor, 0.3), new THREE.Color("#7a8a60").lerp(outdoor, 0.4), 1.15));
   scene.add(new THREE.AmbientLight(outdoor, 0.35));
-  const sun = new THREE.DirectionalLight(sunColor, 1.2 + brightness * 0.55);
+  // Jour / crépuscule : l'intensité suit la hauteur du soleil
+  const day = Math.min(1, Math.max(0.42, Math.sin(ang) * 1.4 + 0.35));
+  scene.children.filter(o => o.isLight).forEach(o => { o.intensity *= 0.55 + 0.45 * day; });
+  const sun = new THREE.DirectionalLight(clock > 17.8 ? new THREE.Color("#ffb27a") : sunColor, (1.2 + brightness * 0.55) * day);
   // Ombres : cadrées sur la zone regardée par la caméra
   const cam = data.camera; const tgt = cam.target;
   const focus = new THREE.Vector3(tgt[0], tgt[1], tgt[2]);

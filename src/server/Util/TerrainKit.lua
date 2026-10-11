@@ -81,6 +81,20 @@ function TerrainKit.ApplyPalette()
 	t.WaterReflectance = water.Reflectance
 end
 
+-- Couleurs propres à une map (rétablies par ApplyPalette au nettoyage)
+function TerrainKit.ApplyOverrides(colors: { [string]: Color3 }?)
+	if not colors then
+		return
+	end
+	local t = terrain()
+	for name, color in colors do
+		local material = (Enum.Material :: any)[name]
+		if material then
+			t:SetMaterialColor(material, color)
+		end
+	end
+end
+
 -- Efface le terrain d'une région (boîte centrée sur center)
 function TerrainKit.Clear(center: Vector3, size: Vector3)
 	terrain():FillBlock(CFrame.new(center), size, Enum.Material.Air)
@@ -162,12 +176,11 @@ end
 -- La surface de l'eau est un peu sous le niveau du sol.
 function TerrainKit.Pond(center: Vector3, radius: number, depth: number, topY: number, shore: Enum.Material?)
 	local t = terrain()
-	-- Rive
-	t:FillCylinder(CFrame.new(center.X, topY - VOXEL / 2, center.Z), VOXEL, radius + 6, shore or Enum.Material.Sand)
-	-- Cuvette
-	t:FillBall(Vector3.new(center.X, topY - depth + radius * 0.15, center.Z), radius, shore or Enum.Material.Sand)
+	local bank = shore or Enum.Material.Sand
+	-- Rive (couche du dessus) puis cuvette creusée, fond et eau
+	t:FillCylinder(CFrame.new(center.X, topY - VOXEL / 2, center.Z), VOXEL, radius + 6, bank)
 	t:FillCylinder(CFrame.new(center.X, topY - depth / 2, center.Z), depth, radius, Enum.Material.Air)
-	-- Eau (surface 1 stud sous le sol)
+	t:FillCylinder(CFrame.new(center.X, topY - depth - VOXEL / 2, center.Z), VOXEL, radius + 2, bank)
 	t:FillCylinder(CFrame.new(center.X, topY - 1 - (depth - 1) / 2, center.Z), depth - 1, radius, Enum.Material.Water)
 end
 
