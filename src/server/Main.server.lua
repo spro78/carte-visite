@@ -21,6 +21,7 @@ local AbilityService = require(Services.AbilityService)
 local CaptureService = require(Services.CaptureService)
 local RoundService = require(Services.RoundService)
 local HideService = require(Services.HideService)
+local BotService = require(script.Parent:WaitForChild("Bots"):WaitForChild("BotService"))
 
 LobbyBuilder.Build()
 MapRegistry.Init(script.Parent:WaitForChild("Maps"))
@@ -34,6 +35,7 @@ RoundService.Init()
 HideService.Init()
 ActorService.Init()
 
+RoundService.SetBotProvider(BotService)
 RoundService.Start()
 
 print("[HuntOrHide] Server ready")

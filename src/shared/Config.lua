@@ -35,16 +35,27 @@ Config.Bots = {
 	FleeDistance = 28, -- fuir le prédateur s'il est à moins de X studs
 	ChaseDistance = 90, -- au-delà, la proie est ignorée au profit de l'objectif
 	ThinkInterval = 0.35, -- secondes entre deux décisions
-	ReactionTimeMin = 0.2, -- temps de réaction (secondes)
-	ReactionTimeMax = 0.65,
-	MistakeChance = 0.18, -- probabilité de "mauvaise" décision à chaque réflexion
-	AimError = 6, -- erreur de visée (studs) sur la position de la cible
-	SpeedMultiplier = 0.86, -- les bots sont un peu plus lents que la vitesse max d'un joueur
+	ReactionTimeMin = 0.3, -- temps de réaction (secondes)
+	ReactionTimeMax = 0.8,
+	MistakeChance = 0.22, -- probabilité de "mauvaise" décision à chaque réflexion
+	AimError = 7, -- erreur de visée (studs) sur la position de la cible
+	SpeedMultiplier = 0.82, -- les bots sont plus lents que la vitesse max d'un joueur
 	DashChance = 0.35, -- probabilité d'utiliser le dash quand c'est utile
 	AbilityChance = 0.3,
 	PathRecomputeInterval = 0.8,
 	DirectChaseDistance = 25, -- en dessous, on fonce sans pathfinding
 	WanderRadius = 40,
+	HideChance = 0.35, -- probabilité de filer vers une cachette quand on fuit
+	LeadSeconds = 0.3, -- anticipation de la position de la proie
+	StuckSeconds = 1.5,
+	-- Animations R15 par défaut de Roblox (modifiables)
+	Animations = {
+		Idle = "rbxassetid://507766666",
+		Walk = "rbxassetid://507777826",
+		Run = "rbxassetid://507767714",
+		Jump = "rbxassetid://507765000",
+		Fall = "rbxassetid://507767968",
+	},
 }
 
 -- ---------------------------------------------------------------------------

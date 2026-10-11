@@ -148,7 +148,7 @@ if group == "all" or group == "round" then
 			break
 		end
 	end
-	Engine.Advance(8)
+	Engine.Advance(20)
 	local O = Config.World.MapOrigin
 	addScene("round_overview", "A simulated round in progress", O, 300, { position = { O.X + 160, 140, O.Z + 200 }, target = { O.X, 0, O.Z }, fov = 50 })
 	addScene("hud_round_pc", "In-round HUD (PC 1280x720)", O, 300, playerCamera(hero, 14, 6), { hud = Export.PlayerGui(hero) })
