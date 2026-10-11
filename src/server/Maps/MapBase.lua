@@ -353,7 +353,11 @@ function MapBase.BuildArena(folder: Instance, origin: Vector3, cfg: ArenaConfig,
 	local size = cfg.GroundSize
 	MapBase.ClearArena(origin)
 	-- Vallée + sol de jeu plat
-	TerrainKit.Valley(origin, size, theme.Valley, random)
+	if theme.Valley.Style == "Canyon" then
+		TerrainKit.Canyon(origin, size, theme.Valley, random)
+	else
+		TerrainKit.Valley(origin, size, theme.Valley, random)
+	end
 	TerrainKit.Slab(origin, size + 8, size + 8, origin.Y, 16, theme.Floor)
 	-- Plaques de matières (variations du sol)
 	if theme.Patches and #theme.Patches > 0 then

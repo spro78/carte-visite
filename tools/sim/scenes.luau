@@ -113,6 +113,7 @@ if group == "all" or group == "maps" then
 	for _, id in ids do
 		local module = mapsFolder:FindFirstChild(id)
 		if module then
+			local saved = {}
 			local map
 			Engine.Run("server", function()
 				map = World.Require(module)
@@ -135,6 +136,26 @@ if group == "all" or group == "maps" then
 					end,
 				}
 				map.Build(O, ctx)
+				-- Ambiance de la map (comme RoundService pendant la manche)
+				local Lighting = World.game:GetService("Lighting")
+				saved = {}
+				for key, value in map.Lighting or {} do
+					if type(value) == "table" then
+						local cls = ({ Atmosphere = "Atmosphere", ColorCorrection = "ColorCorrectionEffect", Bloom = "BloomEffect", SunRays = "SunRaysEffect" })[key]
+						local target = cls and Lighting:FindFirstChildOfClass(cls)
+						if target then
+							saved[target] = saved[target] or {}
+							for k2, v2 in value do
+								saved[target][k2] = target[k2]
+								target[k2] = v2
+							end
+						end
+					else
+						saved[Lighting] = saved[Lighting] or {}
+						saved[Lighting][key] = Lighting[key]
+						Lighting[key] = value
+					end
+				end
 			end)
 			Engine.Advance(0.5)
 			local size = Config.Maps[id].GroundSize
@@ -151,6 +172,11 @@ if group == "all" or group == "maps" then
 			addScene("map_" .. id .. "_top", id .. " - top-down", O, size, { position = { O.X, 600, O.Z + 0.01 }, target = { O.X, 0, O.Z }, ortho = size * 1.05, up = { 0, 0, -1 } })
 			Engine.Run("server", function()
 				map.Cleanup()
+				for target, values in saved do
+					for k2, v2 in values do
+						target[k2] = v2
+					end
+				end
 			end)
 		end
 	end

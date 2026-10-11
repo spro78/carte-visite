@@ -7,7 +7,9 @@
 	  - Un voleur attrapé perd son œuf, qui retourne dans la base d'où il vient.
 	  - Mécanisme : une catapulte tournante au centre. Sauter dedans te lance
 	    dans la direction qu'elle vise à ce moment-là.
-	Thème : canyon rouge (mesas, rochers, cactus, herbes sèches).
+	Thème : "Red Rock Gulch", ville fantôme du Far West au soleil couchant :
+	mesas en strates, saloon traversable, mine percée d'un tunnel, arche de
+	grès, éolienne de pompage, cimetière, campement de chariots.
 ]]
 
 local RunService = game:GetService("RunService")
@@ -20,33 +22,47 @@ local Remotes = require(Shared.Remotes)
 local Types = require(Shared.Types)
 local MapBase = require(script.Parent.MapBase)
 local Build = require(script.Parent.Parent.Util.Build)
+local Props = require(script.Parent.Parent.Util.Props)
+local TerrainKit = require(script.Parent.Parent.Util.TerrainKit)
 
 type Actor = Types.Actor
 type MapContext = Types.MapContext
 
 local Map = {}
 Map.Id = "TheCanyon"
+-- Soleil bas et chaud, brume orangée
 Map.Lighting = {
-	ClockTime = 17.3,
-	Brightness = 2.4,
-	OutdoorAmbient = Color3.fromRGB(190, 140, 110),
-	FogColor = Color3.fromRGB(230, 170, 120),
-	FogEnd = 900,
+	ClockTime = 16.3,
+	Brightness = 2.7,
+	OutdoorAmbient = Color3.fromRGB(196, 150, 120),
+	Atmosphere = { Density = 0.3, Haze = 1.4, Color = Color3.fromRGB(255, 206, 160), Decay = Color3.fromRGB(230, 140, 90) },
+	ColorCorrection = { TintColor = Color3.fromRGB(255, 238, 222), Saturation = 0.2, Contrast = 0.08 },
 }
 
 local cfg = Config.Maps.TheCanyon
 local BUCKET_HEIGHT = 2.5
-local SAND = Color3.fromRGB(214, 150, 95)
 local ROCK = Color3.fromRGB(176, 98, 60)
 
 local THEME: MapBase.ArenaTheme = {
 	Seed = 3307,
-	Floor = Enum.Material.Sandstone,
-	Patches = { Enum.Material.Sand, Enum.Material.Ground },
-	Path = Enum.Material.Sand,
-	CenterRadius = 24,
-	Valley = { Ground = Enum.Material.Sand, Hill = Enum.Material.Sandstone, Rock = Enum.Material.Sandstone, Height = 110, Gap = 20, RockChance = 0.8 },
-	Perimeter = "None",
+	Floor = Enum.Material.Sand,
+	Patches = { Enum.Material.Ground },
+	PatchCount = 10,
+	Path = Enum.Material.Ground,
+	PathWidth = 12,
+	RingPath = 76,
+	CenterRadius = 26,
+	Valley = {
+		Style = "Canyon",
+		Ground = Enum.Material.Sand,
+		Hill = Enum.Material.Sandstone,
+		Rock = Enum.Material.Sandstone,
+		Strata = { Enum.Material.Sandstone, Enum.Material.Sandstone, Enum.Material.Limestone, Enum.Material.Ground },
+		Height = 120,
+		Gap = 20,
+	},
+	Perimeter = "Fence",
+	PerimeterColor = Color3.fromRGB(150, 112, 80),
 	Trees = { "Round" },
 	TreeCount = 0,
 	Camp = { Wall = Enum.Material.WoodPlanks, Ground = Enum.Material.Ground },
@@ -69,22 +85,363 @@ local lastCatapult: { [string]: number } = {}
 -- ---------------------------------------------------------------------------
 -- Construction
 -- ---------------------------------------------------------------------------
-local function buildMesa(parent: Instance, position: Vector3, radius: number, height: number)
-	for i = 0, 2 do
-		local r = radius * (1 - i * 0.18)
-		Build.VerticalCylinder(position + Vector3.new(0, height * (i + 0.5) / 3, 0), r, height / 3, {
-			Name = "Mesa",
-			Color = ROCK:Lerp(Color3.fromRGB(230, 160, 110), i * 0.15),
-			Material = Enum.Material.Sandstone,
-		}, parent)
+local WOOD = Color3.fromRGB(150, 100, 62)
+local WOOD_DARK = Color3.fromRGB(104, 68, 44)
+local CREAM = Color3.fromRGB(242, 228, 200)
+local CACTUS = Color3.fromRGB(78, 150, 84)
+
+local function deco(props: { [string]: any }): { [string]: any }
+	props.CanCollide = false
+	props.CanQuery = false
+	return props
+end
+
+-- Saguaro : tronc côtelé et bras recourbés (taille variable)
+local function buildCactus(parent: Instance, ground: Vector3, scale: number?)
+	local s = scale or 1
+	local random = MapBase.Random()
+	local h = 9 * s
+	Build.VerticalCylinder(ground + Vector3.new(0, h / 2, 0), 1.1 * s, h, { Name = "Cactus", Color = CACTUS }, parent)
+	Build.Part(deco({ Name = "CactusTop", Shape = Enum.PartType.Ball, Size = Vector3.new(2.2, 2.2, 2.2) * s, Position = ground + Vector3.new(0, h, 0), Color = CACTUS }), parent)
+	local yaw = random:NextNumber(0, math.pi * 2)
+	for i, side in { -1, 1 } do
+		local armY = h * (0.4 + i * 0.12)
+		local cf = CFrame.new(ground + Vector3.new(0, armY, 0)) * CFrame.Angles(0, yaw, 0)
+		Build.Part(deco({ Name = "ArmOut", Size = Vector3.new(2.6 * s, 1.5 * s, 1.5 * s), CFrame = cf * CFrame.new(side * 1.6 * s, 0, 0), Color = CACTUS }), parent)
+		local up = 3 * s * (i == 1 and 1 or 0.7)
+		Build.VerticalCylinder((cf * CFrame.new(side * 2.7 * s, up / 2 + 0.4, 0)).Position, 0.75 * s, up + 0.8, deco({ Name = "ArmUp", Color = CACTUS }), parent)
+		Build.Part(deco({ Name = "ArmTip", Shape = Enum.PartType.Ball, Size = Vector3.new(1.5, 1.5, 1.5) * s, Position = (cf * CFrame.new(side * 2.7 * s, up + 0.8, 0)).Position, Color = CACTUS }), parent)
+	end
+	-- Fleur rose au sommet
+	Build.Part(deco({ Name = "CactusFlower", Shape = Enum.PartType.Ball, Size = Vector3.new(0.8, 0.5, 0.8) * s, Position = ground + Vector3.new(0, h + 1.1 * s, 0), Color = Color3.fromRGB(255, 110, 160), Accent = true }), parent)
+end
+
+local function buildTumbleweed(parent: Instance, ground: Vector3)
+	Build.Part(deco({ Name = "Tumbleweed", Shape = Enum.PartType.Ball, Size = Vector3.new(2.6, 2.4, 2.6), Position = ground + Vector3.new(0, 1.2, 0), Color = Color3.fromRGB(176, 140, 86), Material = Enum.Material.Fabric, Transparency = 0.2 }), parent)
+end
+
+-- Façade de western : bâtiment, fausse façade haute avec enseigne, porche en
+-- planches. hollow = true : traversable (portes avant et arrière alignées).
+local function buildStorefront(parent: Instance, cf: CFrame, w: number, d: number, h: number, color: Color3, sign: string, hollow: boolean?)
+	local model = Instance.new("Model")
+	model.Name = "Storefront"
+	local trim = CREAM
+	if hollow then
+		local doorW = 7
+		Build.Part({ Name = "Floor", Size = Vector3.new(w, 0.6, d), CFrame = cf * CFrame.new(0, 0.3, 0), Color = WOOD_DARK, Material = Enum.Material.WoodPlanks }, model)
+		for _, side in { -1, 1 } do
+			Build.Part({ Name = "SideWall", Size = Vector3.new(1, h, d), CFrame = cf * CFrame.new(side * (w / 2 - 0.5), h / 2, 0), Color = color, Material = Enum.Material.WoodPlanks }, model)
+			-- Murs avant/arrière de part et d'autre de la porte
+			for _, face in { -1, 1 } do
+				local pierW = (w - doorW) / 2
+				Build.Part({ Name = "FaceWall", Size = Vector3.new(pierW, h, 1), CFrame = cf * CFrame.new(side * (doorW / 2 + pierW / 2), h / 2, face * (d / 2 - 0.5)), Color = color, Material = Enum.Material.WoodPlanks }, model)
+			end
+		end
+		for _, face in { -1, 1 } do
+			Build.Part({ Name = "Lintel", Size = Vector3.new(doorW, h - 8, 1), CFrame = cf * CFrame.new(0, 8 + (h - 8) / 2, face * (d / 2 - 0.5)), Color = color, Material = Enum.Material.WoodPlanks }, model)
+			-- Portes battantes de saloon (à hauteur de buste)
+			for _, s in { -1, 1 } do
+				Build.Part(deco({ Name = "BatwingDoor", Size = Vector3.new(doorW / 2 - 0.4, 3.4, 0.25), CFrame = cf * CFrame.new(s * (doorW / 4 + 0.6), 4.2, face * (d / 2 - 0.2)) * CFrame.Angles(0, s * face * 0.9, 0) * CFrame.new(s * 0.6, 0, 0), Color = WOOD }), model)
+			end
+		end
+		Build.Part({ Name = "Ceiling", Size = Vector3.new(w, 1, d), CFrame = cf * CFrame.new(0, h + 0.5, 0), Color = WOOD_DARK, Material = Enum.Material.WoodPlanks }, model)
+		-- Comptoir et tabourets à l'intérieur (sur le côté)
+		Build.Part({ Name = "Bar", Size = Vector3.new(2.4, 3.6, d * 0.6), CFrame = cf * CFrame.new(w / 2 - 3.5, 1.8, 0), Color = WOOD, Material = Enum.Material.WoodPlanks }, model)
+		for k = -1, 1 do
+			Build.VerticalCylinder((cf * CFrame.new(w / 2 - 6, 1.3, k * 3)).Position, 0.8, 2.6, { Name = "Stool", Color = Color3.fromRGB(170, 60, 50) }, model)
+		end
+		local lamp = Build.Part(deco({ Name = "Chandelier", Size = Vector3.new(2, 1, 2), CFrame = cf * CFrame.new(0, h - 1.5, 0), Color = Color3.fromRGB(255, 214, 130), Material = Enum.Material.Neon }), model)
+		local light = Instance.new("PointLight")
+		light.Color = Color3.fromRGB(255, 200, 120)
+		light.Range = 18
+		light.Brightness = 1.2
+		light.Parent = lamp
+	else
+		Build.Part({ Name = "Body", Size = Vector3.new(w, h, d), CFrame = cf * CFrame.new(0, h / 2, 0), Color = color, Material = Enum.Material.WoodPlanks }, model)
+		Props.Door(model, cf * CFrame.new(0, 0.6, -d / 2 - 0.15), 4, 7, WOOD_DARK, trim)
+		for _, x in { -w * 0.3, w * 0.3 } do
+			Props.Window(model, cf * CFrame.new(x, 5, -d / 2 - 0.15), 3.2, 3.6, trim, nil)
+		end
+	end
+	-- Fausse façade (plus haute) + enseigne ; ouverte au-dessus de la porte si traversable
+	local front = cf * CFrame.new(0, 0, -d / 2 - 0.6)
+	local frontColor = color:Lerp(Color3.new(1, 1, 1), 0.08)
+	if hollow then
+		for _, s in { -1, 1 } do
+			Build.Part({ Name = "FalseFront", Size = Vector3.new((w + 1 - 7) / 2, h + 6, 0.8), CFrame = front * CFrame.new(s * (7 / 2 + (w + 1 - 7) / 4), (h + 6) / 2, 0), Color = frontColor, Material = Enum.Material.WoodPlanks, CanCollide = false }, model)
+		end
+		Build.Part(deco({ Name = "FalseFrontTop", Size = Vector3.new(7, h - 2, 0.8), CFrame = front * CFrame.new(0, 8 + (h - 2) / 2, 0), Color = frontColor, Material = Enum.Material.WoodPlanks }), model)
+	else
+		Build.Part({ Name = "FalseFront", Size = Vector3.new(w + 1, h + 6, 0.8), CFrame = front * CFrame.new(0, (h + 6) / 2, 0), Color = frontColor, Material = Enum.Material.WoodPlanks, CanCollide = false }, model)
+	end
+	Build.Part(deco({ Name = "FrontCap", Size = Vector3.new(w + 1.6, 0.8, 1.2), CFrame = front * CFrame.new(0, h + 6.2, 0), Color = trim }), model)
+	local board = Build.Part(deco({ Name = "SignBoard", Size = Vector3.new(w * 0.8, 3, 0.4), CFrame = front * CFrame.new(0, h + 3, -0.6), Color = Color3.fromRGB(60, 40, 30) }), model)
+	Build.SurfaceLabel(board, Enum.NormalId.Front, sign, { TextColor3 = Color3.fromRGB(255, 220, 140), TextStrokeTransparency = 0.6, Font = Enum.Font.Garamond })
+	-- Porche : plancher, poteaux, auvent
+	Build.Part({ Name = "Boardwalk", Size = Vector3.new(w + 2, 0.8, 5), CFrame = cf * CFrame.new(0, 0.4, -d / 2 - 3.1), Color = WOOD, Material = Enum.Material.WoodPlanks }, model)
+	for _, x in { -w / 2, -w / 6, w / 6, w / 2 } do
+		if not hollow or math.abs(x) > 4 then
+			Build.Part({ Name = "PorchPost", Size = Vector3.new(0.6, 8, 0.6), CFrame = cf * CFrame.new(x, 4.4, -d / 2 - 5.2), Color = WOOD_DARK, Material = Enum.Material.Wood }, model)
+		end
+	end
+	Build.Wedge(deco({ Name = "PorchRoof", Size = Vector3.new(w + 2, 1.4, 5.6), CFrame = cf * CFrame.new(0, 9, -d / 2 - 3.3), Color = WOOD_DARK }), model)
+	model.Parent = parent
+	return model
+end
+
+-- Ville fantôme en U face au centre : saloon traversable au fond (raccourci
+-- vers la ruelle arrière), shérif et magasin général sur les côtés.
+local function buildTown(parent: Instance, center: Vector3)
+	local facing = CFrame.lookAt(center, Vector3.new(origin.X, center.Y, origin.Z))
+	TerrainKit.Paint(facing * CFrame.new(0, 0, 4), 70, 40, center.Y, Enum.Material.Ground)
+	buildStorefront(parent, facing * CFrame.new(0, 0, 8), 22, 16, 11, Color3.fromRGB(176, 84, 60), "SALOON", true)
+	buildStorefront(parent, facing * CFrame.new(-25, 0, 2) * CFrame.Angles(0, math.rad(-25), 0), 16, 12, 9, Color3.fromRGB(110, 134, 160), "SHERIFF", false)
+	buildStorefront(parent, facing * CFrame.new(25, 0, 2) * CFrame.Angles(0, math.rad(25), 0), 18, 12, 10, Color3.fromRGB(196, 160, 96), "GENERAL STORE", false)
+	-- Abreuvoir, tonneaux, poteau d'attache
+	Build.Part({ Name = "HitchRail", Size = Vector3.new(10, 0.5, 0.5), CFrame = facing * CFrame.new(-9, 3.2, -6), Color = WOOD_DARK, Material = Enum.Material.Wood }, parent)
+	for _, x in { -13.5, -4.5 } do
+		Build.Part({ Name = "HitchPost", Size = Vector3.new(0.6, 3.4, 0.6), CFrame = facing * CFrame.new(x, 1.7, -6), Color = WOOD_DARK, Material = Enum.Material.Wood }, parent)
+	end
+	Props.Barrel(parent, (facing * CFrame.new(10, 0, -5)).Position, Color3.fromRGB(130, 82, 50))
+	Props.Barrel(parent, (facing * CFrame.new(12.6, 0, -4)).Position, Color3.fromRGB(130, 82, 50))
+	Props.Lamp(parent, (facing * CFrame.new(-16, 0, -8)).Position, math.pi)
+	Props.Lamp(parent, (facing * CFrame.new(16, 0, -8)).Position, math.pi)
+end
+
+-- Mine : mesa en strates percée d'un tunnel boisé (raccourci), rails et wagonnet
+local function buildMine(parent: Instance, center: Vector3)
+	local random = MapBase.Random()
+	local a = math.atan2(center.Z - origin.Z, center.X - origin.X)
+	local tangent = Vector3.new(-math.sin(a), 0, math.cos(a))
+	TerrainKit.Mesa(center, 18, 26, origin.Y, { Enum.Material.Sandstone, Enum.Material.Limestone, Enum.Material.Sandstone, Enum.Material.Ground }, random)
+	local tunnel = CFrame.lookAt(center, center + tangent)
+	workspace.Terrain:FillBlock(tunnel * CFrame.new(0, 5.5, 0), Vector3.new(10, 11, 48), Enum.Material.Air)
+	-- Cadres de bois tout le long
+	for k = -4, 4 do
+		local frame = tunnel * CFrame.new(0, 0, k * 5)
+		for _, s in { -1, 1 } do
+			Build.Part({ Name = "MineBeam", Size = Vector3.new(1, 10, 1), CFrame = frame * CFrame.new(s * 4.4, 5, 0), Color = WOOD_DARK, Material = Enum.Material.Wood }, parent)
+		end
+		Build.Part({ Name = "MineLintel", Size = Vector3.new(10, 1.2, 1.2), CFrame = frame * CFrame.new(0, 10, 0), Color = WOOD, Material = Enum.Material.Wood }, parent)
+		if k % 2 == 0 then
+			local lantern = Build.Part(deco({ Name = "MineLantern", Size = Vector3.new(0.8, 1.1, 0.8), CFrame = frame * CFrame.new(0, 8.8, 0), Color = Color3.fromRGB(255, 200, 110), Material = Enum.Material.Neon }), parent)
+			local light = Instance.new("PointLight")
+			light.Color = Color3.fromRGB(255, 190, 110)
+			light.Range = 14
+			light.Brightness = 1
+			light.Parent = lantern
+		end
+	end
+	-- Rails qui sortent des deux côtés
+	for _, dir in { -1, 1 } do
+		local from = center + tangent * dir * 10
+		local to = center + tangent * dir * 40
+		local cf = CFrame.lookAt(from, to)
+		local length = (to - from).Magnitude
+		for _, x in { -1.6, 1.6 } do
+			Build.Part(deco({ Name = "Rail", Size = Vector3.new(0.4, 0.4, length), CFrame = cf * CFrame.new(x, 0.45, -length / 2), Color = Color3.fromRGB(120, 120, 130), Material = Enum.Material.Metal }), parent)
+		end
+		for k = 0, math.floor(length / 3) do
+			Build.Part(deco({ Name = "Sleeper", Size = Vector3.new(4.6, 0.3, 1), CFrame = cf * CFrame.new(0, 0.15, -k * 3), Color = WOOD_DARK, Material = Enum.Material.Wood }), parent)
+		end
+	end
+	local cart = CFrame.lookAt(center + tangent * 24, center + tangent * 30)
+	Build.Part({ Name = "MineCart", Size = Vector3.new(4, 2.6, 5), CFrame = cart * CFrame.new(0, 2.2, 0), Color = Color3.fromRGB(96, 98, 110), Material = Enum.Material.Metal }, parent)
+	Build.Part(deco({ Name = "Gold", Size = Vector3.new(3.4, 1, 4.4), CFrame = cart * CFrame.new(0, 3.6, 0), Color = Color3.fromRGB(255, 204, 60), Material = Enum.Material.Metal, Accent = true }), parent)
+	for _, x in { -2.1, 2.1 } do
+		for _, z in { -1.6, 1.6 } do
+			Build.Part(deco({ Name = "CartWheel", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 1.4, 1.4), CFrame = cart * CFrame.new(x, 0.8, z), Color = Color3.fromRGB(50, 50, 56) }), parent)
+		end
+	end
+	Props.Sign(parent, CFrame.lookAt(center - (center - origin).Unit * 22 + tangent * 12, origin), "GOLD MINE", WOOD)
+end
+
+-- Arche naturelle en grès et jardin de cactus
+local function buildRockArch(parent: Instance, center: Vector3)
+	local a = math.atan2(center.Z - origin.Z, center.X - origin.X)
+	local tangent = Vector3.new(-math.sin(a), 0, math.cos(a))
+	local t = workspace.Terrain
+	for _, s in { -1, 1 } do
+		local foot = center + tangent * s * 11
+		t:FillBall(foot + Vector3.new(0, 4, 0), 7, Enum.Material.Sandstone)
+		t:FillCylinder(CFrame.new(foot + Vector3.new(0, 11, 0)), 14, 4.5, Enum.Material.Sandstone)
+		t:FillBall(foot + Vector3.new(0, 17, 0), 5.5, Enum.Material.Limestone)
+	end
+	t:FillBlock(CFrame.lookAt(center + Vector3.new(0, 21, 0), center + Vector3.new(0, 21, 0) + tangent), Vector3.new(7, 6, 30), Enum.Material.Sandstone)
+	t:FillBall(center + Vector3.new(0, 23, 0), 6, Enum.Material.Limestone)
+	local random = MapBase.Random()
+	for _ = 1, 7 do
+		local ang = random:NextNumber(0, math.pi * 2)
+		local r = random:NextNumber(14, 24)
+		buildCactus(parent, center + Vector3.new(math.cos(ang) * r, 0, math.sin(ang) * r), random:NextNumber(0.6, 1.05))
+	end
+	-- Crâne de bœuf posé sur un rocher
+	local skull = center + Vector3.new(0, 0, 0) - (center - origin).Unit * 8
+	Props.Rock(parent, skull, 3.4, Color3.fromRGB(196, 120, 80))
+	Build.Part(deco({ Name = "Skull", Size = Vector3.new(1.8, 1.4, 2), Position = skull + Vector3.new(0, 3, 0), Color = Color3.fromRGB(244, 236, 220) }), parent)
+	for _, s in { -1, 1 } do
+		Build.Part(deco({ Name = "Horn", Size = Vector3.new(2, 0.4, 0.4), CFrame = CFrame.new(skull + Vector3.new(s * 1.6, 3.6, 0)) * CFrame.Angles(0, 0, s * 0.5), Color = Color3.fromRGB(244, 236, 220) }), parent)
 	end
 end
 
-local function buildCactus(parent: Instance, position: Vector3)
-	local green = Color3.fromRGB(80, 140, 70)
-	Build.VerticalCylinder(position + Vector3.new(0, 3.5, 0), 1, 7, { Name = "Cactus", Color = green, Material = Enum.Material.Grass }, parent)
-	Build.Part({ Name = "CactusArm", Size = Vector3.new(3, 1.4, 1.4), Position = position + Vector3.new(1.5, 3.5, 0), Color = green, Material = Enum.Material.Grass }, parent)
-	Build.VerticalCylinder(position + Vector3.new(2.6, 4.6, 0), 0.7, 2.6, { Name = "CactusArm", Color = green, Material = Enum.Material.Grass }, parent)
+-- Éolienne de pompage (roue à pales qui tourne) et citerne
+local function buildWindPump(parent: Instance, ground: Vector3)
+	for _, x in { -2.5, 2.5 } do
+		for _, z in { -2.5, 2.5 } do
+			Build.Part({ Name = "PumpLeg", Size = Vector3.new(0.6, 30, 0.6), CFrame = CFrame.new(ground + Vector3.new(x * 0.6, 15, z * 0.6)) * CFrame.Angles(math.rad(-z * 1.6), 0, math.rad(x * 1.6)), Color = Color3.fromRGB(150, 150, 160), Material = Enum.Material.Metal }, parent)
+		end
+	end
+	local hub = CFrame.lookAt(ground + Vector3.new(0, 30, 0), origin + Vector3.new(0, 30, 0)) * CFrame.new(0, 0, -1.4)
+	local pivot = hub * CFrame.Angles(math.rad(90), 0, 0)
+	local spinner = MapBase.NewSpinner(parent, "WindPump", pivot)
+	for i = 0, 15 do
+		Build.Part(deco({ Name = "Vane", Size = Vector3.new(5, 0.15, 1.2), CFrame = pivot * CFrame.Angles(0, i / 16 * math.pi * 2, 0) * CFrame.new(3.6, 0, 0) * CFrame.Angles(0.35, 0, 0), Color = Color3.fromRGB(230, 232, 236), Material = Enum.Material.Metal }), spinner)
+	end
+	Build.Part(deco({ Name = "Hub", Shape = Enum.PartType.Ball, Size = Vector3.new(1.4, 1.4, 1.4), CFrame = pivot, Color = Color3.fromRGB(196, 60, 50) }), spinner)
+	MapBase.StartSpinner(spinner, 1.4)
+	Build.Part(deco({ Name = "Tail", Size = Vector3.new(0.2, 2.6, 5), CFrame = hub * CFrame.new(0, 0, 4), Color = Color3.fromRGB(196, 60, 50) }), parent)
+	Build.VerticalCylinder(ground + Vector3.new(7, 2.5, 3), 4, 5, { Name = "Tank", Color = Color3.fromRGB(150, 156, 166), Material = Enum.Material.CorrodedMetal }, parent)
+	Build.VerticalCylinder(ground + Vector3.new(7, 5.05, 3), 3.6, 0.1, deco({ Name = "TankWater", Color = Color3.fromRGB(70, 160, 200), Material = Enum.Material.Glass, Transparency = 0.2 }), parent)
+end
+
+-- Cimetière de "Boot Hill" : croix de bois, pierres tombales, clôture
+local function buildGraveyard(parent: Instance, center: Vector3)
+	local random = MapBase.Random()
+	local facing = CFrame.lookAt(center, Vector3.new(origin.X, center.Y, origin.Z))
+	for row = 0, 1 do
+		for col = -2, 2 do
+			local cf = facing * CFrame.new(col * 4.5 + random:NextNumber(-0.5, 0.5), 0, row * 6 + 2) * CFrame.Angles(0, 0, random:NextNumber(-0.12, 0.12))
+			if (row + col) % 2 == 0 then
+				Build.Part({ Name = "CrossPost", Size = Vector3.new(0.5, 4, 0.5), CFrame = cf * CFrame.new(0, 2, 0), Color = WOOD, Material = Enum.Material.Wood }, parent)
+				Build.Part(deco({ Name = "CrossBar", Size = Vector3.new(2.4, 0.5, 0.5), CFrame = cf * CFrame.new(0, 3, 0), Color = WOOD }), parent)
+			else
+				Build.Part({ Name = "Headstone", Size = Vector3.new(2.2, 2.8, 0.7), CFrame = cf * CFrame.new(0, 1.4, 0), Color = Color3.fromRGB(150, 146, 140), Material = Enum.Material.Slate }, parent)
+			end
+			Build.Part(deco({ Name = "Mound", Size = Vector3.new(2.2, 0.5, 4), CFrame = cf * CFrame.new(0, 0.2, -2.4), Color = Color3.fromRGB(150, 100, 70), Material = Enum.Material.Ground }), parent)
+		end
+	end
+	Props.Sign(parent, facing * CFrame.new(-14, 0, -4), "BOOT HILL", WOOD_DARK)
+	Props.PicketFence(parent, (facing * CFrame.new(-13, 0, -2)).Position, (facing * CFrame.new(-3, 0, -2)).Position, Color3.fromRGB(196, 186, 170))
+	Props.PicketFence(parent, (facing * CFrame.new(3, 0, -2)).Position, (facing * CFrame.new(13, 0, -2)).Position, Color3.fromRGB(196, 186, 170))
+end
+
+-- Château d'eau de la ville (repère haut)
+local function buildWaterTower(parent: Instance, ground: Vector3)
+	for _, x in { -3.5, 3.5 } do
+		for _, z in { -3.5, 3.5 } do
+			Build.Part({ Name = "TowerLeg", Size = Vector3.new(1, 18, 1), Position = ground + Vector3.new(x, 9, z), Color = WOOD_DARK, Material = Enum.Material.Wood }, parent)
+		end
+	end
+	for _, rot in { 0, 90 } do
+		Build.Part(deco({ Name = "Brace", Size = Vector3.new(0.4, 0.4, 10), CFrame = CFrame.new(ground + Vector3.new(0, 8, 0)) * CFrame.Angles(0, math.rad(rot), math.rad(38)), Color = WOOD_DARK }), parent)
+	end
+	Build.VerticalCylinder(ground + Vector3.new(0, 22.5, 0), 5, 9, { Name = "Tank", Color = WOOD, Material = Enum.Material.WoodPlanks }, parent)
+	for _, y in { 19, 22.5, 26 } do
+		Build.VerticalCylinder(ground + Vector3.new(0, y, 0), 5.15, 0.35, deco({ Name = "Hoop", Color = Color3.fromRGB(70, 70, 76), Material = Enum.Material.Metal }), parent)
+	end
+	Build.VerticalCylinder(ground + Vector3.new(0, 27.6, 0), 5.8, 1, { Name = "TankRoof", Color = Color3.fromRGB(170, 70, 50) }, parent)
+	Build.VerticalCylinder(ground + Vector3.new(0, 28.6, 0), 3, 1.2, { Name = "TankRoofTop", Color = Color3.fromRGB(170, 70, 50) }, parent)
+	local board = Build.Part(deco({ Name = "TownName", Size = Vector3.new(9, 2.2, 0.3), CFrame = CFrame.lookAt(ground + Vector3.new(0, 22.5, 0), Vector3.new(origin.X, ground.Y + 22.5, origin.Z)) * CFrame.new(0, 0, -5.3), Color = CREAM }), parent)
+	Build.SurfaceLabel(board, Enum.NormalId.Front, "RED ROCK", { TextColor3 = Color3.fromRGB(170, 70, 50), TextStrokeTransparency = 1, Font = Enum.Font.GothamBlack })
+end
+
+-- Lit de rivière à sec qui serpente (sable clair, galets) et pont de bois
+local function buildDryCreek(parent: Instance, points: { Vector3 })
+	TerrainKit.Path(points, 14, origin.Y, Enum.Material.Ground)
+	TerrainKit.Path(points, 8, origin.Y, Enum.Material.Salt)
+	local random = MapBase.Random()
+	for i = 1, #points - 1 do
+		local a, b = points[i], points[i + 1]
+		for _ = 1, 3 do
+			local p = a:Lerp(b, random:NextNumber())
+			local side = (b - a).Unit
+			p += Vector3.new(-side.Z, 0, side.X) * random:NextNumber(-6, 6)
+			Build.Part(deco({ Name = "Pebble", Shape = Enum.PartType.Ball, Size = Vector3.new(1, 0.5, 0.8) * random:NextNumber(0.8, 1.6), Position = p + Vector3.new(0, 0.15, 0), Color = Color3.fromRGB(180, 160, 140), Material = Enum.Material.Slate }), parent)
+		end
+	end
+	-- Pont au milieu
+	local mid = math.max(1, #points // 2)
+	local a, b = points[mid], points[mid + 1]
+	local center = (a + b) / 2
+	local along = (b - a).Unit
+	local cf = CFrame.lookAt(center, center + Vector3.new(-along.Z, 0, along.X))
+	for k = -5, 5 do
+		Build.Part(deco({ Name = "BridgePlank", Size = Vector3.new(6, 0.4, 1.4), CFrame = cf * CFrame.new(0, 0.5 + (1 - (k / 5) ^ 2) * 0.8, k * 1.5), Color = k % 2 == 0 and WOOD or WOOD_DARK, Material = Enum.Material.WoodPlanks }), parent)
+	end
+	for _, x in { -3.2, 3.2 } do
+		for _, z in { -7.5, 0, 7.5 } do
+			Build.Part({ Name = "BridgePost", Size = Vector3.new(0.5, 3, 0.5), CFrame = cf * CFrame.new(x, 1.8, z), Color = WOOD_DARK, Material = Enum.Material.Wood }, parent)
+		end
+		Build.Part(deco({ Name = "BridgeRail", Size = Vector3.new(0.3, 0.3, 15.5), CFrame = cf * CFrame.new(x, 3.1, 0), Color = WOOD }), parent)
+	end
+end
+
+-- Corral rond (clôture avec entrée), abreuvoir, foin et selle sur la barrière
+local function buildCorral(parent: Instance, center: Vector3)
+	local toCenter = (origin - center).Unit
+	local entry = math.atan2(toCenter.Z, toCenter.X)
+	local r = 14
+	local n = 14
+	for i = 0, n - 1 do
+		local a1, a2 = i / n * math.pi * 2, (i + 1) / n * math.pi * 2
+		local mid = (a1 + a2) / 2
+		if math.abs(Mechanics.AngleDelta(mid, entry)) > 0.3 then
+			Props.Fence(parent, center + Vector3.new(math.cos(a1) * r, 0, math.sin(a1) * r), center + Vector3.new(math.cos(a2) * r, 0, math.sin(a2) * r), Color3.fromRGB(150, 112, 80))
+		end
+	end
+	TerrainKit.PaintDisc(center, r, origin.Y, Enum.Material.Ground)
+	Build.Part({ Name = "Trough", Size = Vector3.new(2.4, 1.8, 7), CFrame = CFrame.new(center + Vector3.new(-6, 0.9, 2)), Color = WOOD, Material = Enum.Material.WoodPlanks }, parent)
+	Build.Part(deco({ Name = "TroughWater", Size = Vector3.new(1.8, 0.2, 6.4), CFrame = CFrame.new(center + Vector3.new(-6, 1.75, 2)), Color = Color3.fromRGB(80, 160, 200), Material = Enum.Material.Glass, Transparency = 0.2, Accent = true }), parent)
+	Props.HayBale(parent, center + Vector3.new(5, 0, 4), 0.3, true)
+	Props.HayBale(parent, center + Vector3.new(6, 0, -2), -0.4)
+	Build.Part(deco({ Name = "Saddle", Size = Vector3.new(1.6, 1, 2.2), CFrame = CFrame.new(center - toCenter * r + Vector3.new(0, 3.2, 0)), Color = Color3.fromRGB(120, 60, 40), Material = Enum.Material.Fabric }), parent)
+end
+
+-- Campement de chariots bâchés autour d'un feu de camp
+-- Campement de chariots bâchés autour d'un feu de camp
+local function buildWagon(parent: Instance, cf: CFrame)
+	Build.Part({ Name = "WagonBed", Size = Vector3.new(6, 2, 10), CFrame = cf * CFrame.new(0, 3, 0), Color = WOOD, Material = Enum.Material.WoodPlanks }, parent)
+	for _, z in { -3.6, 0, 3.6 } do
+		Build.Part(deco({ Name = "Hoop", Size = Vector3.new(0.3, 4.6, 0.3), CFrame = cf * CFrame.new(-3, 5.6, z) * CFrame.Angles(0, 0, -0.25), Color = WOOD_DARK }), parent)
+		Build.Part(deco({ Name = "Hoop", Size = Vector3.new(0.3, 4.6, 0.3), CFrame = cf * CFrame.new(3, 5.6, z) * CFrame.Angles(0, 0, 0.25), Color = WOOD_DARK }), parent)
+	end
+	Build.Part({ Name = "Canvas", Shape = Enum.PartType.Cylinder, Size = Vector3.new(9.6, 7, 7), CFrame = cf * CFrame.new(0, 5.4, 0) * CFrame.Angles(0, math.rad(90), 0), Color = CREAM, Material = Enum.Material.Fabric }, parent)
+	for _, x in { -3.3, 3.3 } do
+		for _, z in { -3.5, 3.5 } do
+			Build.Part(deco({ Name = "WagonWheel", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 3.6, 3.6), CFrame = cf * CFrame.new(x, 1.8, z), Color = WOOD_DARK }), parent)
+			Build.Part(deco({ Name = "WheelHub", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.7, 0.9, 0.9), CFrame = cf * CFrame.new(x * 1.05, 1.8, z), Color = Color3.fromRGB(70, 70, 76), Material = Enum.Material.Metal }), parent)
+		end
+	end
+end
+
+local function buildCamp(parent: Instance, center: Vector3)
+	for i = 0, 2 do
+		local a = i / 3 * math.pi * 2 + 0.4
+		local p = center + Vector3.new(math.cos(a), 0, math.sin(a)) * 13
+		buildWagon(parent, CFrame.lookAt(p, center) * CFrame.Angles(0, math.rad(90), 0))
+	end
+	-- Feu de camp
+	for i = 0, 7 do
+		local a = i / 8 * math.pi * 2
+		Props.Rock(parent, center + Vector3.new(math.cos(a) * 2.6, 0, math.sin(a) * 2.6), 1.1, Color3.fromRGB(140, 130, 124), false)
+	end
+	for i = 0, 2 do
+		Build.Part(deco({ Name = "Firewood", Size = Vector3.new(0.6, 0.6, 3.6), CFrame = CFrame.new(center + Vector3.new(0, 0.5, 0)) * CFrame.Angles(0, i * 1.05, 0.25), Color = WOOD_DARK }), parent)
+	end
+	local flame = Build.Part(deco({ Name = "Flame", Shape = Enum.PartType.Ball, Size = Vector3.new(1.8, 2.6, 1.8), Position = center + Vector3.new(0, 1.6, 0), Color = Color3.fromRGB(255, 150, 50), Material = Enum.Material.Neon, CastShadow = false }), parent)
+	local fire = Instance.new("Fire")
+	fire.Size = 4
+	fire.Heat = 6
+	fire.Parent = flame
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 160, 80)
+	light.Range = 22
+	light.Brightness = 1.4
+	light.Parent = flame
+	for i = 0, 2 do
+		local a = i / 3 * math.pi * 2 + 1.4
+		Build.Part({ Name = "LogSeat", Shape = Enum.PartType.Cylinder, Size = Vector3.new(4, 1.3, 1.3), CFrame = CFrame.new(center + Vector3.new(math.cos(a) * 6, 0.65, math.sin(a) * 6)) * CFrame.Angles(0, -a + math.pi / 2, 0), Color = WOOD, Material = Enum.Material.Wood }, parent)
+	end
 end
 
 local function eggSlot(teamId: string, index: number): CFrame
@@ -197,60 +554,12 @@ local function buildCatapult(parent: Instance): Model
 	return spinner
 end
 
-local function buildWagon(parent: Instance, position: Vector3, yaw: number)
-	local cf = CFrame.new(position) * CFrame.Angles(0, yaw, 0)
-	Build.Part({ Name = "WagonBed", Size = Vector3.new(6, 2, 10), CFrame = cf * CFrame.new(0, 3, 0), Color = Color3.fromRGB(140, 95, 60), Material = Enum.Material.WoodPlanks }, parent)
-	for _, z in { -3.5, 0, 3.5 } do
-		Build.Part({ Name = "Hoop", Size = Vector3.new(6.4, 0.4, 0.4), CFrame = cf * CFrame.new(0, 6.2, z), Color = Color3.fromRGB(120, 80, 50) }, parent)
-	end
-	Build.Part({ Name = "Canvas", Size = Vector3.new(6.6, 3.5, 9), CFrame = cf * CFrame.new(0, 5.6, 0), Color = Color3.fromRGB(240, 230, 205), Material = Enum.Material.Fabric }, parent)
-	for _, x in { -3.3, 3.3 } do
-		for _, z in { -3.5, 3.5 } do
-			Build.Part({ Name = "WagonWheel", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 3.4, 3.4), CFrame = cf * CFrame.new(x, 1.7, z), Color = Color3.fromRGB(90, 60, 40) }, parent)
-		end
-	end
-end
-
-local function buildRails(parent: Instance, from: Vector3, to: Vector3)
-	local delta = to - from
-	local length = delta.Magnitude
-	local cf = CFrame.lookAt(from, to)
-	for _, x in { -1.6, 1.6 } do
-		Build.Part({ Name = "Rail", Size = Vector3.new(0.4, 0.4, length), CFrame = cf * CFrame.new(x, 0.45, -length / 2), Color = Color3.fromRGB(110, 110, 120), Material = Enum.Material.Metal, CanCollide = false }, parent)
-	end
-	for k = 0, math.floor(length / 3) do
-		Build.Part({ Name = "Sleeper", Size = Vector3.new(4.6, 0.3, 1), CFrame = cf * CFrame.new(0, 0.15, -k * 3), Color = Color3.fromRGB(110, 75, 50), Material = Enum.Material.Wood, CanCollide = false }, parent)
-	end
-	-- Wagonnet
-	Build.Part({ Name = "MineCart", Size = Vector3.new(4, 3, 5), CFrame = cf * CFrame.new(0, 2.2, -length * 0.3), Color = Color3.fromRGB(95, 95, 105), Material = Enum.Material.Metal }, parent)
-	Build.Part({ Name = "Ore", Size = Vector3.new(3, 1, 4), CFrame = cf * CFrame.new(0, 3.9, -length * 0.3), Color = Color3.fromRGB(255, 200, 60), Studs = true, Accent = true }, parent)
-end
-
 function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	origin = mapOrigin
 	local f = MapBase.NewFolder("Map_" .. Map.Id)
 	folder = f
 	bases = MapBase.BuildArena(f, origin, cfg, THEME)
 	catapult = buildCatapult(f)
-
-	-- Falaises tout autour (décor de bord)
-	local half = cfg.GroundSize / 2
-	for i = 0, 15 do
-		local t = i / 16
-		local edge = i // 4
-		local along = (t * 4 - edge) * cfg.GroundSize - half
-		local p
-		if edge == 0 then
-			p = Vector3.new(along, 0, -half)
-		elseif edge == 1 then
-			p = Vector3.new(half, 0, along)
-		elseif edge == 2 then
-			p = Vector3.new(-along, 0, half)
-		else
-			p = Vector3.new(-half, 0, -along)
-		end
-		buildMesa(f, origin + p, 14 + (i % 3) * 3, 22 + (i % 4) * 6)
-	end
 
 	-- Œufs : 5 par base
 	for _, teamId in Teams.Order do
@@ -262,60 +571,85 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 		layoutBase(teamId)
 	end
 
-	-- Cachettes : herbes sèches, terriers, buissons secs
-	for _, deg in { 30, 150, 270 } do
-		local a = math.rad(deg)
-		MapBase.BuildTallGrass(f, origin + Vector3.new(math.cos(a), 0, math.sin(a)) * 95, 7, Color3.fromRGB(200, 170, 90))
+	-- Lieux (un par secteur entre deux camps + coins)
+	buildTown(f, MapBase.Polar(origin, 270, 122))
+	buildWaterTower(f, MapBase.Polar(origin, 270, 122) + Vector3.new(-30, 0, -14))
+	-- Gorge qui encadre la ville : deux parois rocheuses en strates
+	local strata = { Enum.Material.Sandstone, Enum.Material.Limestone, Enum.Material.Sandstone, Enum.Material.Ground }
+	for _, deg in { 249, 291 } do
+		TerrainKit.RockRidge(MapBase.Polar(origin, deg, 100), MapBase.Polar(origin, deg, 136), 9, 16, origin.Y, strata, MapBase.Random())
+	end
+	-- Rivière à sec entre le camp des renards et l'arche
+	buildDryCreek(f, {
+		MapBase.Polar(origin, 112, 150),
+		MapBase.Polar(origin, 120, 128),
+		MapBase.Polar(origin, 112, 108),
+		MapBase.Polar(origin, 124, 88),
+		MapBase.Polar(origin, 118, 70),
+	})
+	buildMine(f, MapBase.Polar(origin, 30, 128))
+	buildRockArch(f, MapBase.Polar(origin, 150, 122))
+	buildWindPump(f, MapBase.Polar(origin, 315, 172))
+	buildGraveyard(f, MapBase.Polar(origin, 225, 168))
+	buildCamp(f, MapBase.Polar(origin, 45, 166))
+	buildCamp(f, MapBase.Polar(origin, 135, 168))
+	buildCorral(f, MapBase.Polar(origin, 0, 126))
+	-- Amas rocheux pour casser les grands espaces (sans fermer les lignes)
+	for _, spec in { { 200, 128 }, { 340, 132 }, { 60, 136 }, { 180, 104 } } do
+		local p = MapBase.Polar(origin, spec[1], spec[2])
+		Props.Rock(f, p, 6, ROCK)
+		Props.Rock(f, p + Vector3.new(5, 0, 3), 3.5, ROCK)
+		buildCactus(f, p + Vector3.new(-4, 0, 5), 0.7)
+	end
+
+	-- Obstacles du cercle intérieur : rochers, cactus, tonneaux, caisses
+	local random = MapBase.Random()
+	for i = 0, 11 do
+		local deg = i * 30 + 15
+		local r = (i % 2 == 0) and 64 or 86
+		local p = MapBase.Polar(origin, deg, r)
+		if i % 3 == 0 then
+			buildCactus(f, p, random:NextNumber(0.8, 1.1))
+		elseif i % 3 == 1 then
+			Props.Rock(f, p, random:NextNumber(5, 8), ROCK)
+		else
+			Props.CrateStack(f, p, math.rad(deg))
+			Props.Barrel(f, p + Vector3.new(4, 0, -3), Color3.fromRGB(130, 82, 50))
+		end
+	end
+
+	-- Cachettes : herbes sèches, terriers, buissons de sauge
+	for _, deg in { 0, 120, 240 } do
+		MapBase.BuildTallGrass(f, MapBase.Polar(origin, deg, 104), 6.5, Color3.fromRGB(206, 172, 96))
 	end
 	for _, deg in { 65, 185, 305 } do
-		local a = math.rad(deg)
-		MapBase.BuildBurrow(f, origin + Vector3.new(math.cos(a), 0, math.sin(a)) * 70, Color3.fromRGB(150, 90, 55))
+		MapBase.BuildBurrow(f, MapBase.Polar(origin, deg, 70), Color3.fromRGB(176, 104, 64))
 	end
-	for _, deg in { 0, 120, 240 } do
-		local a = math.rad(deg)
-		MapBase.BuildBush(f, origin + Vector3.new(math.cos(a), 0, math.sin(a)) * 50, 8, Color3.fromRGB(130, 140, 70))
+	for _, deg in { 20, 140, 260 } do
+		MapBase.BuildBush(f, MapBase.Polar(origin, deg, 48), 8, Color3.fromRGB(140, 150, 84))
 	end
 
-	-- Rochers et cactus pour feinter
-	for i = 0, 11 do
-		local a = math.rad(i * 30 + 15)
-		local r = (i % 2 == 0) and 62 or 82
-		local p = origin + Vector3.new(math.cos(a), 0, math.sin(a)) * r
-		if i % 3 == 0 then
-			buildCactus(f, p)
-		else
-			MapBase.BuildRock(f, p, Vector3.new(7 + i % 3 * 2, 6 + i % 2 * 3, 6), ROCK)
-		end
-	end
-	-- Arches rocheuses entre les bases
-	for _, deg in { 30, 150, 270 } do
-		local a = math.rad(deg)
-		local center = origin + Vector3.new(math.cos(a), 0, math.sin(a)) * 125
-		local tangent = Vector3.new(-math.sin(a), 0, math.cos(a))
-		for _, side in { -1, 1 } do
-			Build.Part({ Name = "ArchLeg", Size = Vector3.new(4, 14, 4), Position = center + tangent * side * 7 + Vector3.new(0, 7, 0), Color = ROCK, Material = Enum.Material.Sandstone }, f)
-		end
-		Build.Part({ Name = "ArchTop", Size = Vector3.new(4, 4, 18), CFrame = CFrame.lookAt(center + Vector3.new(0, 15, 0), center + Vector3.new(0, 15, 0) + tangent), Color = ROCK, Material = Enum.Material.Sandstone }, f)
-	end
-
-	-- Environnement, chemins et accessoires de western
-	local builtBases = bases :: { [string]: MapBase.Base }
-	buildRails(f, origin + Vector3.new(-half + 20, 0, half - 60), origin + Vector3.new(-40, 0, half - 25))
-	buildWagon(f, origin + Vector3.new(half - 40, 0, 40), math.rad(30))
-	buildWagon(f, origin + Vector3.new(-55, 0, -half + 30), math.rad(-70))
-	for _, base in builtBases do
+	-- Lanternes et tonneaux à l'entrée des camps, cactus et virevoltants épars
+	for _, base in bases :: { [string]: MapBase.Base } do
 		local toCenter = (origin - base.Center).Unit
 		local side = Vector3.new(-toCenter.Z, 0, toCenter.X)
 		local p = base.Center + toCenter * (base.Radius + 12)
-		MapBase.BuildLamp(f, p + side * 8)
-		MapBase.BuildLamp(f, p - side * 8)
-		for k = 0, 2 do
-			Build.VerticalCylinder(base.Center + side * (base.Radius + 6) + toCenter * (k * 3 - 3) + Vector3.new(0, 2, 0), 1.3, 4, { Name = "Barrel", Color = Color3.fromRGB(140, 90, 55), Material = Enum.Material.Wood }, f)
+		Props.Lamp(f, p + side * 9, math.atan2(toCenter.X, toCenter.Z))
+		Props.Lamp(f, p - side * 9, math.atan2(toCenter.X, toCenter.Z))
+	end
+	for _ = 1, 18 do
+		local p = MapBase.Polar(origin, random:NextNumber(0, 360), random:NextNumber(96, 146))
+		if random:NextNumber() < 0.5 then
+			buildCactus(f, p, random:NextNumber(0.5, 0.8))
+		else
+			buildTumbleweed(f, p)
 		end
 	end
-	for i = 0, 10 do
-		local a = math.rad(i * 33 + 8)
-		buildCactus(f, origin + Vector3.new(math.cos(a), 0, math.sin(a)) * (100 + (i % 3) * 14))
+	-- Cactus géants hors de la zone de jeu
+	for _ = 1, 30 do
+		local a = random:NextNumber(0, 360)
+		local p = MapBase.Polar(origin, a, random:NextNumber(185, 260))
+		buildCactus(f, TerrainKit.Ground(p) - Vector3.new(0, 0.5, 0), random:NextNumber(1, 1.6))
 	end
 
 	f.Parent = workspace

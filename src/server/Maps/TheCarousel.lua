@@ -44,14 +44,14 @@ local THEME: MapBase.ArenaTheme = {
 	Seed = 2203,
 	Floor = Enum.Material.Grass,
 	Patches = { Enum.Material.LeafyGrass, Enum.Material.LeafyGrass },
-	Path = Enum.Material.Pavement,
+	Path = Enum.Material.Brick,
 	PathWidth = 12,
 	RingPath = 84,
 	CenterRadius = 50,
 	Valley = { Ground = Enum.Material.Grass, Hill = Enum.Material.Grass, Rock = Enum.Material.Rock, Height = 80, Gap = 26 },
 	Perimeter = "Picket",
-	Trees = { "Round", "Green", "Block" },
-	TreeCount = 64,
+	Trees = { "Blossom", "Blossom", "Round", "Green" },
+	TreeCount = 90,
 	Camp = { Wall = Enum.Material.SmoothPlastic },
 }
 
@@ -389,9 +389,113 @@ local function buildPopcornCart(parent: Instance, ground: Vector3, yaw: number)
 	end
 end
 
+-- Montagnes russes sur les collines (grande silhouette) : boucle fermée,
+-- piliers jusqu'au relief, wagons colorés
+local function buildCoaster(parent: Instance, center: Vector3, rx: number, rz: number)
+	local model = Instance.new("Model")
+	model.Name = "RollerCoaster"
+	local steps = 64
+	local points = {}
+	for i = 0, steps do
+		local t = i / steps * math.pi * 2
+		local x = center.X + math.cos(t) * rx
+		local z = center.Z + math.sin(t) * rz
+		local ground = TerrainKit.HeightAt(x, z)
+		local y = math.max(ground + 6, center.Y + 22 + 16 * math.sin(t * 2) + 8 * math.sin(t * 3 + 1))
+		points[i + 1] = Vector3.new(x, y, z)
+	end
+	for i = 1, steps do
+		local a, b = points[i], points[i + 1]
+		local cf = CFrame.lookAt((a + b) / 2, b)
+		local length = (b - a).Magnitude
+		for _, x in { -1.4, 1.4 } do
+			Build.Part(deco({ Name = "Rail", Size = Vector3.new(0.5, 0.5, length + 0.3), CFrame = cf * CFrame.new(x, 0, 0), Color = RED, Material = Enum.Material.Metal }), model)
+		end
+		Build.Part(deco({ Name = "Spine", Size = Vector3.new(0.8, 0.8, length + 0.3), CFrame = cf * CFrame.new(0, -0.9, 0), Color = CREAM, Material = Enum.Material.Metal }), model)
+		Build.Part(deco({ Name = "Tie", Size = Vector3.new(3.4, 0.3, 0.5), CFrame = cf * CFrame.new(0, -0.3, 0), Color = CREAM }), model)
+		if i % 3 == 0 then
+			local ground = TerrainKit.HeightAt(a.X, a.Z)
+			local h = a.Y - ground
+			if h > 2 then
+				Build.Part(deco({ Name = "Pillar", Size = Vector3.new(0.9, h, 0.9), Position = Vector3.new(a.X, ground + h / 2 - 1, a.Z), Color = CREAM, Material = Enum.Material.Metal }), model)
+			end
+		end
+	end
+	-- Train de 3 wagons
+	for k = 0, 2 do
+		local a, b = points[8 + k * 2], points[9 + k * 2]
+		local cf = CFrame.lookAt(a, b)
+		local color = ({ GOLD, BLUE, MINT })[k + 1]
+		Build.Part(deco({ Name = "Car", Size = Vector3.new(3.4, 1.8, 3.6), CFrame = cf * CFrame.new(0, 1.2, 0), Color = color }), model)
+		Build.Part(deco({ Name = "CarSeat", Size = Vector3.new(3, 1.2, 1), CFrame = cf * CFrame.new(0, 2.4, 1.2), Color = Color3.fromRGB(40, 40, 46) }), model)
+	end
+	model.Parent = parent
+end
+
+-- Chaises volantes : couronne tournante, chaînes et sièges (manège animé)
+local function buildSwingRide(parent: Instance, ground: Vector3)
+	Build.VerticalCylinder(ground + Vector3.new(0, 0.6, 0), 14, 1.2, { Name = "SwingDeck", Color = PLUM }, parent)
+	Build.VerticalCylinder(ground + Vector3.new(0, 1.25, 0), 12.5, 0.15, { Name = "SwingDeckRing", Color = GOLD, CanCollide = false }, parent)
+	Build.VerticalCylinder(ground + Vector3.new(0, 9, 0), 1.6, 16, { Name = "SwingMast", Color = CREAM }, parent)
+	local spinner = MapBase.NewSpinner(parent, "SwingRide", CFrame.new(ground + Vector3.new(0, 16, 0)))
+	Build.VerticalCylinder(ground + Vector3.new(0, 17, 0), 9, 1.4, deco({ Name = "Crown", Color = RED }), spinner)
+	for i = 0, 15 do
+		local a = i / 16 * math.pi * 2
+		Build.Part(deco({ Name = "CrownStripe", Size = Vector3.new(0.6, 1.5, 3.4), CFrame = CFrame.new(ground + Vector3.new(math.cos(a) * 9.05, 17, math.sin(a) * 9.05)) * CFrame.Angles(0, -a, 0), Color = i % 2 == 0 and GOLD or CREAM }), spinner)
+		bulb(spinner, ground + Vector3.new(math.cos(a) * 9.3, 16.1, math.sin(a) * 9.3), Color3.fromRGB(255, 230, 140), 0.5, false)
+	end
+	Props.Roof(spinner, CFrame.new(ground + Vector3.new(0, 17.7, 0)), { Width = 12, Depth = 12, Rise = 4, Color = RED, Gable = CREAM, Overhang = 0.5, Thickness = 0.4 })
+	-- Sièges projetés vers l'extérieur (chaînes inclinées par la vitesse)
+	for i = 0, 11 do
+		local a = i / 12 * math.pi * 2
+		local top = ground + Vector3.new(math.cos(a) * 8, 16.3, math.sin(a) * 8)
+		local seat = ground + Vector3.new(math.cos(a) * 11.5, 8.2, math.sin(a) * 11.5)
+		local mid = (top + seat) / 2
+		Build.Part(deco({ Name = "Chain", Size = Vector3.new(0.12, 0.12, (seat - top).Magnitude), CFrame = CFrame.lookAt(mid, seat), Color = Color3.fromRGB(190, 190, 200), Material = Enum.Material.Metal }), spinner)
+		Build.Part(deco({ Name = "Seat", Size = Vector3.new(1.6, 0.4, 1.6), CFrame = CFrame.new(seat) * CFrame.Angles(0, -a, 0), Color = STRIPES[(i % #STRIPES) + 1] }), spinner)
+	end
+	MapBase.StartSpinner(spinner, 0.9)
+end
+
+-- Montgolfières au-dessus des collines
+local function buildBalloon(parent: Instance, position: Vector3, colorA: Color3, colorB: Color3)
+	local model = Instance.new("Model")
+	model.Name = "HotAirBalloon"
+	Build.Part(deco({ Name = "Envelope", Shape = Enum.PartType.Ball, Size = Vector3.new(18, 21, 18), Position = position, Color = colorA }), model)
+	for k = -1, 1 do
+		Build.VerticalCylinder(position + Vector3.new(0, k * 4.5, 0), 9.15 * math.cos(math.asin(math.min(0.95, math.abs(k * 4.5) / 10.5))), 1.6, deco({ Name = "Band", Color = colorB }), model)
+	end
+	Build.Wedge(deco({ Name = "Skirt", Size = Vector3.new(6, 3, 3), CFrame = CFrame.new(position + Vector3.new(0, -11, 0)), Color = colorB }), model)
+	Build.Part(deco({ Name = "Basket", Size = Vector3.new(3.4, 2.6, 3.4), Position = position + Vector3.new(0, -16, 0), Color = Color3.fromRGB(150, 104, 60), Material = Enum.Material.WoodPlanks }), model)
+	for _, x in { -1.5, 1.5 } do
+		for _, z in { -1.5, 1.5 } do
+			local a, b = position + Vector3.new(x * 2.2, -9, z * 2.2), position + Vector3.new(x, -14.8, z)
+			Build.Part(deco({ Name = "Rope", Size = Vector3.new(0.1, 0.1, (b - a).Magnitude), CFrame = CFrame.lookAt((a + b) / 2, b), Color = Color3.fromRGB(80, 70, 60) }), model)
+		end
+	end
+	model.Parent = parent
+end
+
+-- Poteau indicateur au bord de la place : flèches vers les zones
+local function buildSignpost(parent: Instance, ground: Vector3, targets: { { Label: string, Target: Vector3, Color: Color3 } })
+	Build.Part({ Name = "SignPole", Size = Vector3.new(0.8, 12, 0.8), Position = ground + Vector3.new(0, 6, 0), Color = CREAM }, parent)
+	Build.Part(deco({ Name = "SignTop", Shape = Enum.PartType.Ball, Size = Vector3.new(1.6, 1.6, 1.6), Position = ground + Vector3.new(0, 12.4, 0), Color = GOLD, Material = Enum.Material.Metal }), parent)
+	for i, t in targets do
+		local y = 11 - i * 2.4
+		local dir = Vector3.new(t.Target.X - ground.X, 0, t.Target.Z - ground.Z).Unit
+		local cf = CFrame.lookAt(ground + Vector3.new(0, y, 0), ground + Vector3.new(0, y, 0) + dir)
+		local board = Build.Part(deco({ Name = "Arrow", Size = Vector3.new(0.3, 1.8, 7), CFrame = cf * CFrame.new(0, 0, -3.6) * CFrame.Angles(0, math.rad(90), 0) * CFrame.Angles(0, math.rad(90), 0), Color = t.Color }), parent)
+		Build.Wedge(deco({ Name = "ArrowTip", Size = Vector3.new(0.3, 1.8, 1.6), CFrame = cf * CFrame.new(0, 0, -7.9), Color = t.Color }), parent)
+		for _, face in { Enum.NormalId.Right, Enum.NormalId.Left } do
+			Build.SurfaceLabel(board, face, t.Label, { TextColor3 = CREAM, TextStrokeTransparency = 0.5, Font = Enum.Font.GothamBlack })
+		end
+	end
+end
+
 -- Pavés colorés de la place centrale (anneau autour du manège)
 local function buildPlaza(parent: Instance)
 	TerrainKit.PaintDisc(origin, cfg.PlatformRadius + 22, origin.Y, Enum.Material.Pavement)
+	TerrainKit.PaintDisc(origin, cfg.PlatformRadius + 9, origin.Y, Enum.Material.Brick)
 	local r = cfg.PlatformRadius + 6
 	local count = 40
 	for i = 0, count - 1 do
@@ -535,6 +639,21 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	buildEntranceArch(f, MapBase.Polar(origin, 135, 176), origin)
 	buildDropTower(f, MapBase.Polar(origin, 225, 170))
 	buildTeacups(f, MapBase.Polar(origin, 315, 166))
+	buildSwingRide(f, MapBase.Polar(origin, 0, 128))
+
+	-- Grandes silhouettes au-delà de la clôture : montagnes russes, montgolfières
+	buildCoaster(f, MapBase.Polar(origin, 300, 250) + Vector3.new(0, origin.Y, 0), 70, 40)
+	buildBalloon(f, MapBase.Polar(origin, 200, 260) + Vector3.new(0, 70, 0), RED, GOLD)
+	buildBalloon(f, MapBase.Polar(origin, 245, 320) + Vector3.new(0, 95, 0), BLUE, CREAM)
+	buildBalloon(f, MapBase.Polar(origin, 20, 300) + Vector3.new(0, 80, 0), MINT, PLUM)
+	buildBalloon(f, MapBase.Polar(origin, 120, 330) + Vector3.new(0, 105, 0), GOLD, RED)
+
+	-- Poteau indicateur au bord de la place
+	buildSignpost(f, MapBase.Polar(origin, 330, cfg.PlatformRadius + 24), {
+		{ Label = "BIG TOP", Target = MapBase.Polar(origin, 30, 116), Color = RED },
+		{ Label = "GAMES", Target = MapBase.Polar(origin, 150, 114), Color = BLUE },
+		{ Label = "FERRIS WHEEL", Target = MapBase.Polar(origin, 270, 126), Color = PLUM },
+	})
 
 	-- Obstacles du cercle intérieur : chariots, caisses de lots, ballons
 	for i = 0, 5 do

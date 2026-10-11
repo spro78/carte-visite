@@ -49,6 +49,7 @@ Props.Colors = {
 	Leaf = { rgb(96, 186, 72), rgb(74, 164, 62), rgb(124, 200, 78) },
 	Autumn = { rgb(255, 140, 40), rgb(238, 82, 44), rgb(255, 192, 48), rgb(250, 116, 52) },
 	Pine = { rgb(46, 132, 82), rgb(38, 116, 72), rgb(58, 146, 90) },
+	Blossom = { rgb(255, 170, 200), rgb(255, 196, 220), rgb(250, 140, 186) },
 	Rock = rgb(150, 154, 164),
 	Wood = rgb(160, 112, 70),
 	WoodDark = rgb(112, 76, 48),
@@ -169,6 +170,8 @@ function Props.Tree(parent: Instance, ground: Vector3, scale: number?, kinds: { 
 		return Props.RoundTree(parent, ground, scale)
 	elseif kind == "Pine" then
 		return Props.PineTree(parent, ground, scale)
+	elseif kind == "Blossom" then
+		return Props.RoundTree(parent, ground, scale, Props.Colors.Blossom)
 	elseif kind == "Green" then
 		return Props.BlockTree(parent, ground, scale, Props.Colors.Leaf)
 	end

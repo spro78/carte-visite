@@ -291,7 +291,21 @@ function buildTerrain(scene, data, center, extent) {
     if (withColor) g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
     g.setIndex(idx); g.computeVertexNormals(); return g;
   }
-  const ground = new THREE.Mesh(surface(sm, true), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, map: TEX.Grass }));
+  // Adoucit les transitions de matière (couleurs moyennées sur 3x3, comme le
+  // fondu entre matériaux du Terrain Roblox)
+  const groundGeo = surface(sm, true);
+  {
+    const pos = groundGeo.attributes.position, colA = groundGeo.attributes.color;
+    const map = new Map(); for (let v = 0; v < pos.count; v++) map.set(Math.round((pos.getX(v) - minX) / RES) + "," + Math.round((pos.getZ(v) - minZ) / RES), v);
+    const out = new Float32Array(colA.array.length);
+    for (let v = 0; v < pos.count; v++) {
+      const i = Math.round((pos.getX(v) - minX) / RES), j = Math.round((pos.getZ(v) - minZ) / RES); let r = 0, g = 0, b = 0, n = 0;
+      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) { const u = map.get((i + di) + "," + (j + dj)); if (u !== undefined) { const w = di === 0 && dj === 0 ? 2 : 1; r += colA.getX(u) * w; g += colA.getY(u) * w; b += colA.getZ(u) * w; n += w; } }
+      out[v * 3] = r / n; out[v * 3 + 1] = g / n; out[v * 3 + 2] = b / n;
+    }
+    groundGeo.setAttribute("color", new THREE.BufferAttribute(out, 3));
+  }
+  const ground = new THREE.Mesh(groundGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, map: TEX.Grass }));
   ground.receiveShadow = true; ground.castShadow = true; scene.add(ground);
   if (waterIdx >= 0) {
     const w = data.water || { color: [36, 150, 186], transparency: 0.35 };

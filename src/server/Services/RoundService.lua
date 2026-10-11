@@ -390,7 +390,7 @@ end
 -- Retourne false si l'intermission a été annulée (plus assez de joueurs).
 local function intermission(): boolean
 	setPhase("Intermission")
-	VoteService.StartVote(MapRegistry.PickRandom(Config.Round.VoteCandidates))
+	VoteService.StartVote(MapRegistry.PickRotation(Config.Round.VoteCandidates))
 	log("Intermission, candidates:", table.concat(VoteService.GetCandidates(), ", "))
 
 	runTimer(Config.GetIntermissionSeconds(), function()
@@ -407,6 +407,9 @@ local function intermission(): boolean
 		state.MapId = forced
 	end
 	VoteService.EndVote()
+	if state.MapId then
+		MapRegistry.MarkPlayed(state.MapId)
+	end
 	local chosen = MapInfo.Get(state.MapId)
 	if chosen then
 		announce("Next map: " .. chosen.DisplayName .. " (" .. chosen.ModeName .. ")", chosen.Color)

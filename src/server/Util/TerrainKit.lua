@@ -25,10 +25,12 @@ end
 -- Relief mémorisé (sphères des collines) pour connaître la hauteur du sol
 -- sans lancer de rayon (poser des arbres et des maisons sur les collines).
 local spheres: { { X: number, Y: number, Z: number, R: number } } = {}
+local flats: { { X: number, Y: number, Z: number, R: number } } = {}
 local baseHeight = 0
 
 function TerrainKit.ResetRelief(groundY: number)
 	table.clear(spheres)
+	table.clear(flats)
 	baseHeight = groundY
 end
 
@@ -42,6 +44,12 @@ function TerrainKit.HeightAt(x: number, z: number): number
 			if h > best then
 				best = h
 			end
+		end
+	end
+	for _, f in flats do
+		local dx, dz = x - f.X, z - f.Z
+		if dx * dx + dz * dz < f.R * f.R and f.Y > best then
+			best = f.Y
 		end
 	end
 	return best
@@ -188,6 +196,8 @@ export type ValleyTheme = {
 	Gap: number?, -- distance entre le bord de la zone de jeu et le pied des collines
 	RockChance: number?,
 	Mountains: boolean?, -- grandes montagnes lointaines (défaut : oui)
+	Style: string?, -- "Hills" (défaut) ou "Canyon" (mesas en strates)
+	Strata: { Enum.Material }?, -- matières des strates (Canyon)
 }
 function TerrainKit.Valley(origin: Vector3, playSize: number, theme: ValleyTheme, random: Random)
 	local topY = origin.Y
@@ -267,6 +277,97 @@ function TerrainKit.Valley(origin: Vector3, playSize: number, theme: ValleyTheme
 			local rr = random:NextNumber(5, 10)
 			TerrainKit.Boulder(Vector3.new(p.X, TerrainKit.HeightAt(p.X, p.Z) - rr * 0.4, p.Z), rr, theme.Rock)
 		end
+	end
+end
+
+-- Mesa : butte à sommet plat, en strates (alternance de matières = bandes de couleur)
+function TerrainKit.Mesa(center: Vector3, radius: number, height: number, baseY: number, strata: { Enum.Material }, random: Random)
+	local layers = math.max(2, math.floor(height / 8))
+	local layerH = height / layers
+	for i = 0, layers - 1 do
+		local k = 1 - (i / layers) * 0.42
+		local r = radius * k * random:NextNumber(0.985, 1.015)
+		local y = baseY + (i + 0.5) * layerH
+		local material = strata[(i % #strata) + 1]
+		terrain():FillCylinder(CFrame.new(center.X, y, center.Z), layerH + 0.5, r, material)
+	end
+	-- Sommet plat connu pour HeightAt
+	table.insert(flats, { X = center.X, Y = baseY + height, Z = center.Z, R = radius * 0.78 })
+	-- Éboulis au pied
+	for _ = 1, 4 do
+		local a = random:NextNumber(0, math.pi * 2)
+		local p = center + Vector3.new(math.cos(a), 0, math.sin(a)) * radius * random:NextNumber(0.9, 1.05)
+		TerrainKit.Boulder(Vector3.new(p.X, baseY + 1, p.Z), random:NextNumber(5, 9), strata[1])
+	end
+end
+
+-- Variante "canyon" de la vallée : talus rocheux puis mesas en strates
+function TerrainKit.Canyon(origin: Vector3, playSize: number, theme: ValleyTheme, random: Random)
+	local topY = origin.Y
+	local half = playSize / 2
+	local gap = theme.Gap or 24
+	local height = theme.Height or 100
+	local outer = playSize + 2 * (gap + 300)
+	TerrainKit.Slab(origin, outer, outer, topY, 16, theme.Ground)
+	local strata = theme.Strata or { theme.Hill, theme.Rock }
+	-- Talus d'éboulis
+	local ring1 = half + gap + 20
+	for i = 0, 39 do
+		local a = i / 40 * math.pi * 2
+		local d = math.min(ring1 / math.max(math.abs(math.cos(a)), math.abs(math.sin(a))), ring1 * 1.25)
+		local p = origin + Vector3.new(math.cos(a) * d, 0, math.sin(a) * d)
+		TerrainKit.Hill(p, random:NextNumber(18, 28), random:NextNumber(6, 12), topY, theme.Hill)
+		if random:NextNumber() < 0.5 then
+			TerrainKit.Boulder(Vector3.new(p.X, topY + random:NextNumber(2, 7), p.Z) + Vector3.new(random:NextNumber(-8, 8), 0, random:NextNumber(-8, 8)), random:NextNumber(4, 8), theme.Rock)
+		end
+	end
+	-- Mesas proches
+	local ring2 = ring1 + 70
+	for i = 0, 15 do
+		local a = (i + random:NextNumber(-0.2, 0.2)) / 16 * math.pi * 2
+		local d = ring2 + random:NextNumber(-10, 30)
+		local p = origin + Vector3.new(math.cos(a) * d, 0, math.sin(a) * d)
+		TerrainKit.Mesa(p, random:NextNumber(36, 52), random:NextNumber(height * 0.45, height * 0.75), topY, strata, random)
+	end
+	-- Grandes mesas lointaines
+	local ring3 = ring2 + 150
+	for i = 0, 13 do
+		local a = (i + random:NextNumber(-0.25, 0.25)) / 14 * math.pi * 2
+		local d = ring3 + random:NextNumber(-20, 60)
+		local p = origin + Vector3.new(math.cos(a) * d, 0, math.sin(a) * d)
+		TerrainKit.Mesa(p, random:NextNumber(70, 100), random:NextNumber(height * 0.9, height * 1.35), topY, strata, random)
+	end
+end
+
+-- Arête rocheuse (paroi de gorge) entre deux points : blocs inclinés en
+-- strates, sommet irrégulier. Sert à cadrer des passages (gorges, défilés).
+function TerrainKit.RockRidge(from: Vector3, to: Vector3, width: number, height: number, baseY: number, strata: { Enum.Material }, random: Random)
+	local delta = Vector3.new(to.X - from.X, 0, to.Z - from.Z)
+	local length = delta.Magnitude
+	local steps = math.max(2, math.ceil(length / 8))
+	local dir = delta.Unit
+	local layers = math.max(2, math.floor(height / 5))
+	for i = 0, steps do
+		local t = i / steps
+		local p = from + delta * t
+		-- Plus bas aux extrémités, plus haut au milieu
+		local h = height * (0.55 + 0.45 * math.sin(t * math.pi)) * random:NextNumber(0.85, 1.1)
+		local w = width * random:NextNumber(0.8, 1.15)
+		for k = 0, layers - 1 do
+			local layerH = h / layers
+			local y = baseY + (k + 0.5) * layerH
+			local shrink = 1 - k / layers * 0.35
+			local cf = CFrame.lookAt(Vector3.new(p.X, y, p.Z), Vector3.new(p.X, y, p.Z) + dir) * CFrame.Angles(0, random:NextNumber(-0.12, 0.12), 0)
+			terrain():FillBlock(cf, Vector3.new(w * shrink, layerH + 0.6, length / steps + 6), strata[(k % #strata) + 1])
+		end
+		if random:NextNumber() < 0.5 then
+			TerrainKit.Boulder(Vector3.new(p.X, baseY + h - 1, p.Z), random:NextNumber(3, 5), strata[1])
+		end
+	end
+	-- Éboulis au pied
+	for _ = 1, steps do
+		local q = from + delta * random:NextNumber(0, 1) + Vector3.new(-dir.Z, 0, dir.X) * (width * 0.6) * (random:NextNumber() < 0.5 and -1 or 1)
+		TerrainKit.Boulder(Vector3.new(q.X, baseY + 0.5, q.Z), random:NextNumber(2.5, 4.5), strata[1])
 	end
 end
 

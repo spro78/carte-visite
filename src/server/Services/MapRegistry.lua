@@ -81,4 +81,40 @@ function MapRegistry.PickRandom(n: number): { string }
 	return picked
 end
 
+-- ---------------------------------------------------------------------------
+-- Rotation : les maps jouées récemment passent après les autres
+-- ---------------------------------------------------------------------------
+local lastPlayed: { [string]: number } = {}
+local roundCounter = 0
+
+function MapRegistry.MarkPlayed(id: string)
+	roundCounter += 1
+	lastPlayed[id] = roundCounter
+end
+
+-- Ancienneté : plus c'est grand, plus la map attend son tour (jamais jouée = très grand)
+function MapRegistry.Staleness(id: string): number
+	local last = lastPlayed[id]
+	return last and (roundCounter - last) or math.huge
+end
+
+-- Candidats au vote : en priorité les maps qui n'ont pas été jouées depuis
+-- longtemps (hasard entre maps d'ancienneté égale). La dernière map jouée
+-- n'est proposée que s'il n'y a pas assez d'autres maps.
+function MapRegistry.PickRotation(n: number): { string }
+	local pool = table.clone(orderedIds)
+	local keys = {}
+	for _, id in pool do
+		keys[id] = MapRegistry.Staleness(id) + math.random() * 0.5
+	end
+	table.sort(pool, function(a, b)
+		return keys[a] > keys[b]
+	end)
+	local picked = {}
+	for i = 1, math.min(n, #pool) do
+		picked[i] = pool[i]
+	end
+	return picked
+end
+
 return MapRegistry

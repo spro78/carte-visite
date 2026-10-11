@@ -12,6 +12,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
 local MapInfo = require(Shared.MapInfo)
 
+local MapRegistry = require(script.Parent.MapRegistry)
+
 local VoteService = {}
 
 local candidates: { string } = {}
@@ -104,7 +106,8 @@ function VoteService.GetPlayerVote(player: Player): string?
 	return votes[player]
 end
 
--- Map gagnante : la plus votée, égalité tranchée au hasard.
+-- Map gagnante : la plus votée ; en cas d'égalité (ou sans vote), la map qui
+-- attend son tour depuis le plus longtemps (rotation), puis le hasard.
 function VoteService.GetWinner(): string?
 	if #candidates == 0 then
 		return nil
@@ -121,7 +124,18 @@ function VoteService.GetWinner(): string?
 			table.insert(best, id)
 		end
 	end
-	return best[math.random(#best)]
+	local mostStale = {}
+	local staleness = -1
+	for _, id in best do
+		local st = MapRegistry.Staleness(id)
+		if st > staleness then
+			mostStale = { id }
+			staleness = st
+		elseif st == staleness then
+			table.insert(mostStale, id)
+		end
+	end
+	return mostStale[math.random(#mostStale)]
 end
 
 -- Map en tête pour l'affichage (nil si aucune voix ou égalité stricte à 0)
