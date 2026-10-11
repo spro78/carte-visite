@@ -25,11 +25,29 @@ Engine.Run("server", function()
 end)
 
 local scenes = {}
+local hero
 local function v(t)
 	return { t.X, t.Y, t.Z }
 end
 
+local function setViewport(w, h)
+	local cam = World.workspace.CurrentCamera
+	rawget(cam, "_props").ViewportSize = roblox.Vector2.new(w, h)
+	local hud = hero and hero.PlayerGui:FindFirstChild("HuntOrHideHUD")
+	Engine.Run(hero, function()
+		local HUD = World.Require(hero.PlayerScripts.Client.UI.HUD)
+		if HUD.Rescale then
+			HUD.Rescale()
+		end
+	end)
+	local _ = hud
+end
+
 local function addScene(name, caption, center, radius, camera, extra)
+	if extra and extra.hud then
+		setViewport(extra.width or 1280, extra.height or 720)
+		extra.hud = Export.PlayerGui(hero)
+	end
 	local data = Export.Parts(center, radius)
 	local scene = {
 		name = name,
@@ -64,7 +82,7 @@ end
 
 -- Le lobby avec quelques joueurs
 Engine.Advance(1)
-local hero = World.AddPlayer("Malcom", { client = true })
+hero = World.AddPlayer("Malcom", { client = true })
 local others = {}
 for i, name in { "PixelPanda", "Zoey_Plays", "NinjaKai" } do
 	others[i] = World.AddPlayer(name)
@@ -77,6 +95,8 @@ if group == "all" or group == "lobby" then
 	addScene("lobby_north", "Lobby - giant board and vote plates", L, 120, { position = { 0, 14, 10 }, target = { 0, 10, -60 }, fov = 65 })
 	addScene("lobby_south", "Lobby - who catches who panel", L, 120, { position = { 0, 12, 20 }, target = { 0, 13, 66 }, fov = 60 })
 	addScene("lobby_east_west", "Lobby - shop (left) and leaderboards (right)", L, 120, { position = { 0, 30, 60 }, target = { 0, 6, 0 }, fov = 75 })
+	addScene("lobby_leaderboards", "Lobby - leaderboard walls and daily spin", L, 120, { position = { -20, 12, 10 }, target = { -58, 10, 5 }, fov = 75 })
+	addScene("lobby_shop", "Lobby - giant gift box (shop)", L, 120, { position = { 22, 10, 6 }, target = { 52, 6, -6 }, fov = 70 })
 	addScene("lobby_top", "Lobby - top-down", L, 120, { position = { 0, 300, 0.01 }, target = { 0, 0, 0 }, ortho = 160, up = { 0, 0, -1 } })
 	addScene("hud_lobby_pc", "HUD in the lobby during the vote (PC 1280x720)", L, 120, playerCamera(hero, 14, 6), { hud = Export.PlayerGui(hero) })
 end
@@ -182,6 +202,27 @@ if group == "all" or group == "round" then
 		target = { spot.X, spot.Y + 0.5, spot.Z },
 		fov = 50,
 	}, { hud = Export.PlayerGui(hero) })
+end
+
+if group == "all" or group == "round" or group == "results" then
+	-- Écran de résultats (podium) : on attend la fin de la manche
+	local t = 0
+	while t < 400 do
+		Engine.Advance(1)
+		t += 1
+		local RoundState = World.Require and nil
+		local phase = nil
+		Engine.Run("server", function()
+			phase = World.Require(World.game.ServerScriptService.Server.Services.RoundState).Phase
+		end)
+		if phase == "Results" then
+			break
+		end
+	end
+	Engine.Advance(1)
+	local L = Config.World.LobbyOrigin
+	addScene("hud_results_pc", "End of round: podium, coins and XP (PC 1280x720)", L, 120, playerCamera(hero, 14, 6), { hud = Export.PlayerGui(hero) })
+	addScene("hud_results_phone", "End of round on a phone (844x390)", L, 120, playerCamera(hero, 14, 6), { hud = Export.PlayerGui(hero), width = 844, height = 390 })
 end
 
 fs.writeFile(outPath, serde.encode("json", scenes))

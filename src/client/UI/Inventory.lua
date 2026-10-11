@@ -1,7 +1,9 @@
 --[[
 	Inventory.lua
-	Barre d'objets (consommables) pendant la manche : 4 cases avec le stock et
-	la touche (1-4) ; cases tactiles sur mobile. Le serveur valide l'usage.
+	Cartes d'objets (consommables) dans la rangée du bas, comme les cartes
+	"objet équipé" de la référence : nom, stock, touche (1-4). Une carte n'est
+	affichée que si le joueur possède l'objet. Touchables sur mobile.
+	Le serveur valide chaque utilisation.
 ]]
 
 local ContextActionService = game:GetService("ContextActionService")
@@ -13,30 +15,30 @@ local Theme = require(script.Parent.Theme)
 
 local Inventory = {}
 
-local New, Label = Theme.New, Theme.Label
+local New, Label, Title = Theme.New, Theme.Label, Theme.Title
 
-local bar: Frame
-local slots: { [string]: { Frame: TextButton, Count: TextLabel } } = {}
+local cards: { [string]: { Card: TextButton, Count: TextLabel } } = {}
 local counts: { [string]: number } = {}
-local SHORT = { Shield = "SHIELD", Decoy = "DECOY", SpeedBoost = "BOOST", Trap = "TRAP" }
+local visible = false
+local ICON_COLORS = {
+	Shield = Color3.fromRGB(120, 200, 255),
+	Decoy = Color3.fromRGB(200, 160, 255),
+	SpeedBoost = Color3.fromRGB(255, 220, 80),
+	Trap = Color3.fromRGB(230, 120, 60),
+}
 
 local function use(itemId: string)
-	if (counts[itemId] or 0) > 0 then
+	if visible and (counts[itemId] or 0) > 0 then
 		Remotes.Get("UseConsumable"):FireServer(itemId)
 	end
 end
 
 local function refresh()
-	local any = false
-	for itemId, slot in slots do
+	for itemId, entry in cards do
 		local n = counts[itemId] or 0
-		slot.Count.Text = "x" .. n
-		slot.Frame.BackgroundTransparency = n > 0 and 0.1 or 0.55
-		if n > 0 then
-			any = true
-		end
+		entry.Count.Text = "x" .. n
+		entry.Card.Visible = visible and n > 0
 	end
-	bar:SetAttribute("HasItems", any)
 end
 
 function Inventory.SetCounts(data: { [string]: number }?)
@@ -44,43 +46,41 @@ function Inventory.SetCounts(data: { [string]: number }?)
 	refresh()
 end
 
-function Inventory.SetVisible(visible: boolean)
-	bar.Visible = visible
+function Inventory.SetVisible(value: boolean)
+	visible = value
+	refresh()
 end
 
-function Inventory.Init(screen: ScreenGui)
-	bar = New("Frame", {
-		Name = "Inventory",
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 10, 1, -10),
-		Size = UDim2.fromScale(0.26, 0.085),
-		BackgroundTransparency = 1,
-		Visible = false,
-	}, screen)
-	New("UISizeConstraint", { MaxSize = Vector2.new(300, 70), MinSize = Vector2.new(180, 44) }, bar)
-	New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0.03, 0), SortOrder = Enum.SortOrder.LayoutOrder }, bar)
+function Inventory.Init(bottomRow: Frame)
 	for index, itemId in Config.Shop.ConsumableOrder do
+		local def = Config.Shop.Consumables[itemId]
 		local key = Config.Controls.Consumables[index]
-		local button: TextButton = New("TextButton", {
+		local keyText = ({ One = "1", Two = "2", Three = "3", Four = "4" })[key and key.Name or ""] or ""
+		local card: TextButton = New("TextButton", {
 			Name = itemId,
-			Size = UDim2.fromScale(0.225, 1),
+			Size = UDim2.new(0, 150, 0, 70),
 			BackgroundColor3 = Theme.Panel,
+			BackgroundTransparency = 0.1,
 			Text = "",
 			LayoutOrder = index,
-		}, bar)
-		Theme.Corner(button, 8)
-		Theme.Stroke(button, 2, Theme.White)
-		Label(button, { Size = UDim2.fromScale(0.9, 0.36), Position = UDim2.fromScale(0.05, 0.08), Text = SHORT[itemId] or itemId })
-		local count = Label(button, { Size = UDim2.fromScale(0.9, 0.3), Position = UDim2.fromScale(0.05, 0.46), Text = "x0", TextColor3 = Theme.Accent })
-		local keyText = ({ One = "1", Two = "2", Three = "3", Four = "4" })[key and key.Name or ""] or ""
-		Label(button, { Size = UDim2.fromScale(0.3, 0.22), Position = UDim2.fromScale(0.68, 0.76), Text = keyText, TextColor3 = Color3.fromRGB(150, 155, 165) })
-		button.Activated:Connect(function()
+			Visible = false,
+		}, bottomRow)
+		Theme.Corner(card, 8)
+		Theme.Stroke(card, 2, Theme.Outline)
+		local icon: Frame = New("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.new(0, 40, 0, 40), BackgroundColor3 = ICON_COLORS[itemId] or Theme.Gold }, card)
+		Theme.CornerScale(icon, 0.5)
+		Theme.Stroke(icon, 2, Theme.Outline)
+		Title(icon, { Size = UDim2.fromScale(0.6, 0.6), Position = UDim2.fromScale(0.2, 0.2), Text = keyText, FontFace = Theme.FaceHeavy })
+		Label(card, { Position = UDim2.new(0, 54, 0, 8), Size = UDim2.new(1, -60, 0, 12), Text = "ITEM", TextColor3 = Theme.Muted, TextXAlignment = Enum.TextXAlignment.Left })
+		Label(card, { Position = UDim2.new(0, 54, 0, 22), Size = UDim2.new(1, -60, 0, 20), Text = def.Name, FontFace = Theme.FaceHeavy, TextXAlignment = Enum.TextXAlignment.Left })
+		local count = Label(card, { Position = UDim2.new(0, 54, 0, 46), Size = UDim2.new(1, -60, 0, 14), Text = "x0", TextColor3 = Theme.Gold, TextXAlignment = Enum.TextXAlignment.Left })
+		card.Activated:Connect(function()
 			use(itemId)
 		end)
-		slots[itemId] = { Frame = button, Count = count }
+		cards[itemId] = { Card = card, Count = count }
 		if key then
 			ContextActionService:BindAction("HoH_Item_" .. itemId, function(_, state)
-				if state == Enum.UserInputState.Begin and bar.Visible then
+				if state == Enum.UserInputState.Begin then
 					use(itemId)
 				end
 				return Enum.ContextActionResult.Pass

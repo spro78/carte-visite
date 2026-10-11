@@ -37,6 +37,9 @@ export type Profile = {
 	OwnedTrails: { [string]: boolean },
 	EquippedTrail: string,
 	Stats: { [string]: number },
+	Level: number,
+	XP: number,
+	LastSpin: number,
 	Receipts: { string },
 	Lock: { JobId: string, Time: number }?,
 }
@@ -65,6 +68,27 @@ local function log(...)
 	end
 end
 
+-- Expérience nécessaire pour passer du niveau "level" au suivant
+function DataService.XPForLevel(level: number): number
+	return 100 + 25 * (level - 1)
+end
+
+-- Ajoute de l'expérience ; retourne (niveau avant, niveau après)
+function DataService.AddXP(player: Player, amount: number): (number, number)
+	local profile = DataService.Get(player)
+	if not profile then
+		return 1, 1
+	end
+	local before = profile.Level
+	profile.XP += math.max(0, math.floor(amount))
+	while profile.XP >= DataService.XPForLevel(profile.Level) do
+		profile.XP -= DataService.XPForLevel(profile.Level)
+		profile.Level += 1
+	end
+	DataService.MarkChanged(player)
+	return before, profile.Level
+end
+
 -- Profil par défaut
 function DataService.DefaultProfile(): Profile
 	local consumables = {}
@@ -85,6 +109,9 @@ function DataService.DefaultProfile(): Profile
 		OwnedTrails = { None = true },
 		EquippedTrail = "None",
 		Stats = { Wins = 0, Captures = 0, RoundsPlayed = 0, Objectives = 0, TimesCaught = 0, CoinsEarned = 0 },
+		Level = 1,
+		XP = 0,
+		LastSpin = 0,
 		Receipts = {},
 		Lock = nil,
 	}
@@ -154,8 +181,20 @@ function DataService.Replicate(player: Player)
 		OwnedTrails = p.OwnedTrails,
 		EquippedTrail = p.EquippedTrail,
 		Stats = p.Stats,
+		Level = p.Level,
+		XP = p.XP,
+		XPNeeded = DataService.XPForLevel(p.Level),
+		NextSpinAt = p.LastSpin + Config.DailySpin.CooldownHours * 3600,
+		ServerTime = os.time(),
 		Saved = session.Loaded,
 	})
+	-- Étiquette au-dessus de la tête : niveau et victoires
+	player:SetAttribute("Level", p.Level)
+	player:SetAttribute("Wins", p.Stats.Wins or 0)
+	if player.Character then
+		player.Character:SetAttribute("Level", p.Level)
+		player.Character:SetAttribute("Wins", p.Stats.Wins or 0)
+	end
 end
 
 local function markChanged(player: Player)

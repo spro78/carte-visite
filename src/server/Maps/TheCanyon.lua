@@ -184,6 +184,35 @@ local function buildCatapult(parent: Instance): Model
 	return spinner
 end
 
+local function buildWagon(parent: Instance, position: Vector3, yaw: number)
+	local cf = CFrame.new(position) * CFrame.Angles(0, yaw, 0)
+	Build.Part({ Name = "WagonBed", Size = Vector3.new(6, 2, 10), CFrame = cf * CFrame.new(0, 3, 0), Color = Color3.fromRGB(140, 95, 60), Material = Enum.Material.WoodPlanks }, parent)
+	for _, z in { -3.5, 0, 3.5 } do
+		Build.Part({ Name = "Hoop", Size = Vector3.new(6.4, 0.4, 0.4), CFrame = cf * CFrame.new(0, 6.2, z), Color = Color3.fromRGB(120, 80, 50) }, parent)
+	end
+	Build.Part({ Name = "Canvas", Size = Vector3.new(6.6, 3.5, 9), CFrame = cf * CFrame.new(0, 5.6, 0), Color = Color3.fromRGB(240, 230, 205), Material = Enum.Material.Fabric }, parent)
+	for _, x in { -3.3, 3.3 } do
+		for _, z in { -3.5, 3.5 } do
+			Build.Part({ Name = "WagonWheel", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 3.4, 3.4), CFrame = cf * CFrame.new(x, 1.7, z), Color = Color3.fromRGB(90, 60, 40) }, parent)
+		end
+	end
+end
+
+local function buildRails(parent: Instance, from: Vector3, to: Vector3)
+	local delta = to - from
+	local length = delta.Magnitude
+	local cf = CFrame.lookAt(from, to)
+	for _, x in { -1.6, 1.6 } do
+		Build.Part({ Name = "Rail", Size = Vector3.new(0.4, 0.4, length), CFrame = cf * CFrame.new(x, 0.45, -length / 2), Color = Color3.fromRGB(110, 110, 120), Material = Enum.Material.Metal, CanCollide = false }, parent)
+	end
+	for k = 0, math.floor(length / 3) do
+		Build.Part({ Name = "Sleeper", Size = Vector3.new(4.6, 0.3, 1), CFrame = cf * CFrame.new(0, 0.15, -k * 3), Color = Color3.fromRGB(110, 75, 50), Material = Enum.Material.Wood, CanCollide = false }, parent)
+	end
+	-- Wagonnet
+	Build.Part({ Name = "MineCart", Size = Vector3.new(4, 3, 5), CFrame = cf * CFrame.new(0, 2.2, -length * 0.3), Color = Color3.fromRGB(95, 95, 105), Material = Enum.Material.Metal }, parent)
+	Build.Part({ Name = "Ore", Size = Vector3.new(3, 1, 4), CFrame = cf * CFrame.new(0, 3.9, -length * 0.3), Color = Color3.fromRGB(255, 200, 60), Studs = true, Accent = true }, parent)
+end
+
 function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	origin = mapOrigin
 	local f = MapBase.NewFolder("Map_" .. Map.Id)
@@ -256,6 +285,33 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 			Build.Part({ Name = "ArchLeg", Size = Vector3.new(4, 14, 4), Position = center + tangent * side * 7 + Vector3.new(0, 7, 0), Color = ROCK, Material = Enum.Material.Sandstone }, f)
 		end
 		Build.Part({ Name = "ArchTop", Size = Vector3.new(4, 4, 18), CFrame = CFrame.lookAt(center + Vector3.new(0, 15, 0), center + Vector3.new(0, 15, 0) + tangent), Color = ROCK, Material = Enum.Material.Sandstone }, f)
+	end
+
+	-- Environnement, chemins et accessoires de western
+	MapBase.BuildSurroundings(f, origin, cfg.GroundSize, {
+		Ground = Color3.fromRGB(205, 145, 90),
+		Hill = Color3.fromRGB(185, 100, 60),
+		HillTop = Color3.fromRGB(205, 125, 75),
+		Material = Enum.Material.Sandstone,
+	})
+	local builtBases = bases :: { [string]: MapBase.Base }
+	MapBase.BuildPaths(f, origin, builtBases, Color3.fromRGB(190, 130, 80), 24)
+	buildRails(f, origin + Vector3.new(-half + 20, 0, half - 60), origin + Vector3.new(-40, 0, half - 25))
+	buildWagon(f, origin + Vector3.new(half - 40, 0, 40), math.rad(30))
+	buildWagon(f, origin + Vector3.new(-55, 0, -half + 30), math.rad(-70))
+	for _, base in builtBases do
+		local toCenter = (origin - base.Center).Unit
+		local side = Vector3.new(-toCenter.Z, 0, toCenter.X)
+		local p = base.Center + toCenter * (base.Radius + 12)
+		MapBase.BuildLamp(f, p + side * 8)
+		MapBase.BuildLamp(f, p - side * 8)
+		for k = 0, 2 do
+			Build.VerticalCylinder(base.Center + side * (base.Radius + 6) + toCenter * (k * 3 - 3) + Vector3.new(0, 2, 0), 1.3, 4, { Name = "Barrel", Color = Color3.fromRGB(140, 90, 55), Material = Enum.Material.Wood }, f)
+		end
+	end
+	for i = 0, 10 do
+		local a = math.rad(i * 33 + 8)
+		buildCactus(f, origin + Vector3.new(math.cos(a), 0, math.sin(a)) * (100 + (i % 3) * 14))
 	end
 
 	f.Parent = workspace

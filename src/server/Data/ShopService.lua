@@ -387,6 +387,7 @@ function ShopService.Init(lobbyBuilder: any)
 	ActorService.CharacterAdded:Connect(function(actor: Actor)
 		if actor.Player then
 			task.defer(applyCosmetics, actor.Player)
+			task.defer(DataService.Replicate, actor.Player) -- niveau/victoires sur le nouveau personnage
 		end
 	end)
 	DataService.ProfileLoaded:Connect(function(player: Player, profile)

@@ -25,7 +25,7 @@ local coinsLabel: TextLabel
 local tabButtons: { [string]: TextButton } = {}
 local currentTab = "Upgrades"
 local profile: { [string]: any } = {}
-local openButton: TextButton
+local openButton: GuiButton? = nil
 
 local TABS = { "Upgrades", "Items", "Looks", "Trails" }
 
@@ -46,7 +46,7 @@ local function card(parent: Instance, order: number, title: string, description:
 		LayoutOrder = order,
 	}, parent)
 	Theme.Corner(frame, 10)
-	Label(frame, { Size = UDim2.fromScale(0.92, 0.22), Position = UDim2.fromScale(0.04, 0.06), Text = title, TextXAlignment = Enum.TextXAlignment.Left, Font = Theme.FontBlack })
+	Label(frame, { Size = UDim2.fromScale(0.92, 0.22), Position = UDim2.fromScale(0.04, 0.06), Text = title, TextXAlignment = Enum.TextXAlignment.Left, FontFace = Theme.FaceHeavy })
 	Label(frame, { Size = UDim2.fromScale(0.92, 0.3), Position = UDim2.fromScale(0.04, 0.3), Text = description, TextColor3 = Color3.fromRGB(190, 196, 208), TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextWrapped = true })
 	Label(frame, { Size = UDim2.fromScale(0.45, 0.2), Position = UDim2.fromScale(0.04, 0.74), Text = status, TextColor3 = Theme.Accent, TextXAlignment = Enum.TextXAlignment.Left })
 	local button: TextButton = New("TextButton", {
@@ -55,7 +55,7 @@ local function card(parent: Instance, order: number, title: string, description:
 		BackgroundColor3 = buttonEnabled and Theme.Accent or Theme.Panel,
 		Text = buttonText,
 		TextColor3 = buttonEnabled and Theme.Dark or Color3.fromRGB(140, 145, 155),
-		Font = Theme.FontBold,
+		FontFace = Theme.FaceHeavy,
 		TextScaled = true,
 		AutoButtonColor = buttonEnabled,
 	}, frame)
@@ -74,7 +74,7 @@ local function render()
 	end
 	coinsLabel.Text = tostring(profile.Coins or 0) .. " coins"
 	for name, button in tabButtons do
-		button.BackgroundColor3 = name == currentTab and Theme.Accent or Theme.Panel
+		button.BackgroundColor3 = name == currentTab and Theme.Good or Theme.PanelLight
 		button.TextColor3 = name == currentTab and Theme.Dark or Theme.White
 	end
 	local coins = profile.Coins or 0
@@ -167,13 +167,19 @@ end
 
 -- Le bouton SHOP n'est visible que hors manche
 function ShopUI.SetButtonVisible(visible: boolean)
-	openButton.Visible = visible
+	if openButton then
+		openButton.Visible = visible
+	end
 	if not visible then
 		ShopUI.Close()
 	end
 end
 
-function ShopUI.Init(screen: ScreenGui)
+function ShopUI.Init(screen: ScreenGui, pill: GuiButton?)
+	openButton = pill
+	if pill then
+		pill.Activated:Connect(ShopUI.Toggle)
+	end
 	window = New("Frame", {
 		Name = "Shop",
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -185,9 +191,9 @@ function ShopUI.Init(screen: ScreenGui)
 		ZIndex = 20,
 	}, screen)
 	Theme.Corner(window, 16)
-	Theme.Stroke(window, 2, Theme.Accent)
+	Theme.Stroke(window, 5, Theme.Outline)
 	New("UISizeConstraint", { MaxSize = Vector2.new(900, 600) }, window)
-	Label(window, { Size = UDim2.fromScale(0.4, 0.1), Position = UDim2.fromScale(0.03, 0.025), Text = "SHOP", TextXAlignment = Enum.TextXAlignment.Left, Font = Theme.FontBlack, TextColor3 = Theme.Accent })
+	Theme.Title(window, { Size = UDim2.fromScale(0.4, 0.1), Position = UDim2.fromScale(0.03, 0.025), Text = "SHOP", TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Theme.Gold })
 	coinsLabel = Label(window, { Size = UDim2.fromScale(0.3, 0.07), Position = UDim2.fromScale(0.52, 0.04), Text = "", TextColor3 = Theme.Coin, TextXAlignment = Enum.TextXAlignment.Right })
 	local close: TextButton = New("TextButton", {
 		Size = UDim2.fromScale(0.08, 0.1),
@@ -195,7 +201,7 @@ function ShopUI.Init(screen: ScreenGui)
 		BackgroundColor3 = Theme.Bad,
 		Text = "X",
 		TextScaled = true,
-		Font = Theme.FontBlack,
+		FontFace = Theme.FaceHeavy,
 		TextColor3 = Theme.White,
 	}, window)
 	Theme.Corner(close, 8)
@@ -215,7 +221,7 @@ function ShopUI.Init(screen: ScreenGui)
 			BackgroundColor3 = Theme.Panel,
 			Text = string.upper(name),
 			TextScaled = true,
-			Font = Theme.FontBold,
+			FontFace = Theme.FaceHeavy,
 			TextColor3 = Theme.White,
 			LayoutOrder = index,
 		}, tabs)
@@ -241,22 +247,6 @@ function ShopUI.Init(screen: ScreenGui)
 		CellPadding = UDim2.new(0.02, 0, 0, 10),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}, content)
-
-	openButton = New("TextButton", {
-		Name = "ShopButton",
-		AnchorPoint = Vector2.new(0, 0),
-		Position = UDim2.new(0, 8, 0.3, 14),
-		Size = UDim2.fromScale(0.11, 0.065),
-		BackgroundColor3 = Theme.Accent,
-		Text = "SHOP",
-		TextScaled = true,
-		Font = Theme.FontBlack,
-		TextColor3 = Theme.Dark,
-	}, screen)
-	Theme.Corner(openButton, 10)
-	New("UISizeConstraint", { MaxSize = Vector2.new(150, 44), MinSize = Vector2.new(80, 30) }, openButton)
-	New("UIPadding", { PaddingTop = UDim.new(0.2, 0), PaddingBottom = UDim.new(0.2, 0) }, openButton)
-	openButton.Activated:Connect(ShopUI.Toggle)
 
 	Remotes.Get("OpenShop").OnClientEvent:Connect(ShopUI.Open)
 end

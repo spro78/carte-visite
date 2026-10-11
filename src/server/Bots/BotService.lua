@@ -66,6 +66,13 @@ local function spawnCharacter(actor: Actor, teamId: string)
 	end
 	ActorService.SetBotCharacter(actor, character)
 	TeamService.SetTeam(actor, teamId)
+	-- Niveau et victoires crédibles pour l'étiquette au-dessus de la tête
+	local seed = 0
+	for i = 1, #actor.Name do
+		seed += string.byte(actor.Name, i)
+	end
+	character:SetAttribute("Level", 2 + seed % 23)
+	character:SetAttribute("Wins", (seed * 7) % 60)
 
 	local old = brains[actor.Id]
 	if old then

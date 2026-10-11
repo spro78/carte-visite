@@ -1,7 +1,7 @@
 --[[
 	LightingSetup.lua
 	Applique l'éclairage de la direction artistique (Shared/Style) au démarrage :
-	propriétés de Lighting, Atmosphere, ColorCorrection, Bloom.
+	propriétés de Lighting, Atmosphere, ColorCorrection, Bloom, nuages.
 	Les maps peuvent ensuite surcharger certaines propriétés (Map.Lighting),
 	restaurées en fin de manche par RoundService.
 ]]
@@ -40,6 +40,16 @@ function LightingSetup.Apply()
 	apply(ensure("Atmosphere", "HoH_Atmosphere"), Style.Atmosphere)
 	apply(ensure("ColorCorrectionEffect", "HoH_ColorCorrection"), Style.ColorCorrection)
 	apply(ensure("BloomEffect", "HoH_Bloom"), Style.Bloom)
+	-- Nuages dynamiques (ciel bleu à nuages)
+	local terrain = workspace:FindFirstChildOfClass("Terrain")
+	if terrain then
+		local clouds = terrain:FindFirstChildOfClass("Clouds")
+		if not clouds then
+			clouds = Instance.new("Clouds")
+			clouds.Parent = terrain
+		end
+		apply(clouds, Style.Clouds)
+	end
 end
 
 return LightingSetup

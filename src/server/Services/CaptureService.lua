@@ -140,6 +140,7 @@ local function capture(hunter: Actor, victim: Actor)
 	assert(def)
 
 	TeamService.SetTeam(victim, newTeam)
+	victim.BestSurvival = math.max(victim.BestSurvival or 0, os.clock() - victim.LastCaughtAt)
 	victim.LastCaughtAt = os.clock()
 	hunter.RoundCaptures += 1
 	AbilityService.ClearModifiers(victim)

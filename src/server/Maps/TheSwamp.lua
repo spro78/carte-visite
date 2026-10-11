@@ -169,11 +169,62 @@ local function buildGeyser(parent: Instance, position: Vector3)
 	table.insert(geysers, { Position = position, Water = water, Bubbles = bubbles, Spray = spray })
 end
 
+local function buildWillow(parent: Instance, position: Vector3, scale: number)
+	local trunk = Color3.fromRGB(85, 70, 55)
+	Build.Part({ Name = "WillowTrunk", Size = Vector3.new(2.6, 12, 2.6) * scale, Position = position + Vector3.new(0, 6 * scale, 0), Color = trunk, Material = Enum.Material.Wood }, parent)
+	local leaf = Color3.fromRGB(90, 150, 70)
+	Build.Part({ Name = "WillowTop", Size = Vector3.new(14, 6, 14) * scale, Position = position + Vector3.new(0, 14 * scale, 0), Color = leaf, Studs = true }, parent)
+	Build.Part({ Name = "WillowTop", Size = Vector3.new(9, 4, 9) * scale, CFrame = CFrame.new(position + Vector3.new(0, 18 * scale, 0)) * CFrame.Angles(0, 0.5, 0), Color = leaf:Lerp(Color3.new(1, 1, 1), 0.1), Studs = true }, parent)
+	-- Rideaux de feuillage qui pendent
+	for i = 0, 9 do
+		local a = i / 10 * math.pi * 2
+		local p = position + Vector3.new(math.cos(a) * 6.2 * scale, 8.5 * scale, math.sin(a) * 6.2 * scale)
+		Build.Part({ Name = "WillowDrape", Size = Vector3.new(1.4, 7 * scale, 0.4), CFrame = CFrame.new(p) * CFrame.Angles(0, -a, 0), Color = leaf:Lerp(Color3.new(0, 0, 0), 0.12), CanCollide = false, CanQuery = false }, parent)
+	end
+end
+
+local function buildMushrooms(parent: Instance, center: Vector3)
+	for i = 0, 4 do
+		local a = i * 1.3
+		local p = center + Vector3.new(math.cos(a) * (1 + i * 0.6), 0, math.sin(a) * (1 + i * 0.6))
+		local h = 1.2 + (i % 3) * 0.6
+		Build.Part({ Name = "MushStem", Size = Vector3.new(0.6, h, 0.6), Position = p + Vector3.new(0, h / 2, 0), Color = Color3.fromRGB(245, 240, 225), CanCollide = false }, parent)
+		Build.Part({ Name = "MushCap", Size = Vector3.new(1.8, 0.7, 1.8), Position = p + Vector3.new(0, h + 0.2, 0), Color = Color3.fromRGB(225, 50, 50), Studs = true, CanCollide = false, Accent = true }, parent)
+	end
+end
+
+local function buildBoardwalk(parent: Instance, from: Vector3, to: Vector3)
+	local delta = Vector3.new(to.X - from.X, 0, to.Z - from.Z)
+	local length = delta.Magnitude
+	local cf = CFrame.lookAt(from, from + delta)
+	for k = 0, math.floor(length / 2.2) do
+		Build.Part({ Name = "Plank", Size = Vector3.new(6, 0.4, 2), CFrame = cf * CFrame.new(0, 0.3, -k * 2.2) * CFrame.Angles(0, (k % 3 - 1) * 0.03, 0), Color = Color3.fromRGB(135, 100, 70):Lerp(Color3.fromRGB(110, 80, 55), (k % 2) * 0.5), Material = Enum.Material.WoodPlanks, CanCollide = false }, parent)
+	end
+	for k = 0, math.floor(length / 8) do
+		for _, x in { -3.2, 3.2 } do
+			Build.Part({ Name = "Post", Size = Vector3.new(0.6, 2.4, 0.6), CFrame = cf * CFrame.new(x, 1, -k * 8), Color = Color3.fromRGB(100, 75, 55), Material = Enum.Material.Wood }, parent)
+		end
+	end
+end
+
+local function buildFireflies(parent: Instance, position: Vector3)
+	local host = Build.Part({ Name = "Fireflies", Size = Vector3.new(14, 4, 14), Position = position + Vector3.new(0, 4, 0), Transparency = 1, CanCollide = false, CanQuery = false }, parent)
+	local fx = Instance.new("ParticleEmitter")
+	fx.Color = ColorSequence.new(Color3.fromRGB(230, 255, 140))
+	fx.LightEmission = 1
+	fx.Size = NumberSequence.new(0.25)
+	fx.Lifetime = NumberRange.new(3, 5)
+	fx.Rate = 6
+	fx.Speed = NumberRange.new(0.5, 1.5)
+	fx.SpreadAngle = Vector2.new(180, 180)
+	fx.Parent = host
+end
+
 function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	origin = mapOrigin
 	table.clear(geysers)
 	local f = MapBase.NewFolder("Map_" .. Map.Id)
-	MapBase.BuildGround(f, origin, cfg.GroundSize, MUD, Enum.Material.Mud)
+	MapBase.BuildGround(f, origin, cfg.GroundSize, Color3.fromRGB(82, 130, 75))
 	MapBase.BuildBoundary(f, origin, cfg.GroundSize, 80)
 	MapBase.BuildPerimeterFence(f, origin, cfg.GroundSize, Color3.fromRGB(95, 80, 65))
 	bases = MapBase.BuildBases(f, origin, cfg.BaseRadius, cfg.BasePadSize)
@@ -225,6 +276,34 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 			Color = Color3.fromRGB(100, 75, 55),
 			Material = Enum.Material.Wood,
 		}, f)
+	end
+
+	-- Environnement : collines sombres, passerelles, saules, champignons, lucioles
+	MapBase.BuildSurroundings(f, origin, cfg.GroundSize, {
+		Ground = Color3.fromRGB(70, 110, 70),
+		Hill = Color3.fromRGB(65, 115, 70),
+		HillTop = Color3.fromRGB(85, 135, 80),
+		Trees = true,
+		TreeColor = Color3.fromRGB(100, 150, 70),
+	})
+	MapBase.BuildGrassPatches(f, origin, cfg.GroundSize, Color3.fromRGB(70, 115, 65), 12)
+	local builtBases = bases :: { [string]: MapBase.Base }
+	for _, base in builtBases do
+		local toCenter = (origin - base.Center).Unit
+		local start = base.Center + toCenter * (base.Radius + 2)
+		buildBoardwalk(f, start, origin + toCenter * -(cfg.TurnstileRadius + 8))
+		local side = Vector3.new(-toCenter.Z, 0, toCenter.X)
+		MapBase.BuildLamp(f, start + toCenter * 12 + side * 5)
+		buildMushrooms(f, base.Center + side * (base.Radius + 8))
+	end
+	for i = 0, 2 do
+		local a = math.rad(i * 120 + 60)
+		buildWillow(f, origin + Vector3.new(math.cos(a), 0, math.sin(a)) * 128, 1)
+		buildFireflies(f, origin + Vector3.new(math.cos(a + 0.4), 0, math.sin(a + 0.4)) * 80)
+	end
+	for i = 0, 5 do
+		local a = math.rad(i * 60 + 20)
+		buildMushrooms(f, origin + Vector3.new(math.cos(a), 0, math.sin(a)) * 105)
 	end
 
 	f.Parent = workspace

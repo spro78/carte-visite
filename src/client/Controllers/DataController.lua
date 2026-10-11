@@ -23,7 +23,7 @@ function DataController.Init(HUD: any, ShopUI: any, Inventory: any)
 			return
 		end
 		profile = data
-		HUD.SetCoins(data.Coins or 0)
+		HUD.SetProfile(data)
 		ShopUI.SetProfile(data)
 		Inventory.SetCounts(data.Consumables)
 	end)

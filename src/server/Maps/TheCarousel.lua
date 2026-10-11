@@ -83,6 +83,52 @@ local function buildBalloons(parent: Instance, position: Vector3)
 	Build.Part({ Name = "Stand", Size = Vector3.new(4, 3, 3), Position = position + Vector3.new(0, 1.5, 0), Color = Color3.fromRGB(235, 70, 90), Material = Enum.Material.WoodPlanks }, parent)
 end
 
+local function buildFerrisWheel(parent: Instance, position: Vector3, yaw: number)
+	local base = CFrame.new(position) * CFrame.Angles(0, yaw, 0)
+	local radius = 24
+	local axle = base * CFrame.new(0, radius + 6, 0)
+	for _, side in { -1, 1 } do
+		for _, lean in { -1, 1 } do
+			Build.Part({ Name = "FerrisLeg", Size = Vector3.new(1.4, radius + 9, 1.4), CFrame = axle * CFrame.new(lean * 7, -(radius + 6) / 2, side * 3) * CFrame.Angles(0, 0, math.rad(lean * -15)), Color = Color3.fromRGB(240, 240, 245), Material = Enum.Material.Metal }, parent)
+		end
+	end
+	local pivot = axle * CFrame.Angles(math.rad(90), 0, 0) -- axe horizontal
+	local spinner = MapBase.NewSpinner(parent, "FerrisWheel", pivot)
+	for i = 0, 11 do
+		local a = i / 12 * math.pi * 2
+		Build.Part({ Name = "Spoke", Size = Vector3.new(radius, 0.5, 0.5), CFrame = pivot * CFrame.Angles(0, a, 0) * CFrame.new(radius / 2, 0, 0), Color = Color3.fromRGB(240, 240, 245), CanCollide = false, CanQuery = false }, spinner)
+		Build.Part({ Name = "Rim", Size = Vector3.new(0.7, 0.7, 2 * math.pi * radius / 12 + 0.5), CFrame = pivot * CFrame.Angles(0, a + math.pi / 12, 0) * CFrame.new(radius, 0, 0), Color = STRIPES[(i % #STRIPES) + 1], CanCollide = false, CanQuery = false }, spinner)
+		Build.Part({ Name = "Cabin", Size = Vector3.new(3, 3, 3), CFrame = pivot * CFrame.Angles(0, a, 0) * CFrame.new(radius, 0, 0), Color = STRIPES[((i + 2) % #STRIPES) + 1], Studs = true, CanCollide = false, CanQuery = false }, spinner)
+		Build.Part({ Name = "WheelBulb", Shape = Enum.PartType.Ball, Size = Vector3.new(0.9, 0.9, 0.9), CFrame = pivot * CFrame.Angles(0, a + math.pi / 12, 0) * CFrame.new(radius + 0.6, 0, 0), Color = Color3.fromRGB(255, 230, 140), Material = Enum.Material.Neon, CanCollide = false, CanQuery = false }, spinner)
+	end
+	Build.Part({ Name = "Hub", Shape = Enum.PartType.Cylinder, Size = Vector3.new(2, 4, 4), CFrame = pivot * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(255, 205, 50), CanCollide = false, CanQuery = false }, spinner)
+	MapBase.StartSpinner(spinner, 0.12)
+end
+
+local function buildStall(parent: Instance, position: Vector3, yaw: number, color: Color3)
+	local cf = CFrame.new(position) * CFrame.Angles(0, yaw, 0)
+	Build.Part({ Name = "StallCounter", Size = Vector3.new(8, 3.5, 4), CFrame = cf * CFrame.new(0, 1.75, 0), Color = Color3.fromRGB(250, 245, 235), Studs = true }, parent)
+	for _, x in { -3.6, 3.6 } do
+		Build.Part({ Name = "StallPole", Size = Vector3.new(0.5, 8, 0.5), CFrame = cf * CFrame.new(x, 4, 1.6), Color = Color3.fromRGB(250, 245, 235) }, parent)
+	end
+	for i = 0, 3 do
+		Build.Part({ Name = "StallAwning", Size = Vector3.new(2.2, 0.4, 5.5), CFrame = cf * CFrame.new(-3.3 + i * 2.2, 8.2, 0.5) * CFrame.Angles(math.rad(-12), 0, 0), Color = i % 2 == 0 and color or Color3.fromRGB(250, 245, 235), Material = Enum.Material.Fabric }, parent)
+	end
+	for i = 0, 2 do
+		Build.Part({ Name = "Candy", Shape = Enum.PartType.Ball, Size = Vector3.new(1.4, 1.4, 1.4), CFrame = cf * CFrame.new(-2 + i * 2, 4.2, -0.6), Color = STRIPES[(i * 2 % #STRIPES) + 1], Accent = true }, parent)
+	end
+end
+
+-- Guirlande d'ampoules entre deux points
+local function buildLightString(parent: Instance, a: Vector3, b: Vector3, count: number)
+	for i = 0, count do
+		local t = i / count
+		local sag = math.sin(t * math.pi) * 2.5
+		local p = a:Lerp(b, t) - Vector3.new(0, sag, 0)
+		Build.Part({ Name = "StringBulb", Shape = Enum.PartType.Ball, Size = Vector3.new(0.8, 0.8, 0.8), Position = p, Color = STRIPES[(i % #STRIPES) + 1], Material = Enum.Material.Neon, CanCollide = false, CanQuery = false, CastShadow = false }, parent)
+	end
+end
+
 local function buildWheel(parent: Instance): Model
 	local spinner = MapBase.NewSpinner(parent, "Carousel", CFrame.new(origin))
 	spinner:SetAttribute("SpinCollide", true)
@@ -125,19 +171,33 @@ local function buildWheel(parent: Instance): Model
 	end
 	-- Mât central et toit
 	Build.VerticalCylinder(origin + Vector3.new(0, top + 8, 0), 2.2, 16, { Name = "CenterMast", Color = Color3.fromRGB(235, 70, 90), CanCollide = false, CanQuery = false }, spinner)
-	for i = 0, 11 do
-		local a = i / 12 * math.pi * 2
-		local p = origin + Vector3.new(math.cos(a) * radius * 0.5, top + 17.5, -math.sin(a) * radius * 0.5)
-		Build.Part({
+	-- Toit conique : anneaux rayés de plus en plus petits
+	for i = 0, 6 do
+		local r = radius * (1.02 - i * 0.14)
+		Build.VerticalCylinder(origin + Vector3.new(0, top + 16.5 + i * 1.3, 0), r, 1.3, {
 			Name = "Canopy",
-			Size = Vector3.new(radius * 1.05, 0.5, radius * 0.3),
-			CFrame = CFrame.lookAt(p, origin + Vector3.new(0, top + 17.5, 0)) * CFrame.Angles(math.rad(-15), math.rad(90), 0),
 			Color = STRIPES[(i % #STRIPES) + 1],
 			Material = Enum.Material.Fabric,
 			CanCollide = false,
 			CanQuery = false,
 		}, spinner)
 	end
+	-- Lambrequin festonné sous le bord du toit
+	for i = 0, 23 do
+		local a = i / 24 * math.pi * 2
+		Build.Part({
+			Name = "Valance",
+			Size = Vector3.new(radius * 0.27, 1.6, 0.3),
+			CFrame = CFrame.new(origin + Vector3.new(math.cos(a) * radius, top + 15.2, -math.sin(a) * radius)) * CFrame.Angles(0, a + math.pi / 2, 0),
+			Color = i % 2 == 0 and Color3.fromRGB(235, 70, 90) or Color3.fromRGB(250, 245, 235),
+			Material = Enum.Material.Fabric,
+			CanCollide = false,
+			CanQuery = false,
+		}, spinner)
+	end
+	Build.Part({ Name = "RoofBall", Shape = Enum.PartType.Ball, Size = Vector3.new(4, 4, 4), Position = origin + Vector3.new(0, top + 26.5, 0), Color = Color3.fromRGB(255, 205, 50), Material = Enum.Material.Metal, CanCollide = false, CanQuery = false }, spinner)
+	Build.Part({ Name = "RoofFlag", Size = Vector3.new(0.2, 2.2, 3.5), Position = origin + Vector3.new(0, top + 30, 1.7), Color = Color3.fromRGB(235, 70, 90), CanCollide = false, CanQuery = false }, spinner)
+	Build.Part({ Name = "RoofPole", Size = Vector3.new(0.3, 4, 0.3), Position = origin + Vector3.new(0, top + 29.5, 0), Color = Color3.fromRGB(240, 240, 240), CanCollide = false, CanQuery = false }, spinner)
 	-- Ampoules sur le pourtour
 	for i = 0, 23 do
 		local a = i / 24 * math.pi * 2
@@ -172,11 +232,11 @@ end
 function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	origin = mapOrigin
 	local f = MapBase.NewFolder("Map_" .. Map.Id)
-	MapBase.BuildGround(f, origin, cfg.GroundSize, Color3.fromRGB(125, 185, 95), Enum.Material.Grass)
+	MapBase.BuildGround(f, origin, cfg.GroundSize, Color3.fromRGB(110, 190, 85))
 	MapBase.BuildBoundary(f, origin, cfg.GroundSize, 80)
 	MapBase.BuildPerimeterFence(f, origin, cfg.GroundSize, Color3.fromRGB(240, 240, 240))
 	bases = MapBase.BuildBases(f, origin, cfg.BaseRadius, cfg.BasePadSize)
-	-- Allées de terre vers la roue
+	-- Allées vers la roue
 	for _, teamId in Teams.Order do
 		local basePos = MapBase.BasePosition(origin, teamId, cfg.BaseRadius)
 		local mid = (basePos + origin) / 2
@@ -192,6 +252,32 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	wheel = buildWheel(f)
 
 	local half = cfg.GroundSize / 2
+	MapBase.BuildSurroundings(f, origin, cfg.GroundSize, {
+		Ground = Color3.fromRGB(90, 165, 70),
+		Hill = Color3.fromRGB(95, 175, 80),
+		HillTop = Color3.fromRGB(125, 195, 95),
+		Trees = true,
+	})
+	MapBase.BuildGrassPatches(f, origin, cfg.GroundSize, Color3.fromRGB(110, 175, 85), 12)
+	buildFerrisWheel(f, origin + Vector3.new(0, 0, -half + 22), 0)
+	for _, spec in { { 0.35, 120 }, { 2.45, 200 }, { 4.55, 300 } } do
+		local a = spec[1]
+		buildStall(f, origin + Vector3.new(math.cos(a), 0, math.sin(a)) * 95, -a + math.pi / 2, STRIPES[(spec[2] % #STRIPES) + 1])
+	end
+	-- Guirlandes entre les mâts autour de la roue
+	for i = 0, 5 do
+		local a1 = i / 6 * math.pi * 2
+		local a2 = (i + 1) / 6 * math.pi * 2
+		local r = cfg.PlatformRadius + 12
+		local p1 = origin + Vector3.new(math.cos(a1) * r, 0, math.sin(a1) * r)
+		local p2 = origin + Vector3.new(math.cos(a2) * r, 0, math.sin(a2) * r)
+		Build.Part({ Name = "LightMast", Size = Vector3.new(0.6, 12, 0.6), Position = p1 + Vector3.new(0, 6, 0), Color = Color3.fromRGB(250, 245, 235) }, f)
+		buildLightString(f, p1 + Vector3.new(0, 11.5, 0), p2 + Vector3.new(0, 11.5, 0), 10)
+	end
+	for i = 0, 8 do
+		local a = math.rad(i * 40 + 15)
+		MapBase.BuildFlowers(f, origin + Vector3.new(math.cos(a), 0, math.sin(a)) * 120, 7, 3.5)
+	end
 	buildTent(f, origin + Vector3.new(-half + 32, 0, half - 32), 12, Color3.fromRGB(235, 70, 90))
 	buildTent(f, origin + Vector3.new(half - 32, 0, half - 32), 10, Color3.fromRGB(90, 160, 235))
 	buildTent(f, origin + Vector3.new(half - 30, 0, -half + 30), 11, Color3.fromRGB(250, 200, 60))

@@ -7,6 +7,8 @@
   @font-face { font-family: "Fredoka One"; src: url("node_modules/@fontsource/fredoka-one/files/fredoka-one-latin-400-normal.woff2") format("woff2"); }
   @font-face { font-family: "GothamLike"; font-weight: 700; src: url("node_modules/@fontsource/montserrat/files/montserrat-latin-700-normal.woff2") format("woff2"); }
   @font-face { font-family: "GothamLike"; font-weight: 900; src: url("node_modules/@fontsource/montserrat/files/montserrat-latin-900-normal.woff2") format("woff2"); }
+  @font-face { font-family: "GothamLike"; font-weight: 700; font-style: italic; src: url("node_modules/@fontsource/montserrat/files/montserrat-latin-700-italic.woff2") format("woff2"); }
+  @font-face { font-family: "GothamLike"; font-weight: 900; font-style: italic; src: url("node_modules/@fontsource/montserrat/files/montserrat-latin-900-italic.woff2") format("woff2"); }
   html, body { margin: 0; padding: 0; overflow: hidden; background: #8ec5ff; font-family: "Fredoka One", sans-serif; }
   #wrap { position: relative; }
   canvas#gl { display: block; }
@@ -33,9 +35,22 @@ if (data.caption) document.getElementById("caption").textContent = data.caption;
 await document.fonts.load('40px "Fredoka One"');
 await document.fonts.load('700 40px "GothamLike"');
 await document.fonts.load('900 40px "GothamLike"');
+await document.fonts.load('italic 900 40px "GothamLike"');
+await document.fonts.load('italic 700 40px "GothamLike"');
 // Police Roblox -> police CSS de substitution
 const FONTS = { FredokaOne: '"Fredoka One"', GothamBold: '700 X "GothamLike"', GothamBlack: '900 X "GothamLike"', BuilderSansBold: '700 X "GothamLike"', BuilderSansExtraBold: '900 X "GothamLike"' };
-const fontCss = (el, size) => { const f = FONTS[el.font] || '"Fredoka One"'; return f.includes(" X ") ? f.replace("X", size + "px") : `${size}px ${f}`; };
+const WEIGHTS = { Thin: 300, Light: 300, Regular: 500, Medium: 600, SemiBold: 600, Bold: 700, ExtraBold: 800, Heavy: 900 };
+const fontCss = (el, size) => {
+  if (el.font === "Face") return `${el.italic ? "italic " : ""}${WEIGHTS[el.weight] || 700} ${size}px "GothamLike"`;
+  const f = FONTS[el.font] || '"Fredoka One"'; return f.includes(" X ") ? f.replace("X", size + "px") : `${size}px ${f}`;
+};
+// Texte enrichi minimal : <font color="#rrggbb">...</font>
+function richSegments(text, base) {
+  const out = []; const re = /<font color="([^"]+)">(.*?)<\/font>/g; let last = 0, m;
+  while ((m = re.exec(text))) { if (m.index > last) out.push([text.slice(last, m.index), base]); out.push([m[2], m[1]]); last = re.lastIndex; }
+  if (last < text.length) out.push([text.slice(last), base]); return out;
+}
+const plain = (el) => el.rich ? String(el.text).replace(/<[^>]+>/g, "") : String(el.text);
 
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("gl"), antialias: true, preserveDrawingBuffer: true });
 renderer.setSize(W, H);
@@ -47,11 +62,14 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(data.sky || "#aab6c4");
-scene.fog = new THREE.Fog(data.fog || data.sky || "#aab6c4", data.fogNear || 250, data.fogFar || 1300);
+// Ciel bleu en dégradé (plein jour)
+{ const c = document.createElement("canvas"); c.width = 2; c.height = 256; const g = c.getContext("2d");
+  const grad = g.createLinearGradient(0, 0, 0, 256); grad.addColorStop(0, "#3f8ff0"); grad.addColorStop(0.6, "#86c3ff"); grad.addColorStop(1, "#d6ecff");
+  g.fillStyle = grad; g.fillRect(0, 0, 2, 256); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; scene.background = data.sky ? new THREE.Color(data.sky) : t; }
+scene.fog = new THREE.Fog(data.fog || "#cfe6ff", data.fogNear || 600, data.fogFar || 2600);
 
-scene.add(new THREE.HemisphereLight(0xd5e0ee, 0x6a6e78, 1.7));
-const sun = new THREE.DirectionalLight(0xfff0e0, 2.0);
+scene.add(new THREE.HemisphereLight(0xeaf4ff, 0x6a8a50, 1.6));
+const sun = new THREE.DirectionalLight(0xfffaf0, 2.6);
 const c = data.center || [0, 0, 0];
 sun.position.set(c[0] + 120, 260, c[2] + 90);
 sun.target.position.set(c[0], 0, c[2]);
@@ -154,14 +172,14 @@ function drawGui(ctx, el, rect, k) {
     ctx.lineWidth = el.uiStroke.thickness * k;
     roundRect(ctx, x, y, w, h, radius); ctx.stroke();
   }
-  if (el.text && el.textT < 1) {
+  if (el.text && el.textT < 1 && plain(el).length) {
     ctx.save();
     const cx = x + w / 2, cy = y + h / 2;
     if (el.rotation) { ctx.translate(cx, cy); ctx.rotate(el.rotation * Math.PI / 180); ctx.translate(-cx, -cy); }
-    const size = el.scaled ? fitFont(ctx, el, el.text, w, h, el.maxText ? el.maxText * k : null) : (el.textSize || 14) * k;
+    const size = el.scaled ? fitFont(ctx, el, plain(el), w, h, el.maxText ? el.maxText * k : null) : (el.textSize || 14) * k;
     ctx.font = fontCss(el, size);
     ctx.textBaseline = "middle";
-    const lines = String(el.text).split("\n");
+    const lines = plain(el).split("\n");
     const lh = size * 1.0;
     const totalH = lh * lines.length;
     let ty = el.yAlign === "Top" ? y + lh / 2 : el.yAlign === "Bottom" ? y + h - totalH + lh / 2 : cy - totalH / 2 + lh / 2;
@@ -170,11 +188,24 @@ function drawGui(ctx, el, rect, k) {
       tx = el.xAlign === "Left" ? x : el.xAlign === "Right" ? x + w : cx;
       if (el.stroke) { ctx.strokeStyle = toCss(el.stroke, 0.9); ctx.lineWidth = Math.max(2, size * 0.12); ctx.lineJoin = "round"; ctx.strokeText(line, tx, ty); }
       if (el.uiStroke) { ctx.strokeStyle = toCss(el.uiStroke.color, 1 - el.uiStroke.transparency); ctx.lineWidth = el.uiStroke.thickness * k * 2; ctx.lineJoin = "round"; ctx.strokeText(line, tx, ty); }
-      ctx.fillStyle = toCss(el.textColor, 1 - el.textT);
-      ctx.fillText(line, tx, ty);
+      if (el.rich && lines.length === 1) {
+        const segs = richSegments(String(el.text), toCss(el.textColor, 1 - el.textT));
+        const total = segs.reduce((acc, sg) => acc + ctx.measureText(sg[0]).width, 0);
+        let sx = ctx.textAlign === "center" ? tx - total / 2 : ctx.textAlign === "right" ? tx - total : tx;
+        ctx.textAlign = "left";
+        for (const [t, col] of segs) { ctx.fillStyle = col; ctx.fillText(t, sx, ty); sx += ctx.measureText(t).width; }
+      } else {
+        ctx.fillStyle = toCss(el.textColor, 1 - el.textT);
+        ctx.fillText(line, tx, ty);
+      }
       ty += lh;
     }
     ctx.restore();
+  }
+  if (el.image && String(el.image).startsWith("rbxthumb")) {
+    ctx.save(); ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.beginPath(); ctx.arc(x + w / 2, y + h * 0.38, Math.min(w, h) * 0.22, 0, Math.PI * 2); ctx.fill();
+    roundRect(ctx, x + w * 0.2, y + h * 0.62, w * 0.6, h * 0.34, w * 0.12); ctx.fill(); ctx.restore();
   }
   for (const [kid, r] of layoutChildren(el, rect, k)) drawGui(ctx, kid, r, k);
 }
@@ -204,6 +235,21 @@ function geometry(shape, size) {
   return g;
 }
 
+// Texture de tenons (dessus des pièces "Studs")
+const studCanvas = document.createElement("canvas"); studCanvas.width = studCanvas.height = 64;
+{ const c = studCanvas.getContext("2d"); c.fillStyle = "#fff"; c.fillRect(0, 0, 64, 64);
+  c.strokeStyle = "rgba(0,0,0,0.10)"; c.lineWidth = 2; c.strokeRect(1, 1, 62, 62);
+  c.fillStyle = "rgba(0,0,0,0.13)"; c.beginPath(); c.arc(34, 34, 17, 0, Math.PI * 2); c.fill();
+  c.fillStyle = "rgba(255,255,255,0.35)"; c.beginPath(); c.arc(30, 30, 15, 0, Math.PI * 2); c.fill(); }
+const studCache = new Map();
+function studTexture(sx, sz) {
+  const key = Math.round(sx) + "x" + Math.round(sz);
+  if (studCache.has(key)) return studCache.get(key);
+  const t = new THREE.CanvasTexture(studCanvas); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(Math.max(1, sx / 2), Math.max(1, sz / 2)); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  studCache.set(key, t); return t;
+}
+
 const ROUGH = { Neon: 0.3, Glass: 0.05, SmoothPlastic: 0.55, Plastic: 0.6, Grass: 0.95, Mud: 1, Sand: 1, Sandstone: 0.95, Slate: 0.9, Brick: 0.9, Cobblestone: 0.95, Wood: 0.8, WoodPlanks: 0.8, Metal: 0.4, CorrodedMetal: 0.7, DiamondPlate: 0.35, Fabric: 1, Rock: 0.95, Concrete: 0.95, Ice: 0.15 };
 
 for (const p of arr(data.parts)) {
@@ -214,7 +260,12 @@ for (const p of arr(data.parts)) {
     emissive: p.neon ? col : new THREE.Color(0), emissiveIntensity: p.neon ? 0.9 : 0,
     flatShading: p.material === "Grass" || p.material === "Rock" || p.material === "Slate",
   });
-  const mesh = new THREE.Mesh(geometry(p.shape, p.size), mat);
+  let meshMat = mat;
+  if (p.studs && p.shape === "Block") {
+    const top = mat.clone(); top.map = studTexture(p.size[0], p.size[2]);
+    meshMat = [mat, mat, top, mat, mat, mat];
+  }
+  const mesh = new THREE.Mesh(geometry(p.shape, p.size), meshMat);
   const m = p.cf;
   mesh.matrixAutoUpdate = false;
   mesh.matrix.set(m[3], m[4], m[5], m[0], m[6], m[7], m[8], m[1], m[9], m[10], m[11], m[2], 0, 0, 0, 1);

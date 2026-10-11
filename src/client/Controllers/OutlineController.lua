@@ -28,7 +28,7 @@ local player = Players.LocalPlayer
 local TAG = "HoH_Actor"
 local HIGHLIGHT_NAME = "HoH_Outline"
 local BADGE_NAME = "HoH_TeamBadge"
-local RELATION_SUFFIX = { Prey = "  ▼ PREY", Predator = "  ▲ HUNTER" }
+local RELATION_SUFFIX = { Prey = " · PREY", Predator = " · HUNTER" }
 local MAX_HIGHLIGHTS = 28
 local UPDATE_INTERVAL = 0.2
 
@@ -51,67 +51,65 @@ local function getHighlight(model: Model): Highlight
 	return highlight
 end
 
--- Badge d'équipe local (BillboardGui) au-dessus de la tête
-local function getBadge(model: Model): (BillboardGui?, TextLabel?)
+-- Étiquette locale au-dessus de la tête (remplace le nom Roblox) :
+--   ligne 1 : équipe en couleur (+ "PREY" / "HUNTER")
+--   ligne 2 : pseudo en gros blanc contouré
+--   ligne 3 : "Level 6 · 12 wins"
+type Tag = { Gui: BillboardGui, Team: TextLabel, Name: TextLabel, Info: TextLabel }
+local tags: { [Model]: Tag } = {}
+
+local function getTag(model: Model): Tag?
+	local existing = tags[model]
+	if existing and existing.Gui.Parent then
+		return existing
+	end
 	local head = model:FindFirstChild("Head")
 	if not head or not head:IsA("BasePart") then
-		return nil, nil
-	end
-	local existing = head:FindFirstChild(BADGE_NAME)
-	if existing and existing:IsA("BillboardGui") then
-		local label = existing:FindFirstChild("Label")
-		return existing, label and label:IsA("TextLabel") and label or nil
+		return nil
 	end
 	local gui = Instance.new("BillboardGui")
 	gui.Name = BADGE_NAME
 	gui.Adornee = head
-	gui.Size = UDim2.fromOffset(110, 22)
-	gui.StudsOffset = Vector3.new(0, 3.6, 0)
+	gui.Size = UDim2.fromOffset(220, 66)
+	gui.StudsOffset = Vector3.new(0, 3.4, 0)
 	gui.MaxDistance = Config.Appearance.BadgeMaxDistance
 	gui.LightInfluence = 0
 	gui.AlwaysOnTop = false
 	gui.Enabled = false
-	local label = Instance.new("TextLabel")
-	label.Name = "Label"
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundColor3 = Theme.Dark
-	label.BackgroundTransparency = 0.2
-	label.Font = Theme.FontBold
-	label.TextScaled = true
-	label.TextColor3 = Theme.White
-	label.Parent = gui
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.5, 0)
-	corner.Parent = label
-	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0.12, 0)
-	padding.PaddingBottom = UDim.new(0.12, 0)
-	padding.Parent = label
+	local team = Theme.Title(gui, { Name = "Team", Size = UDim2.new(1, 0, 0, 16), Text = "", FontFace = Theme.FaceTitle })
+	local name = Theme.Title(gui, { Name = "PlayerName", Position = UDim2.new(0, 0, 0, 17), Size = UDim2.new(1, 0, 0, 30), Text = "", FontFace = Theme.FaceHeavy })
+	local info = Theme.Label(gui, { Name = "Info", Position = UDim2.new(0, 0, 0, 48), Size = UDim2.new(1, 0, 0, 14), Text = "", TextColor3 = Color3.fromRGB(215, 220, 230), TextStrokeTransparency = 0.4 })
 	gui.Parent = head
-	return gui, label
+	local tag = { Gui = gui, Team = team, Name = name, Info = info }
+	tags[model] = tag
+	return tag
 end
 
-local function updateBadge(model: Model, team: any, relation: string?, visible: boolean)
-	if not Config.Appearance.ShowTeamBadge then
+local function updateTag(model: Model, team: any, relation: string?, visible: boolean)
+	local tag = getTag(model)
+	if not tag then
 		return
 	end
+	if not visible then
+		tag.Gui.Enabled = false
+		return
+	end
+	tag.Gui.Enabled = true
 	local def = Teams.Get(team)
-	local gui, label = getBadge(model)
-	if not gui or not label then
-		return
+	if def and Config.Appearance.ShowTeamBadge then
+		tag.Team.Text = def.Display .. (relation and RELATION_SUFFIX[relation] or "")
+		tag.Team.TextColor3 = relation == "Prey" and Teams.PreyOutlineColor or relation == "Predator" and Teams.PredatorOutlineColor or def.Color
+	else
+		tag.Team.Text = ""
 	end
-	if not def or not visible then
-		gui.Enabled = false
-		return
-	end
-	gui.Enabled = true
-	label.Text = def.Display .. (relation and RELATION_SUFFIX[relation] or "")
-	label.BackgroundColor3 = def.DarkColor
-	label.TextColor3 = def.Color:Lerp(Color3.new(1, 1, 1), 0.35)
-	if relation == "Prey" then
-		label.TextColor3 = Teams.PreyOutlineColor
-	elseif relation == "Predator" then
-		label.TextColor3 = Teams.PredatorOutlineColor
+	local displayName = model:GetAttribute("DisplayName")
+	tag.Name.Text = type(displayName) == "string" and displayName or model.Name
+	local level = model:GetAttribute("Level")
+	local wins = model:GetAttribute("Wins")
+	if type(level) == "number" then
+		tag.Info.Text = string.format("Level %d · %d win%s", level, type(wins) == "number" and wins or 0, wins == 1 and "" or "s")
+	else
+		tag.Info.Text = ""
 	end
 end
 
@@ -141,14 +139,15 @@ local function update()
 	for model in tracked do
 		if model.Parent == nil then
 			tracked[model] = nil
+			tags[model] = nil
 			continue
 		end
 		local highlight = getHighlight(model)
 		if model == player.Character then
 			highlight.Enabled = false
-			local ownBadge = getBadge(model)
-			if ownBadge then
-				ownBadge.Enabled = false
+			local ownTag = tags[model]
+			if ownTag then
+				ownTag.Gui.Enabled = false
 			end
 			continue
 		end
@@ -173,8 +172,9 @@ local function update()
 		elseif relation == "Predator" then
 			color = Teams.PredatorOutlineColor
 		end
-		setNameVisible(model, not hidden or revealed)
-		updateBadge(model, team, relation, not hidden or revealed)
+		-- Le nom Roblox est remplacé par notre étiquette
+		setNameVisible(model, false)
+		updateTag(model, team, relation, not hidden or revealed)
 		if color then
 			table.insert(candidates, { Highlight = highlight, Color = color, Distance = distance, Carrier = carrier })
 		else

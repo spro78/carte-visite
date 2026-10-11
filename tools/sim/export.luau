@@ -54,6 +54,13 @@ local function exportGui(node)
 		out.yAlign = p.TextYAlignment and p.TextYAlignment.Name
 		out.rotation = p.Rotation
 		out.font = p.Font and p.Font.Name or "FredokaOne"
+		local face = p.FontFace
+		if face then
+			out.weight = face.Weight and face.Weight.Name or "Regular"
+			out.italic = face.Style == Enum.FontStyle.Italic
+			out.font = "Face"
+		end
+		out.rich = p.RichText == true
 	end
 	if p.Image and p.Image ~= "" then
 		out.image = p.Image
@@ -124,6 +131,7 @@ function Export.Parts(center, radius)
 					t = p.Transparency or 0,
 					material = p.Material and p.Material.Name or "Plastic",
 					neon = p.Material == Enum.Material.Neon,
+					studs = p.TopSurface == Enum.SurfaceType.Studs,
 				}
 				local guis = {}
 				for _, child in d:GetChildren() do

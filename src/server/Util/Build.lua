@@ -12,8 +12,10 @@ local Build = {}
 Build.Font = Enum.Font.GothamBold
 
 -- Crée une Part ancrée avec les propriétés données.
--- Clé spéciale : Accent = true garde la couleur telle quelle (gameplay) ;
--- sinon la couleur passe par le filtre de la direction artistique (Style).
+-- Clés spéciales :
+--   Accent = true : garde la couleur telle quelle (gameplay) ; sinon la couleur
+--                   passe par le filtre de la direction artistique (Style) ;
+--   Studs = true  : dessus à tenons (look Roblox classique).
 function Build.Part(props: { [string]: any }, parent: Instance?): Part
 	local part = Instance.new("Part")
 	part.Anchored = true
@@ -22,9 +24,14 @@ function Build.Part(props: { [string]: any }, parent: Instance?): Part
 	part.Material = Enum.Material.SmoothPlastic
 	local accent = props.Accent == true
 	for key, value in props do
-		if key ~= "Accent" then
+		if key ~= "Accent" and key ~= "Studs" then
 			(part :: any)[key] = value
 		end
+	end
+	if props.Studs == true then
+		-- Look Roblox classique : tenons sur le dessus
+		part.Material = Enum.Material.Plastic
+		part.TopSurface = Enum.SurfaceType.Studs
 	end
 	if not accent and part.Material ~= Enum.Material.Neon then
 		part.Color = Style.Environment(part.Color)

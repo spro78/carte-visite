@@ -106,11 +106,21 @@ function EconomyService.OnRoundEnd(participants: { Actor }, winner: string?, dur
 		if won then
 			DataService.AddStat(player, "Wins", 1)
 		end
+		local grand = total + entry.Captures + entry.Objectives
+		local profile = DataService.Get(player)
+		local xpBefore = profile and profile.XP or 0
+		local levelBefore, levelAfter = DataService.AddXP(player, grand + cfg.XPPerRound)
 		Remotes.Get("RoundReward"):FireClient(player, {
-			Total = total + entry.Captures + entry.Objectives,
+			Total = grand,
 			Lines = lines,
 			Won = won,
 			Multiplier = mult,
+			XPGained = grand + cfg.XPPerRound,
+			XPBefore = xpBefore,
+			LevelBefore = levelBefore,
+			Level = levelAfter,
+			XP = profile and profile.XP or 0,
+			XPNeeded = DataService.XPForLevel(levelAfter),
 		})
 	end
 	table.clear(ledger)

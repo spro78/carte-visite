@@ -22,6 +22,8 @@ export type GameState = {
 	WinReason: string?, -- "Objective" | "LastStanding" | "TimeUp" | "Draw"
 	BestHunter: string?, -- pseudo du meilleur chasseur
 	BestHunterCaptures: number?,
+	-- Podium de fin de manche : [catégorie] = { {Name, UserId, Value, Team} x3 }
+	Podium: { [string]: { { Name: string, UserId: number, Value: string, Team: string? } } }?,
 }
 
 -- Un acteur = un participant (vrai joueur ou bot)
@@ -35,6 +37,7 @@ export type Actor = {
 	RoundCaptures: number,
 	RoundObjectives: number,
 	LastCaughtAt: number,
+	BestSurvival: number, -- plus longue période sans être attrapé (secondes)
 	Data: any?, -- profil sauvegardé (joueurs seulement)
 }
 

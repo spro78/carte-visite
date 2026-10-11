@@ -1,9 +1,9 @@
 --[[
 	Style.lua
-	Direction artistique, inspirée de l'ambiance de Huss Valley :
-	géométrie simple "gray-box", palette industrielle froide et désaturée,
-	brume bleu-gris, lampes chaudes en contrepoint ; les couleurs vives sont
-	réservées au gameplay (équipes, objectifs, dangers).
+	Direction artistique, d'après les captures de Huss Valley (reference/) :
+	style Roblox classique, lumineux et saturé, plein jour, ciel bleu à nuages ;
+	sol vert à tenons, pierre gris-bleu, blocs jaunes, arbres en cubes aux couleurs
+	d'automne, maisons turquoise à toit vert.
 
 	Style.Environment(color) est appliqué automatiquement par Build.Part à
 	toutes les pièces de décor ; une pièce marquée Accent = true garde sa couleur.
@@ -13,69 +13,82 @@ local Style = {}
 
 Style.Enabled = true
 
--- Réglages du filtre de couleur appliqué au décor
+-- Filtre de couleur appliqué au décor (ici : couleurs légèrement ravivées)
 Style.Filter = {
-	Saturation = 0.55, -- 1 = couleurs d'origine, 0 = gris
-	Brightness = 0.92,
-	Tint = Color3.fromRGB(176, 190, 208), -- teinte froide
-	TintAmount = 0.12,
+	Saturation = 1.08,
+	Brightness = 1.0,
+	Tint = Color3.fromRGB(255, 255, 255),
+	TintAmount = 0,
 }
 
--- Palette nommée (utilisée par le lobby et les maps)
+-- Palette nommée (lobby et maps)
 Style.Palette = {
-	Concrete = Color3.fromRGB(96, 100, 108),
-	ConcreteLight = Color3.fromRGB(150, 155, 163),
-	ConcreteDark = Color3.fromRGB(62, 66, 74),
-	Steel = Color3.fromRGB(70, 76, 86),
-	SteelLight = Color3.fromRGB(165, 172, 182),
-	Panel = Color3.fromRGB(190, 196, 204),
-	PanelAlt = Color3.fromRGB(172, 178, 188),
-	Hazard = Color3.fromRGB(255, 190, 30),
-	HazardDark = Color3.fromRGB(35, 35, 40),
-	LampWarm = Color3.fromRGB(255, 170, 80),
-	Screen = Color3.fromRGB(14, 16, 22),
-	ScreenText = Color3.fromRGB(235, 240, 248),
-	Rust = Color3.fromRGB(150, 85, 55),
-	Wood = Color3.fromRGB(140, 105, 75),
-	ContainerBlue = Color3.fromRGB(45, 95, 150),
-	ContainerOrange = Color3.fromRGB(205, 110, 45),
+	Grass = Color3.fromRGB(64, 178, 72),
+	GrassDark = Color3.fromRGB(48, 150, 58),
+	Stone = Color3.fromRGB(150, 160, 182),
+	StoneDark = Color3.fromRGB(116, 126, 150),
+	BlockYellow = Color3.fromRGB(245, 200, 45),
+	Trunk = Color3.fromRGB(110, 75, 50),
+	LeafOrange = Color3.fromRGB(255, 132, 38),
+	LeafRed = Color3.fromRGB(232, 72, 40),
+	LeafYellow = Color3.fromRGB(255, 190, 40),
+	HouseWall = Color3.fromRGB(110, 210, 180),
+	HouseRoof = Color3.fromRGB(40, 120, 70),
+	Garage = Color3.fromRGB(110, 125, 150),
+	BoardGray = Color3.fromRGB(118, 124, 136),
+	WheelBlue = Color3.fromRGB(30, 120, 240),
+	GiftRed = Color3.fromRGB(230, 40, 45),
+	PortalDark = Color3.fromRGB(40, 32, 92),
+	PortalGlow = Color3.fromRGB(170, 80, 255),
+	PadBlue = Color3.fromRGB(70, 130, 230),
+	Wood = Color3.fromRGB(125, 85, 55),
+	White = Color3.fromRGB(245, 245, 245),
+	Screen = Color3.fromRGB(18, 22, 40),
+	ScreenText = Color3.fromRGB(245, 248, 255),
+	Gold = Color3.fromRGB(255, 205, 50),
 }
 
 -- Éclairage global (appliqué au démarrage du serveur)
 Style.Lighting = {
-	ClockTime = 15.6,
-	Brightness = 2.6,
-	Ambient = Color3.fromRGB(62, 68, 80),
-	OutdoorAmbient = Color3.fromRGB(128, 136, 150),
-	EnvironmentDiffuseScale = 1,
-	EnvironmentSpecularScale = 0.6,
+	ClockTime = 13.5,
+	Brightness = 3,
+	Ambient = Color3.fromRGB(110, 110, 120),
+	OutdoorAmbient = Color3.fromRGB(150, 150, 160),
+	EnvironmentDiffuseScale = 0.6,
+	EnvironmentSpecularScale = 0.3,
 	GlobalShadows = true,
-	ShadowSoftness = 0.25,
-	FogColor = Color3.fromRGB(170, 180, 194),
-	FogStart = 150,
-	FogEnd = 1400,
+	ShadowSoftness = 0.2,
+	FogColor = Color3.fromRGB(200, 225, 255),
+	FogStart = 400,
+	FogEnd = 3000,
 }
 
 Style.Atmosphere = {
-	Density = 0.32,
-	Offset = 0.15,
-	Color = Color3.fromRGB(196, 205, 216),
-	Decay = Color3.fromRGB(104, 112, 126),
-	Glare = 0.15,
-	Haze = 1.4,
+	Density = 0.18,
+	Offset = 0.05,
+	Color = Color3.fromRGB(205, 228, 255),
+	Decay = Color3.fromRGB(150, 180, 220),
+	Glare = 0,
+	Haze = 0.6,
 }
 
 Style.ColorCorrection = {
-	Brightness = 0.02,
-	Contrast = 0.12,
-	Saturation = -0.12,
-	TintColor = Color3.fromRGB(238, 244, 255),
+	Brightness = 0.03,
+	Contrast = 0.06,
+	Saturation = 0.15,
+	TintColor = Color3.fromRGB(255, 255, 255),
 }
 
 Style.Bloom = {
-	Intensity = 0.45,
-	Size = 24,
-	Threshold = 1.15,
+	Intensity = 0.35,
+	Size = 20,
+	Threshold = 1.4,
+}
+
+Style.Clouds = {
+	Cover = 0.55,
+	Density = 0.6,
+	Color = Color3.fromRGB(255, 255, 255),
 }
 
 -- Filtre de couleur pour le décor
@@ -89,7 +102,10 @@ function Style.Environment(color: Color3): Color3
 	local g = gray + (color.G - gray) * f.Saturation
 	local b = gray + (color.B - gray) * f.Saturation
 	local result = Color3.new(math.clamp(r * f.Brightness, 0, 1), math.clamp(g * f.Brightness, 0, 1), math.clamp(b * f.Brightness, 0, 1))
-	return result:Lerp(f.Tint, f.TintAmount)
+	if f.TintAmount > 0 then
+		result = result:Lerp(f.Tint, f.TintAmount)
+	end
+	return result
 end
 
 return Style

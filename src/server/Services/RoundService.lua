@@ -328,6 +328,7 @@ local function resetResults()
 	state.WinReason = nil
 	state.BestHunter = nil
 	state.BestHunterCaptures = nil
+	state.Podium = nil
 	state.Scores = {}
 	state.ScoreGoal = nil
 	state.ScoreLabel = nil
@@ -406,6 +407,7 @@ local function setupRound()
 		actor.RoundCaptures = 0
 		actor.RoundObjectives = 0
 		actor.LastCaughtAt = os.clock()
+		actor.BestSurvival = 0
 	end
 	TeamService.AssignBalanced(humans)
 
@@ -417,6 +419,7 @@ local function setupRound()
 			bot.RoundCaptures = 0
 			bot.RoundObjectives = 0
 			bot.LastCaughtAt = os.clock()
+			bot.BestSurvival = 0
 		end
 	end
 
@@ -527,6 +530,42 @@ local function computeBestHunter()
 	end
 	state.BestHunter = best and best.Name or nil
 	state.BestHunterCaptures = best and bestCount or nil
+
+	-- Podium : meilleur joueur, plus longue survie, captures
+	local now = os.clock()
+	local rows = {}
+	for _, actor in RoundState.GetParticipants() do
+		local survival = math.max(actor.BestSurvival or 0, now - actor.LastCaughtAt)
+		table.insert(rows, {
+			Actor = actor,
+			Survival = survival,
+			Catches = actor.RoundCaptures,
+			Score = actor.RoundCaptures * 10 + actor.RoundObjectives * 15 + survival / 5,
+		})
+	end
+	local function top(key: string, format: (any) -> string)
+		table.sort(rows, function(a, b)
+			return a[key] > b[key]
+		end)
+		local list = {}
+		for i = 1, math.min(3, #rows) do
+			local row = rows[i]
+			local userId = row.Actor.Player and row.Actor.Player.UserId or 0
+			table.insert(list, { Name = row.Actor.Name, UserId = userId, Value = format(row), Team = row.Actor.Team })
+		end
+		return list
+	end
+	state.Podium = {
+		MVP = top("Score", function(row)
+			return string.format("%d pts", math.floor(row.Score))
+		end),
+		Survival = top("Survival", function(row)
+			return string.format("%.1fs", row.Survival)
+		end),
+		Catches = top("Catches", function(row)
+			return tostring(row.Catches)
+		end),
+	}
 end
 
 local function playRound()
@@ -618,6 +657,7 @@ local function onActorAdded(actor: Actor)
 				actor.RoundCaptures = 0
 				actor.RoundObjectives = 0
 				actor.LastCaughtAt = os.clock()
+				actor.BestSurvival = 0
 				TeamService.SetTeam(actor, team)
 				if cframe then
 					teleport(actor, cframe)

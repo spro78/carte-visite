@@ -196,6 +196,25 @@ Config.Lobby = {
 }
 
 -- ---------------------------------------------------------------------------
+-- Roue de récompense du lobby (gratuite toutes les X heures)
+-- ---------------------------------------------------------------------------
+Config.DailySpin = {
+	CooldownHours = 4,
+	SpinSeconds = 3.5,
+	-- Récompenses : Kind = "Coins" ou "Consumable" ; Weight = probabilité relative
+	Rewards = {
+		{ Kind = "Coins", Amount = 25, Weight = 30, Label = "25 coins" },
+		{ Kind = "Consumable", Item = "Shield", Amount = 1, Weight = 15, Label = "Shield" },
+		{ Kind = "Coins", Amount = 75, Weight = 20, Label = "75 coins" },
+		{ Kind = "Consumable", Item = "Trap", Amount = 1, Weight = 12, Label = "Trap" },
+		{ Kind = "Coins", Amount = 150, Weight = 10, Label = "150 coins" },
+		{ Kind = "Consumable", Item = "SpeedBoost", Amount = 2, Weight = 8, Label = "2 Boosts" },
+		{ Kind = "Coins", Amount = 500, Weight = 3, Label = "500 coins" },
+		{ Kind = "Consumable", Item = "Decoy", Amount = 2, Weight = 2, Label = "2 Decoys" },
+	},
+}
+
+-- ---------------------------------------------------------------------------
 -- Maps : valeurs d'équilibrage de chaque mode et mécanisme
 -- ---------------------------------------------------------------------------
 Config.Maps = {
@@ -274,6 +293,7 @@ Config.Economy = {
 	CoinsForWin = 25,
 	CoinsForParticipation = 5,
 	StartingCoins = 50,
+	XPPerRound = 20, -- expérience de base par manche (+ 1 XP par pièce gagnée)
 }
 
 -- ---------------------------------------------------------------------------

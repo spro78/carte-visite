@@ -68,6 +68,7 @@ local function newActor(id: string, name: string, player: Player?, isBot: boolea
 		RoundCaptures = 0,
 		RoundObjectives = 0,
 		LastCaughtAt = 0,
+		BestSurvival = 0,
 		Data = nil,
 	}
 end

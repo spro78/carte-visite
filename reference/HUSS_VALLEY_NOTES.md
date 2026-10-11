@@ -1,4 +1,57 @@
-# Huss Valley (Roblox) : notes de référence pour le lobby de "Hunt or Hide"
+# Huss Valley (Roblox) : notes de référence pour "Hunt or Hide"
+
+## A. Ce que montrent les captures fournies par Malcom (11/10/2026) - VÉRIFIÉ
+
+Trois captures du lobby et de l'écran de fin de match. Elles remplacent les
+déductions de la section "Proposition" plus bas (qui supposait à tort une
+ambiance industrielle grise).
+
+**Décor du lobby**
+- Style Roblox classique, lumineux et saturé ; ciel bleu avec nuages, plein jour.
+- Sol vert vif à motif de tenons (dalles carrées) ; une grande zone de pierre
+  gris-bleu avec une ligne blanche (terrain) ; blocs jaunes "à tenons" empilés.
+- Arbres "en cubes" : tronc brun, feuillage fait de gros cubes orange, rouges,
+  jaunes (automne) posés de travers.
+- Maisons au fond : murs turquoise, toits vert foncé, portes de garage gris-bleu.
+- Grands murs gris de classement, posés en biais, texte blanc : "TOP 50 · plus de
+  victoires", niveau, survivant, captures.
+- Une grande roue de récompense (bleu/blanc, quartiers "500 pièces", "Grande dague
+  CAPACITÉ") sur un pied bleu ; un cadeau géant rouge à ruban jaune ("Récompense") ;
+  un portail en anneau violet sombre avec particules violettes ; des plateformes
+  rondes bleues au sol ; des écrans d'équipe sur poteaux ; un enclos en bois.
+
+**Personnages**
+- Avatars Roblox R6 conservés tels quels.
+- Au-dessus de la tête : nom d'équipe en couleur ("TEAM FÚTBOL"), pseudo en gros
+  blanc contouré, puis une ligne grise "Niveau 6 · 12 victoires".
+
+**Interface**
+- En haut à gauche, après les boutons Roblox : pastilles noires arrondies en gras
+  ("QUÊTES", "EVENT") avec pastille rouge "!".
+- En haut à droite : boutons bleu nuit à bord clair ("SERVEURS", "Journal des quêtes").
+- Colonne gauche : petits boutons carrés sombres (MENU, ÉMOTE, AFK, OBSERVER).
+- En haut au centre : petit libellé "SALON", grand message blanc contouré, sous-ligne
+  "Prochain match bientôt · 0:13".
+- En bas à gauche : panneaux de monnaie sombres translucides (icône pièce dorée,
+  "2,499 PIÈCES [2X]", gemmes vertes).
+- En bas au centre : cartes d'objets équipés ("CAPACITÉ · Bouclier d'un coup ·
+  ÉQUIPÉ", "Piège pour ours") puis "ESPACE · SPRINT" et une longue barre
+  ("Prêt pour le sprint" / "Déplacer, puis tourner + sprint").
+- Fin de match : panneau sombre à bord noir épais, titre gras italique contouré
+  ("Les poursuivants gagnent"), sous-titre vert ("Plus longue survie"), onglets
+  "Meilleur joueur / Survie / Captures", podium de 3 portraits d'avatars (#1 doré au
+  centre, #2 turquoise, #3 gris) avec la valeur ("42.8s"), "Prêt pour le prochain
+  match" en doré, barre d'expérience "Niveau 6 · 248/275 d'EXP · Niveau 7".
+- Typographie : sans-serif très grasse, souvent en italique, avec contour sombre.
+
+**Ce que Hunt or Hide reprend (avec des éléments originaux)**
+Ambiance lumineuse et cubique, disposition du lobby (classements en murs, roue,
+cadeau, portail, plateformes de vote), placement de l'interface, étiquettes au-dessus
+des têtes, écran de résultats en podium avec niveau. Aucun texte, logo ni asset
+n'est copié.
+
+---
+
 
 > But : servir de référence d'ambiance et de layout pour un lobby **original**. Aucun asset, logo ni texte ne doit être copié.
 > Recherche faite le 2026-10-11.
@@ -58,7 +111,7 @@
 - Le lobby donne accès à ces fonctions : choix et équipement de la capacité (loadout), boutique Gems et Coins, récompenses gratuites ou roue de capacités, leaderboard (Y), journal (J), tâches (T), choix d'équipe pour l'événement, serveurs privés. **[S]** (on sait que ces fonctions existent, pas où elles se trouvent)
 - **Forme, taille, couleurs, matériaux, éclairage, décor : AUCUNE information vérifiable.** Aucune image n'a été vue.
 
-## 6. Proposition de layout de lobby pour "Hunt or Hide" **[I : entièrement inféré]**
+## 6. (OBSOLÈTE, remplacé par la section A) Proposition de layout inférée
 
 L'idée : reprendre l'esprit "vallée froide, crépuscule, village industriel" et l'organisation fonctionnelle d'un lobby de jeu de tag Roblox, avec un design 100 % original.
 
