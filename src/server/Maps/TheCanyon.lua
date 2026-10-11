@@ -41,12 +41,13 @@ Map.Lighting = {
 
 local cfg = Config.Maps.TheCanyon
 local BUCKET_HEIGHT = 2.5
--- Roche brun-rouge et crème en strates : jamais l'orange des renards (bible, §1)
-local ROCK = Color3.fromRGB(170, 70, 66)
-local ROCK_DARK = Color3.fromRGB(140, 58, 56)
-local ROCK_CREAM = Color3.fromRGB(236, 214, 182)
+-- Roche terre cuite douce, en trois strates du sombre au clair : moins saturée
+-- que l'orange des renards, qui reste seul à « claquer » (bible, §1)
+local ROCK = Color3.fromRGB(184, 116, 94)
+local ROCK_DARK = Color3.fromRGB(150, 92, 78)
+local ROCK_LIGHT = Color3.fromRGB(212, 160, 128)
 local SAND_TOP = Color3.fromRGB(228, 204, 156)
-local STRATA = { ROCK_DARK, ROCK, ROCK_CREAM, ROCK }
+local STRATA = { ROCK_DARK, ROCK, ROCK_LIGHT }
 
 -- Sable clair à tenons, chemins de terre battue, gradins en strates brun-rouge
 local THEME: MapBase.ArenaTheme = {
@@ -231,7 +232,7 @@ local function buildMine(parent: Instance, center: Vector3)
 	local lintel = Instance.new("Model")
 	lintel.Name = "MineLintelRock"
 	local y = 11
-	for i, color in { ROCK_CREAM, ROCK } do
+	for i, color in { ROCK_LIGHT, ROCK } do
 		local h = i == 1 and 7 or mesaH - 18
 		Build.Part({ Name = "Stratum", Size = Vector3.new(10.5, h, mesaL - 2), CFrame = tunnel * CFrame.new(0, y + h / 2, 0), Color = color }, lintel)
 		y += h
@@ -285,10 +286,10 @@ local function buildRockArch(parent: Instance, center: Vector3)
 	-- Arche en blocs : deux piliers en strates et une poutre de roche
 	local arch = CFrame.lookAt(center, center + tangent)
 	for _, s in { -1, 1 } do
-		Ground.Butte(arch * CFrame.new(0, 0, s * 11), 9, 9, 19, { ROCK_DARK, ROCK, ROCK_CREAM }, nil, MapBase.Random())
+		Ground.Butte(arch * CFrame.new(0, 0, s * 11), 9, 9, 19, { ROCK_DARK, ROCK, ROCK_LIGHT }, nil, MapBase.Random())
 	end
 	Build.Part({ Name = "ArchBeam", Size = Vector3.new(8, 4, 31), CFrame = arch * CFrame.new(0, 21, 0), Color = ROCK }, parent)
-	Build.Part({ Name = "ArchCap", Size = Vector3.new(8.6, 1.4, 31.6), CFrame = arch * CFrame.new(0, 23.7, 0), Color = ROCK_CREAM, Studs = true }, parent)
+	Build.Part({ Name = "ArchCap", Size = Vector3.new(8.6, 1.4, 31.6), CFrame = arch * CFrame.new(0, 23.7, 0), Color = ROCK_LIGHT, Studs = true }, parent)
 	local random = MapBase.Random()
 	for _ = 1, 7 do
 		local ang = random:NextNumber(0, math.pi * 2)

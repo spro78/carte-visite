@@ -401,42 +401,69 @@ end
 -- Montagnes russes sur les collines (grande silhouette) : boucle fermée,
 -- piliers jusqu'au relief, wagons colorés
 local function buildCoaster(parent: Instance, center: Vector3, rx: number, rz: number)
+	-- Montagnes russes en fond : voie pleine (lisible de loin), pylônes doubles
+	-- entretoisés jusqu'au sol des terrasses, gare au point bas et train à quai
 	local model = Instance.new("Model")
 	model.Name = "RollerCoaster"
-	local steps = 64
+	local steps = 72
 	local points = {}
+	local lowest, lowestIndex = math.huge, 1
 	for i = 0, steps do
 		local t = i / steps * math.pi * 2
 		local x = center.X + math.cos(t) * rx
 		local z = center.Z + math.sin(t) * rz
 		local ground = Ground.HeightAt(x, z)
-		local y = math.max(ground + 6, center.Y + 22 + 16 * math.sin(t * 2) + 8 * math.sin(t * 3 + 1))
+		-- Une grande montée (lift) puis des bosses de plus en plus petites
+		local y = ground + 7 + math.max(0, 30 * math.sin(t) ^ 3) + 7 * (1 + math.sin(t * 3 + 0.6))
 		points[i + 1] = Vector3.new(x, y, z)
+		if i < steps and y - ground < lowest then
+			lowest, lowestIndex = y - ground, i + 1
+		end
 	end
+	local WHITE = Color3.fromRGB(246, 244, 240)
 	for i = 1, steps do
 		local a, b = points[i], points[i + 1]
 		local cf = CFrame.lookAt((a + b) / 2, b)
-		local length = (b - a).Magnitude
-		for _, x in { -1.4, 1.4 } do
-			Build.Part(deco({ Name = "Rail", Size = Vector3.new(0.5, 0.5, length + 0.3), CFrame = cf * CFrame.new(x, 0, 0), Color = RED, Material = Enum.Material.Metal }), model)
+		local length = (b - a).Magnitude + 0.4
+		Build.Part(deco({ Name = "TrackBed", Size = Vector3.new(3.8, 0.6, length), CFrame = cf * CFrame.new(0, -0.5, 0), Color = WHITE }), model)
+		for _, x in { -1.5, 1.5 } do
+			Build.Part(deco({ Name = "Rail", Size = Vector3.new(0.5, 0.5, length), CFrame = cf * CFrame.new(x, 0, 0), Color = RED, Material = Enum.Material.Metal }), model)
 		end
-		Build.Part(deco({ Name = "Spine", Size = Vector3.new(0.8, 0.8, length + 0.3), CFrame = cf * CFrame.new(0, -0.9, 0), Color = CREAM, Material = Enum.Material.Metal }), model)
-		Build.Part(deco({ Name = "Tie", Size = Vector3.new(3.4, 0.3, 0.5), CFrame = cf * CFrame.new(0, -0.3, 0), Color = CREAM }), model)
-		if i % 3 == 0 then
+		if i % 2 == 0 then
 			local ground = Ground.HeightAt(a.X, a.Z)
-			local h = a.Y - ground
+			local h = a.Y - 0.8 - ground
 			if h > 2 then
-				Build.Part(deco({ Name = "Pillar", Size = Vector3.new(0.9, h, 0.9), Position = Vector3.new(a.X, ground + h / 2 - 1, a.Z), Color = CREAM, Material = Enum.Material.Metal }), model)
+				local side = cf.RightVector
+				for _, sgn in { -1, 1 } do
+					local foot = a + side * sgn * 1.6
+					Build.Part(deco({ Name = "Pillar", Size = Vector3.new(1, h, 1), Position = Vector3.new(foot.X, ground + h / 2, foot.Z), Color = WHITE, Material = Enum.Material.Metal }), model)
+				end
+				-- Entretoises horizontales tous les 8 studs
+				for y = ground + 6, a.Y - 3, 8 do
+					Build.Part(deco({ Name = "Brace", Size = Vector3.new(3.6, 0.5, 0.5), CFrame = CFrame.new(a.X, y, a.Z) * (cf - cf.Position), Color = WHITE, Material = Enum.Material.Metal }), model)
+				end
 			end
 		end
 	end
-	-- Train de 3 wagons
-	for k = 0, 2 do
-		local a, b = points[8 + k * 2], points[9 + k * 2]
-		local cf = CFrame.lookAt(a, b)
-		local color = ({ GOLD, BLUE, MINT })[k + 1]
-		Build.Part(deco({ Name = "Car", Size = Vector3.new(3.4, 1.8, 3.6), CFrame = cf * CFrame.new(0, 1.2, 0), Color = color }), model)
-		Build.Part(deco({ Name = "CarSeat", Size = Vector3.new(3, 1.2, 1), CFrame = cf * CFrame.new(0, 2.4, 1.2), Color = Color3.fromRGB(40, 40, 46) }), model)
+	-- Gare au point bas : quai, toit rayé, train de 4 voitures à quai
+	local a, b = points[lowestIndex], points[lowestIndex + 1]
+	local station = CFrame.lookAt(Vector3.new(a.X, Ground.HeightAt(a.X, a.Z), a.Z), Vector3.new(b.X, Ground.HeightAt(a.X, a.Z), b.Z))
+	local deck = a.Y - 1 - station.Position.Y
+	Build.Part({ Name = "StationDeck", Size = Vector3.new(8, deck, 22), CFrame = station * CFrame.new(-5.5, deck / 2, 0), Color = CREAM, Material = Enum.Material.WoodPlanks }, model)
+	for _, z in { -10, 10 } do
+		for _, x in { -9, 1.8 } do
+			Build.Part(deco({ Name = "StationPost", Size = Vector3.new(0.8, 9, 0.8), CFrame = station * CFrame.new(x, deck + 4.5, z), Color = WHITE }), model)
+		end
+	end
+	for k = 0, 5 do
+		Build.Part(deco({ Name = "StationRoof", Size = Vector3.new(13, 0.8, 22 / 6), CFrame = station * CFrame.new(-3.6, deck + 9.4, -11 + (k + 0.5) * 22 / 6), Color = k % 2 == 0 and RED or WHITE, Material = Enum.Material.Fabric }), model)
+	end
+	local trainCf = CFrame.lookAt(a, b)
+	for k = 0, 3 do
+		local car = trainCf * CFrame.new(0, 0, 2 - k * 4.4)
+		local color = ({ RED, BLUE, MINT, PINK })[k + 1]
+		Build.Part(deco({ Name = "Car", Size = Vector3.new(3.6, 1.8, 3.8), CFrame = car * CFrame.new(0, 1.2, 0), Color = color }), model)
+		Build.Part(deco({ Name = "CarSeat", Size = Vector3.new(3.2, 1.2, 1), CFrame = car * CFrame.new(0, 2.4, 1.2), Color = Color3.fromRGB(40, 40, 46) }), model)
 	end
 	model.Parent = parent
 end

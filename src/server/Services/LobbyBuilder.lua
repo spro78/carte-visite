@@ -29,6 +29,7 @@ local Mechanics = require(Shared.Mechanics)
 local Build = require(script.Parent.Parent.Util.Build)
 local Props = require(script.Parent.Parent.Util.Props)
 local TerrainKit = require(script.Parent.Parent.Util.TerrainKit)
+local Ground = require(script.Parent.Parent.Util.Ground)
 
 local LobbyBuilder = {}
 
@@ -87,27 +88,28 @@ end
 -- ---------------------------------------------------------------------------
 -- Sol, enceinte, village autour
 -- ---------------------------------------------------------------------------
+-- Sol en pièces, comme les maps (reference/BIBLE_VISUELLE.md) : pelouse à
+-- tenons en bandes, place en dalles claires, allées, terrasses de blocs au loin
 local function buildGround(parent: Folder, origin: Vector3)
 	local size = Config.Lobby.Size
 	local random = Random.new(31)
-	TerrainKit.ResetRelief(origin.Y)
-	-- Vallée en Terrain autour du lobby (collines, forêts, montagnes au loin)
-	TerrainKit.Valley(origin, size + 120, { Ground = Enum.Material.Grass, Hill = Enum.Material.Grass, Rock = Enum.Material.Rock, Height = 90, Gap = 20, RockChance = 0.4 }, random)
-	TerrainKit.Slab(origin, size + 128, size + 128, origin.Y, 16, Enum.Material.Grass)
-	-- Place pavée au nord (vote + portail), allées vers chaque attraction
-	TerrainKit.Paint(CFrame.new(origin + Vector3.new(0, 0, -38)), 92, 56, origin.Y, Enum.Material.Cobblestone)
-	TerrainKit.PaintDisc(origin, 22, origin.Y, Enum.Material.Cobblestone)
-	TerrainKit.Path({ origin, origin + Vector3.new(0, 0, 60) }, 12, origin.Y, Enum.Material.Pavement)
-	TerrainKit.Path({ origin, origin + Vector3.new(-48, 0, 34) }, 9, origin.Y, Enum.Material.Pavement)
-	TerrainKit.Path({ origin, origin + Vector3.new(44, 0, -6) }, 9, origin.Y, Enum.Material.Pavement)
-	TerrainKit.Path({ origin, origin + Vector3.new(-46, 0, -8) }, 9, origin.Y, Enum.Material.Pavement)
-	TerrainKit.Path({ origin + Vector3.new(14, 0, 18), origin + Vector3.new(36, 0, 40) }, 8, origin.Y, Enum.Material.Pavement)
-	for _ = 1, 10 do
-		local p = origin + Vector3.new(random:NextNumber(-60, 60), 0, random:NextNumber(10, 60))
-		TerrainKit.PaintDisc(p, random:NextNumber(5, 9), origin.Y, Enum.Material.LeafyGrass)
-	end
-	-- Ligne blanche du terrain de jeu (comme la référence)
-	Build.Part({ Name = "PlazaLine", Size = Vector3.new(84, 0.06, 0.8), Position = origin + Vector3.new(0, 0.05, -13), Color = P.White, CanCollide = false, Accent = true }, parent)
+	TerrainKit.Clear(origin + Vector3.new(0, 60, 0), Vector3.new(size + 400, 200, size + 400))
+	Ground.Begin(parent, origin.Y, {
+		Cobblestone = Color3.fromRGB(186, 190, 204), -- dalles de la place
+		Pavement = Color3.fromRGB(226, 218, 202), -- allées
+	})
+	Ground.Board(origin, size, Color3.fromRGB(92, 184, 80), Color3.fromRGB(80, 168, 70), 20)
+	Ground.Terraces(origin, size, { Side = Color3.fromRGB(112, 130, 166), Top = Color3.fromRGB(92, 176, 78), Gap = 54, Heights = { 12, 26, 46 } }, random)
+	-- Place au nord (vote + portail), rond du spawn, allées vers chaque attraction
+	Ground.Paint(CFrame.new(origin + Vector3.new(0, 0, -38)), 92, 56, origin.Y, Enum.Material.Cobblestone)
+	Ground.PaintDisc(origin, 22, origin.Y, Enum.Material.Cobblestone)
+	Ground.Path({ origin, origin + Vector3.new(0, 0, 60) }, 12, origin.Y, Enum.Material.Pavement)
+	Ground.Path({ origin, origin + Vector3.new(-48, 0, 34) }, 9, origin.Y, Enum.Material.Pavement)
+	Ground.Path({ origin, origin + Vector3.new(44, 0, -6) }, 9, origin.Y, Enum.Material.Pavement)
+	Ground.Path({ origin, origin + Vector3.new(-46, 0, -8) }, 9, origin.Y, Enum.Material.Pavement)
+	Ground.Path({ origin + Vector3.new(14, 0, 18), origin + Vector3.new(36, 0, 40) }, 8, origin.Y, Enum.Material.Pavement)
+	-- Ligne blanche de la place
+	Build.Part({ Name = "PlazaLine", Size = Vector3.new(84, 0.06, 0.8), Position = origin + Vector3.new(0, 0.6, -13), Color = P.White, CanCollide = false, Accent = true }, parent)
 end
 
 local function buildEnclosure(parent: Folder, origin: Vector3)
@@ -167,12 +169,9 @@ local function buildEnclosure(parent: Folder, origin: Vector3)
 			Shutters = Color3.fromRGB(70, 110, 160),
 		})
 	end
-	-- Arbres et clôtures blanches entre les maisons
-	for _ = 1, 40 do
-		local a = random:NextNumber(0, math.pi * 2)
-		local d = random:NextNumber(half + 46, half + 120)
-		local p = origin + Vector3.new(math.cos(a) * d, 0, math.sin(a) * d)
-		Props.Tree(parent, TerrainKit.Ground(p) - Vector3.new(0, 0.6, 0), random:NextNumber(1, 1.4), { "Block", "Round", "Block", "Green" })
+	-- Arbres en cubes sur les terrasses, derrière le village
+	for _, spot in Ground.TerraceSpots(46, random) do
+		Props.Tree(parent, spot - Vector3.new(0, 0.2, 0), random:NextNumber(1, 1.4), { "Block", "Block", "Green" })
 	end
 end
 
