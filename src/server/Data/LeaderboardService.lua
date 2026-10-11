@@ -70,13 +70,14 @@ end
 
 function LeaderboardService.Init(lobby: any)
 	task.spawn(function()
-		task.wait(5)
+		-- Premier affichage tout de suite (le temps que DataService ouvre ses stores)
+		task.wait(1)
 		while true do
 			if DataService.IsStoreAvailable() then
 				LeaderboardService.Refresh(lobby)
 			else
-				lobby.SetLeaderboard("Wins", { { "Leaderboards need", "" }, { "API access enabled", "" } })
-				lobby.SetLeaderboard("Captures", { { "Leaderboards need", "" }, { "API access enabled", "" } })
+				lobby.SetLeaderboardMessage("Wins", "Leaderboards need\nAPI access enabled")
+				lobby.SetLeaderboardMessage("Captures", "Leaderboards need\nAPI access enabled")
 			end
 			task.wait(Config.Lobby.LeaderboardRefreshSeconds)
 		end

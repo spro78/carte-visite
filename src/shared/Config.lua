@@ -11,7 +11,7 @@ local Config = {}
 -- ---------------------------------------------------------------------------
 Config.Round = {
 	MinPlayersToStart = 1, -- une manche peut se lancer avec un seul vrai joueur (les bots complètent)
-	IntermissionSeconds = 15, -- lobby + vote de map (court : on joue vite)
+	IntermissionSeconds = 20, -- lobby + vote de map (cahier des charges : 20 s)
 	CountdownSeconds = 5, -- compte à rebours, bases protégées
 	BaseProtectionSeconds = 2, -- protection supplémentaire après le "GO!"
 	RoundSeconds = 240, -- durée maximale d'une manche (4 minutes)
@@ -20,7 +20,11 @@ Config.Round = {
 	MinTeamsForLastStanding = 2, -- "dernière équipe debout" seulement si >= 2 équipes au départ
 	StateBroadcastInterval = 1, -- secondes entre deux envois d'état aux clients
 	FreezeDuringCountdown = true, -- les joueurs ne peuvent pas quitter leur base pendant le décompte
-	LateJoinSeconds = 120, -- un joueur qui arrive rejoint la manche en cours pendant ses 2 premières minutes
+	-- Arrivée en cours de manche : le joueur prend la place d'un bot s'il y en a un
+	-- (Config.Bots.JoinerReplacesBot), sinon il attend en spectateur (cahier des
+	-- charges). Mettre une durée > 0 pour le faire entrer dans la plus petite
+	-- équipe pendant les N premières secondes (désactivé par défaut).
+	LateJoinSeconds = 0,
 }
 
 -- ---------------------------------------------------------------------------

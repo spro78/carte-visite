@@ -239,6 +239,35 @@ check(advanceUntil(function()
 end, 300, 1), "écran de résultats atteint")
 local state = server.RoundService.GetState()
 check(state.Winner ~= nil, "un vainqueur est désigné : " .. tostring(state.Winner) .. " (" .. tostring(state.WinReason) .. ")")
+-- L'explication affichée correspond à la règle appliquée par le serveur
+local TeamsMod
+Engine.Run("server", function()
+	TeamsMod = World.Require(World.game.ReplicatedStorage.Shared.Teams)
+end)
+local winnerDef = TeamsMod.Get(state.Winner)
+local detail = state.WinDetail or ""
+local detailOk = detail ~= ""
+if winnerDef then
+	detailOk = detailOk and string.find(detail, winnerDef.Plural, 1, true) ~= nil
+end
+if state.WinReason == "LastStanding" then
+	detailOk = detailOk and string.find(detail, "converted everyone", 1, true) ~= nil
+elseif state.WinReason == "TimeUp" and not (server.RoundState.Map and server.RoundState.Map.ResolveTimeUp) then
+	detailOk = detailOk and (string.find(detail, "biggest team", 1, true) ~= nil or string.find(detail, "tied in size", 1, true) ~= nil)
+end
+check(detailOk, "explication cohérente avec la règle : \"" .. detail .. "\"")
+Engine.Advance(0.5)
+local resultsHud = alice.PlayerGui:FindFirstChild("HuntOrHideHUD")
+local feedFrame = resultsHud and resultsHud:FindFirstChild("KillFeed")
+local feedLines = 0
+if feedFrame then
+	for _, child in feedFrame:GetChildren() do
+		if child.Name == "Line" then
+			feedLines += 1
+		end
+	end
+end
+check(feedFrame ~= nil and (feedFrame.Visible == false or feedLines == 0), "fil des captures vidé et masqué sur l'écran de résultats")
 check(advanceUntil(function()
 	return phase() == "Intermission"
 end, 40), "retour à l'intermission")

@@ -50,6 +50,7 @@ local state: GameState = {
 	ScoreLabel = nil,
 	Winner = nil,
 	WinReason = nil,
+	WinDetail = nil,
 	BestHunter = nil,
 	BestHunterCaptures = nil,
 }
@@ -369,6 +370,7 @@ local function resetResults()
 	state.MapId = nil
 	state.Winner = nil
 	state.WinReason = nil
+	state.WinDetail = nil
 	state.BestHunter = nil
 	state.BestHunterCaptures = nil
 	state.Podium = nil
@@ -525,10 +527,27 @@ local function checkLastTeamStanding(): boolean
 	return false
 end
 
+-- Phrase qui explique la victoire, écrite là où la règle est appliquée
+-- (le client l'affiche telle quelle : pas de déduction côté client).
+local function plural(teamId: string?): string
+	local def = Teams.Get(teamId)
+	return def and def.Plural or "?"
+end
+
 local function determineWinner()
+	local list = RoundState.GetParticipants()
+	local counts = TeamService.GetCounts(list)
 	if roundEndRequest then
 		state.Winner = roundEndRequest.Winner or "DRAW"
 		state.WinReason = roundEndRequest.Winner and roundEndRequest.Reason or "Draw"
+		local winner = roundEndRequest.Winner
+		if state.WinReason == "LastStanding" then
+			state.WinDetail = plural(winner) .. " converted everyone!"
+		elseif state.WinReason == "Objective" then
+			state.WinDetail = string.format("%s reached the goal: %d %s", plural(winner), state.Scores[winner :: string] or 0, state.ScoreLabel or "points")
+		else
+			state.WinDetail = "Nobody left in the round"
+		end
 		return
 	end
 	-- Fin du chrono : la map peut avoir sa propre règle (ex : Raid = plus d'œufs)
@@ -538,15 +557,16 @@ local function determineWinner()
 		if winner then
 			state.Winner = winner
 			state.WinReason = "TimeUp"
+			state.WinDetail = string.format("Time's up: %s had the most %s (%d)", plural(winner), state.ScoreLabel or "points", state.Scores[winner] or 0)
 			return
 		end
 	end
-	-- Sinon : équipe la plus nombreuse, puis meilleur score, sinon égalité
-	local list = RoundState.GetParticipants()
+	-- Sinon : équipe la plus nombreuse (règle de base), puis meilleur score, sinon égalité
 	local largest = TeamService.GetLargestTeam(list)
 	if largest then
 		state.Winner = largest
 		state.WinReason = "TimeUp"
+		state.WinDetail = string.format("Time's up: %s were the biggest team (%d)", plural(largest), counts[largest] or 0)
 		return
 	end
 	local bestTeam, bestScore, tie = nil, -1, false
@@ -561,9 +581,11 @@ local function determineWinner()
 	if bestTeam and not tie and bestScore > 0 then
 		state.Winner = bestTeam
 		state.WinReason = "TimeUp"
+		state.WinDetail = string.format("Time's up: teams were tied in size, %s had the best score (%d)", plural(bestTeam), bestScore)
 	else
 		state.Winner = "DRAW"
 		state.WinReason = "Draw"
+		state.WinDetail = "Time's up with equal teams: no winner"
 	end
 end
 
@@ -709,7 +731,7 @@ local function onActorAdded(actor: Actor)
 		-- encore en jeu, si la manche n'est pas trop avancée (arrivée rapide).
 		if not team then
 			local elapsed = RoundState.Phase == "Round" and (os.clock() - roundStartedAt) or 0
-			if elapsed <= Config.Round.LateJoinSeconds then
+			if Config.Round.LateJoinSeconds > 0 and elapsed <= Config.Round.LateJoinSeconds then
 				local participants = RoundState.GetParticipants()
 				local counts = TeamService.GetCounts(participants)
 				local best: string? = nil
@@ -745,7 +767,7 @@ local function onActorAdded(actor: Actor)
 				return
 			end
 		end
-		announceTo(actor, "A round is almost over. You'll join the next one!")
+		announceTo(actor, "A round is in progress. You'll join the next one!")
 	end)
 end
 

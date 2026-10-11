@@ -304,9 +304,6 @@ handlers.Score = function(data)
 		floatingText(position, def.Display .. " SCORE!", def.Color)
 	end
 	EffectsController.Play("Score", 1, 0.9)
-	if feed and def then
-		feed.PushText(def.Plural .. " scored!", def.Color)
-	end
 end
 
 handlers.Coins = function(data)

@@ -20,6 +20,7 @@ export type GameState = {
 	ScoreLabel: string?, -- libellé du score ("Eggs", "Points"...)
 	Winner: string?, -- équipe gagnante ("DRAW" possible) pendant Results
 	WinReason: string?, -- "Objective" | "LastStanding" | "TimeUp" | "Draw"
+	WinDetail: string?, -- phrase qui explique la victoire (calculée par le serveur)
 	BestHunter: string?, -- pseudo du meilleur chasseur
 	BestHunterCaptures: number?,
 	-- Podium de fin de manche : [catégorie] = { {Name, UserId, Value, Team} x3 }

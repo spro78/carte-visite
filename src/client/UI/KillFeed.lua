@@ -94,9 +94,10 @@ function KillFeed.Push(hunterName: any, victimName: any, hunterTeam: any, victim
 	addLine(text, involvesMe == true)
 end
 
--- Ligne de texte libre (objectif marqué...)
-function KillFeed.PushText(text: string, color: Color3)
-	addLine(string.format('<font color="%s">%s</font>', Theme.Hex(color), text), false)
+function KillFeed.SetVisible(visible: boolean)
+	if container then
+		container.Visible = visible
+	end
 end
 
 function KillFeed.Clear()

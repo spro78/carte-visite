@@ -315,8 +315,8 @@ Theme.Corner(results, 18)
 Theme.Stroke(results, 5, Theme.Outline)
 New("UISizeConstraint", { MaxSize = Vector2.new(760, 520), MinSize = Vector2.new(360, 250) }, results)
 New("UIScale", { Name = "Scale", Scale = 1 }, results)
-local resultsTitle = Title(results, { Size = UDim2.new(1, -120, 0, 50), Position = UDim2.new(0, 60, 0, 18), Text = "", ZIndex = 20 })
-local resultsReason = Title(results, { Size = UDim2.new(1, -120, 0, 26), Position = UDim2.new(0, 60, 0, 70), Text = "", TextColor3 = Theme.Good, ZIndex = 20 })
+local resultsTitle = Title(results, { Size = UDim2.new(1, -140, 0, 44), Position = UDim2.new(0, 70, 0, 26), Text = "", ZIndex = 20 })
+local resultsReason = Title(results, { Size = UDim2.new(1, -120, 0, 24), Position = UDim2.new(0, 60, 0, 74), Text = "", TextColor3 = Theme.Good, ZIndex = 20 })
 local resultsClose: TextButton = New("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 16), Size = UDim2.new(0, 48, 0, 48), BackgroundTransparency = 1, Text = "X", TextColor3 = Theme.Bad, FontFace = Theme.FaceTitle, TextScaled = true, TextStrokeTransparency = 0, ZIndex = 21 }, results)
 local resultsHidden = false
 resultsClose.Activated:Connect(function()
@@ -532,20 +532,8 @@ local function updateResults(state: Types.GameState)
 		resultsTitle.Text = "DRAW!"
 		resultsTitle.TextColor3 = Theme.White
 	end
-	local reason = REASONS[state.WinReason or ""] or ""
-	-- Raison détaillée : on comprend pourquoi l'équipe a gagné
-	if winnerDef then
-		local score = state.Scores[winnerDef.Id] or 0
-		local count = state.TeamCounts[winnerDef.Id] or 0
-		if state.WinReason == "Objective" then
-			reason = string.format("%s reached the goal (%d %s)", winnerDef.Plural, score, string.lower(state.ScoreLabel or "points"))
-		elseif state.WinReason == "LastStanding" then
-			reason = winnerDef.Plural .. " converted everyone!"
-		elseif state.WinReason == "TimeUp" then
-			reason = state.ScoreLabel and string.format("Time's up: %s had the most %s (%d)", winnerDef.Plural, string.lower(state.ScoreLabel), score)
-				or string.format("Time's up: %s was the biggest team (%d)", winnerDef.Plural, count)
-		end
-	end
+	-- Raison détaillée : écrite par le serveur, là où la règle est appliquée
+	local reason = state.WinDetail or REASONS[state.WinReason or ""] or ""
 	local myTeam = player:GetAttribute("Team")
 	if winnerDef and myTeam then
 		reason = (myTeam == winnerDef.Id and "Your team won! " or "Your team lost. ") .. reason
@@ -632,7 +620,12 @@ function HUD.UpdateState(state: Types.GameState)
 	if votePanel.Visible then
 		updateVotePanel(state)
 	end
-	bottomCenter.Visible = not votePanel.Visible
+	-- Barre d'action (capacité, dash) : seulement en jeu, jamais sous les résultats
+	bottomCenter.Visible = not votePanel.Visible and phase ~= "Results"
+	local dashBar = screen:FindFirstChild("DashBar")
+	if dashBar and dashBar:IsA("GuiObject") then
+		dashBar.Visible = phase ~= "Results" and phase ~= "Intermission"
+	end
 	spectatorLabel.Visible = (phase == "Countdown" or phase == "Round") and myTeam == nil
 
 	if phase == "Results" then

@@ -31,7 +31,8 @@ document.getElementById("wrap").style.width = W + "px";
 document.getElementById("wrap").style.height = H + "px";
 const hud = document.getElementById("hud");
 hud.style.width = W + "px"; hud.style.height = H + "px";
-if (data.caption) document.getElementById("caption").textContent = data.caption;
+// Pas de légende incrustée : l'image doit montrer uniquement ce que voit le joueur
+// (le nom de la scène sert de nom de fichier).
 
 await document.fonts.load('40px "Fredoka One"');
 await document.fonts.load('700 40px "GothamLike"');

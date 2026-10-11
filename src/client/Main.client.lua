@@ -55,9 +55,12 @@ StateController.OnState(function(state)
 	ShopUI.SetButtonVisible(not inRound)
 	HUD.Pills.SPIN.Visible = not inRound
 	EffectsController.OnState(state)
-	if state.Phase == "Intermission" then
+	-- Le fil des captures appartient à la manche : vidé et masqué hors manche
+	-- (il ne doit jamais contredire l'écran de résultats)
+	if state.Phase ~= "Round" then
 		KillFeed.Clear()
 	end
+	KillFeed.SetVisible(state.Phase == "Round")
 end)
 
 print("[HuntOrHide] Client ready")

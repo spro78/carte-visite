@@ -625,6 +625,14 @@ function LobbyBuilder.GetVotePlateMapId(index: number): string?
 	return plate and plate.MapId or nil
 end
 
+-- Message à la place de la liste (classements indisponibles...)
+function LobbyBuilder.SetLeaderboardMessage(key: string, message: string)
+	local label = leaderboardLabels[key]
+	if label then
+		label.Text = message
+	end
+end
+
 function LobbyBuilder.SetLeaderboard(key: string, entries: { { any } })
 	local label = leaderboardLabels[key]
 	if not label then

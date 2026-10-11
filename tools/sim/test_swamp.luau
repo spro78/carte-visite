@@ -109,6 +109,7 @@ check(H.advanceUntil(function()
 	return false
 end, 10, 0.1), "la manche se termine")
 check(final and final.WinReason == "LastStanding", "raison : dernière équipe debout (" .. tostring(final and final.WinReason) .. ")")
+check(final and type(final.WinDetail) == "string" and string.find(final.WinDetail, "converted everyone", 1, true) ~= nil, "explication : " .. tostring(final and final.WinDetail))
 check(H.advanceUntil(function()
 	return H.phase() == "Intermission"
 end, 30, 1), "retour au lobby")

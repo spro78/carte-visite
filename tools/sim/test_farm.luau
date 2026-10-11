@@ -182,6 +182,7 @@ check(H.advanceUntil(function()
 end, 5, 0.1), "la manche se termine")
 check(final and final.WinReason == "Objective", "raison : objectif (" .. tostring(final and final.WinReason) .. ")")
 check(final and final.Winner == team, "vainqueur : " .. tostring(final and final.Winner) .. " (attendu " .. tostring(team) .. ")")
+check(final and type(final.WinDetail) == "string" and string.find(final.WinDetail, "reached the goal: 3 eggs", 1, true) ~= nil, "explication : " .. tostring(final and final.WinDetail))
 
 section("Nettoyage")
 check(H.advanceUntil(function()
