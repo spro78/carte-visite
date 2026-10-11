@@ -1,36 +1,38 @@
 --[[
 	Theme.lua
-	Couleurs, polices et petits constructeurs d'interface, d'après les captures de
-	référence (reference/HUSS_VALLEY_NOTES.md, section A) :
-	  - panneaux bleu nuit translucides, coins arrondis ;
-	  - textes très gras, titres en italique, contour sombre sur les grands textes ;
-	  - pastilles noires en haut, accents dorés et verts.
+	Kit d'interface propre au jeu (reference/BIBLE_VISUELLE.md, §9) :
+	  - police Fredoka One (ronde, intégrée à Roblox), toujours droite ;
+	  - panneaux « encre » vert-de-gris à bord crème épais, capsules et médaillons ronds ;
+	  - accent menthe ; l'or est réservé aux pièces.
+	Aucun élément ne reprend la police, les couleurs ou l'agencement d'une autre expérience.
 	Les tailles sont en échelle (Scale) avec de gros boutons pour le mobile.
 ]]
 
 local Theme = {}
 
-local FAMILY = "rbxasset://fonts/families/GothamSSm.json"
+local FAMILY = "rbxasset://fonts/families/FredokaOne.json"
 
-Theme.Font = Enum.Font.GothamBold
-Theme.FontBold = Enum.Font.GothamBold
-Theme.FontBlack = Enum.Font.GothamBlack
-Theme.FaceBold = Font.new(FAMILY, Enum.FontWeight.Bold, Enum.FontStyle.Normal)
-Theme.FaceHeavy = Font.new(FAMILY, Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
-Theme.FaceTitle = Font.new(FAMILY, Enum.FontWeight.Heavy, Enum.FontStyle.Italic)
+Theme.Font = Enum.Font.FredokaOne
+Theme.FontBold = Enum.Font.FredokaOne
+Theme.FontBlack = Enum.Font.FredokaOne
+Theme.FaceBold = Font.new(FAMILY, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+Theme.FaceHeavy = Font.new(FAMILY, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+Theme.FaceTitle = Font.new(FAMILY, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
 
 Theme.White = Color3.fromRGB(255, 255, 255)
-Theme.Dark = Color3.fromRGB(14, 16, 30)
-Theme.Outline = Color3.fromRGB(10, 10, 18)
-Theme.Panel = Color3.fromRGB(22, 28, 52)
-Theme.PanelLight = Color3.fromRGB(40, 50, 86)
-Theme.PillColor = Color3.fromRGB(16, 16, 22)
-Theme.Accent = Color3.fromRGB(255, 200, 40)
-Theme.Gold = Color3.fromRGB(255, 196, 30)
-Theme.Good = Color3.fromRGB(70, 220, 90)
-Theme.Bad = Color3.fromRGB(235, 50, 50)
+Theme.Dark = Color3.fromRGB(12, 30, 34)
+Theme.Outline = Color3.fromRGB(8, 22, 26) -- encre : contours des textes
+Theme.Panel = Color3.fromRGB(18, 44, 48) -- panneaux vert-de-gris
+Theme.PanelLight = Color3.fromRGB(34, 74, 78)
+Theme.PillColor = Color3.fromRGB(18, 44, 48)
+Theme.Cream = Color3.fromRGB(246, 236, 210) -- bords des panneaux
+Theme.Mint = Color3.fromRGB(90, 220, 170) -- accent du jeu
+Theme.Accent = Theme.Mint
+Theme.Gold = Color3.fromRGB(255, 196, 30) -- pièces seulement
+Theme.Good = Color3.fromRGB(90, 220, 120)
+Theme.Bad = Color3.fromRGB(235, 70, 70)
 Theme.Coin = Color3.fromRGB(255, 200, 50)
-Theme.Muted = Color3.fromRGB(175, 185, 205)
+Theme.Muted = Color3.fromRGB(190, 204, 200)
 
 function Theme.New(className: string, props: { [string]: any }, parent: Instance?): any
 	local inst = Instance.new(className)
@@ -113,15 +115,16 @@ function Theme.TextOn(color: Color3): Color3
 	return luminance > 0.6 and Theme.Dark or Theme.White
 end
 
--- Pastille (bouton noir arrondi en haut de l'écran)
+-- Capsule de menu : panneau encre, bord crème
 function Theme.Pill(parent: Instance, text: string, props: { [string]: any }?): TextButton
 	local button: TextButton = Theme.New("TextButton", {
 		BackgroundColor3 = Theme.PillColor,
-		BackgroundTransparency = 0.05,
+		BackgroundTransparency = 0.08,
 		Text = "",
 		AutoButtonColor = true,
 	}, parent)
 	Theme.CornerScale(button, 0.5)
+	Theme.Stroke(button, 2, Theme.Cream, 0.1)
 	local label = Theme.Label(button, { Name = "Label", Size = UDim2.fromScale(0.8, 0.5), Position = UDim2.fromScale(0.1, 0.25), Text = text, FontFace = Theme.FaceHeavy })
 	local _ = label
 	if props then

@@ -75,6 +75,9 @@ local candidates = VoteService.GetCandidates()
 voteButton.Activated:Fire()
 Engine.Advance(0.2)
 check(VoteService.GetPlayerVote(tess) == candidates[1], "un appui sur la carte de vote est compté par le serveur (" .. tostring(candidates[1]) .. ")")
+setScreen(390, 844)
+checkNoOverlap("lobby téléphone en portrait 390x844", Vector2.new(390, 844))
+setScreen(844, 390)
 local touchVisibleInLobby = false
 for _, action in ACTIONS do
 	local button = touch and touch:FindFirstChild(action)
@@ -119,6 +122,8 @@ local r = checkTouchScreen(844, 390) -- iPhone 14
 checkTouchScreen(667, 375) -- iPhone SE
 checkTouchScreen(800, 360) -- Android courant
 checkTouchScreen(1024, 768) -- iPad
+checkTouchScreen(390, 844) -- iPhone 14 en portrait (si l'orientation libre est activée)
+checkTouchScreen(360, 780) -- Android en portrait
 setScreen(844, 390)
 r = Layout.Rects(hud, viewport)
 
@@ -129,9 +134,14 @@ if r[announce] then
 	check(a.Y + a.H <= viewport.Y * 0.42, string.format("l'annonce reste dans le haut de l'écran (bas à %d px sur 390)", math.floor(a.Y + a.H)))
 	check(a.W <= viewport.X * 0.4, string.format("l'annonce est une pastille étroite (%d px sur 844)", math.floor(a.W)))
 end
-check(not (r[hud.BottomCenter] and r[hud.BottomCenter].Visible), "pas de carte « R » en tactile")
-local dashBar = hud:FindFirstChild("DashBar")
-check(not (dashBar and r[dashBar] and r[dashBar].Visible), "pas de barre « Q / E » en tactile")
+check(not (r[hud.BottomCenter] and r[hud.BottomCenter].Visible), "pas de dock clavier en tactile")
+local keyBadges = 0
+for _, d in hud:GetDescendants() do
+	if d.Name == "KeyBadge" and r[d] and r[d].Visible then
+		keyBadges += 1
+	end
+end
+check(keyBadges == 0, "aucune puce de touche clavier (R, Q E, F) affichée en tactile")
 check(not (r[hud.Currency] and r[hud.Currency].Visible), "coin bas-gauche libre pour le joystick pendant la manche")
 
 -- ---------------------------------------------------------------------------

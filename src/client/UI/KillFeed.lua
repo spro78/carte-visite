@@ -123,7 +123,8 @@ function KillFeed.Init(screen: ScreenGui)
 	local camera = workspace.CurrentCamera
 	if camera then
 		local function update()
-			KillFeed.Rescale(camera.ViewportSize.Y < 500)
+			local size = camera.ViewportSize
+			KillFeed.Rescale(math.min(size.X, size.Y) < 500, size.Y > size.X)
 		end
 		camera:GetPropertyChangedSignal("ViewportSize"):Connect(update)
 		update()
@@ -131,11 +132,13 @@ function KillFeed.Init(screen: ScreenGui)
 end
 
 -- Taille compacte sur téléphone : sous le panneau des équipes, au-dessus des
--- boutons tactiles (le bloc central du HUD tient compte de cette largeur)
-function KillFeed.Rescale(compact: boolean)
+-- boutons tactiles (le bloc central du HUD tient compte de cette largeur).
+-- En portrait : à droite du tableau des équipes, sous le bloc du haut.
+function KillFeed.Rescale(compact: boolean, portrait: boolean?)
 	if container then
 		container.Size = compact and UDim2.fromOffset(170, 84) or UDim2.fromOffset(250, 130)
-		container.Position = compact and UDim2.new(1, -8, 0, 100) or UDim2.new(1, -14, 0, 150)
+		local y = portrait and 94 or (compact and 100 or 150)
+		container.Position = compact and UDim2.new(1, -8, 0, y) or UDim2.new(1, -14, 0, y)
 	end
 end
 

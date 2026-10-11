@@ -38,7 +38,7 @@ ActionBar.Init(HUD.Screen, HUD.BottomRow, {
 	Stop = MovementController.Stop,
 	Ability = MovementController.Ability,
 }, MovementController.GetCooldowns, HUD.SetTouchMode)
-HUD.Rescale() -- la barre de dash existe maintenant
+HUD.Rescale() -- le dock des médaillons existe maintenant
 ShopUI.Init(HUD.Screen, HUD.Pills.SHOP)
 DataController.Init(HUD, ShopUI)
 KillFeed.Init(HUD.Screen)

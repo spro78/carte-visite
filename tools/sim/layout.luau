@@ -197,7 +197,9 @@ function Layout.HudBlocks(hud, rects)
 			add("pill " .. pill.Name, pill)
 		end
 	end
-	for _, name in { "Phase", "Main", "Sub", "Timer" } do
+	-- Haut centre : capsule chrono, ruban de rôle, ligne d'objectif
+	add("top Clock", hud.TopCenter:FindFirstChild("Clock"))
+	for _, name in { "Main", "Sub" } do
 		local label = hud.TopCenter:FindFirstChild(name)
 		if label and label.Text ~= "" then
 			add("top " .. name, label)
@@ -211,8 +213,12 @@ function Layout.HudBlocks(hud, rects)
 			add("currency " .. panel.Name, panel)
 		end
 	end
-	add("bottom row", hud.BottomCenter)
-	add("dash bar", hud:FindFirstChild("DashBar"))
+	-- Dock des médaillons : chaque médaillon visible
+	for _, medallion in hud.BottomCenter:GetChildren() do
+		if medallion:IsA("Frame") then
+			add("dock " .. medallion.Name, medallion)
+		end
+	end
 	add("vote panel", hud.VotePanel)
 	add("results", hud.Results)
 	add("spectator", hud.Spectator)

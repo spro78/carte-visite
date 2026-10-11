@@ -1,16 +1,16 @@
 --[[
 	HUD.lua
-	Interface principale, construite par le code, d'après la disposition de la
-	référence (reference/HUSS_VALLEY_NOTES.md, section A) :
-	  - en haut à gauche : pastilles SHOP / SPIN / HELP (à côté des boutons Roblox) ;
-	  - en haut au centre : petit libellé de phase, grand message (bandeau de rôle :
-	    "You are a FOX - Catch CHICKENS - Avoid SNAKES"), sous-ligne avec le chrono ;
-	  - en haut à droite : équipes (membres et score) pendant la manche ;
-	  - sous le bloc du haut : annonces courtes (petite pastille, le centre reste libre) ;
-	  - en bas à gauche : pièces et niveau ;
-	  - en bas au centre : cartes (capacité, objets) et barre de dash (ActionBar,
-	    Inventory) ; panneau de vote pendant l'intermission ;
-	  - fin de manche : podium (meilleur joueur / survie / captures) + expérience.
+	Interface principale, construite par le code, selon le kit du jeu
+	(reference/BIBLE_VISUELLE.md, §9). Disposition propre au jeu :
+	  - haut centre : capsule chrono (phase + temps), ruban de rôle aux couleurs
+	    de l'équipe ("FOX · catch CHICKENS · avoid SNAKES"), ligne d'objectif ;
+	  - sous le ruban : annonces courtes (petite pastille, le centre reste libre) ;
+	  - haut droite : menus (SHOP / SPIN / HELP), tableau des trois équipes en
+	    manche (les menus passent à sa gauche), fil des captures dessous ;
+	  - bas gauche : pièces et niveau ; bas centre : dock des médaillons d'action
+	    (ActionBar) ou panneau de vote pendant l'intermission ;
+	  - fin de manche : bandeau du vainqueur, colonnes des trois équipes, trois
+	    cartes de distinction et puce de niveau.
 ]]
 
 local Players = game:GetService("Players")
@@ -31,9 +31,9 @@ local New, Label, Title = Theme.New, Theme.Label, Theme.Title
 local PHASE_LABELS = {
 	Waiting = "LOBBY",
 	Intermission = "LOBBY",
-	Countdown = "GET READY",
+	Countdown = "READY",
 	Round = "ROUND",
-	Results = "RESULTS",
+	Results = "END",
 }
 local REASONS = {
 	Objective = "Objective completed",
@@ -41,17 +41,34 @@ local REASONS = {
 	TimeUp = "Time's up",
 	Draw = "No winner this time",
 }
-local PODIUM_TABS = { { Key = "MVP", Label = "Best player" }, { Key = "Survival", Label = "Survival" }, { Key = "Catches", Label = "Catches" } }
+-- Cartes de distinction de fin de manche (clé du podium serveur -> titre)
+local AWARDS = {
+	{ Key = "MVP", Title = "ROUND STAR" },
+	{ Key = "Survival", Title = "LONGEST RUN" },
+	{ Key = "Catches", Title = "TOP CATCHER" },
+}
 
 local voteCallback: ((string) -> ())? = nil
-local compact = false -- petit écran (téléphone en paysage)
+local compact = false -- petit écran (téléphone)
 local touchMode = false -- commandes tactiles affichées (voir ActionBar)
 local myVote: string? = nil
 local lastCandidatesKey = ""
 local lastReward: { [string]: any }? = nil
 local lastState: Types.GameState? = nil
-local podiumTab = "MVP"
 local profile: { [string]: any } = {}
+
+-- Panneau du kit : encre vert-de-gris, bord crème
+local function panel(parent: Instance?, props: { [string]: any }, stroke: number?): Frame
+	local frame: Frame = New("Frame", props, parent)
+	if props.BackgroundColor3 == nil then
+		frame.BackgroundColor3 = Theme.Panel
+	end
+	if props.BackgroundTransparency == nil then
+		frame.BackgroundTransparency = 0.1
+	end
+	Theme.Stroke(frame, stroke or 2, Theme.Cream, 0.1)
+	return frame
+end
 
 -- ---------------------------------------------------------------------------
 -- Écran
@@ -59,22 +76,23 @@ local profile: { [string]: any } = {}
 local screen: ScreenGui = New("ScreenGui", {
 	Name = "HuntOrHideHUD",
 	ResetOnSpawn = false,
-	IgnoreGuiInset = true, -- on place nos pastilles dans la rangée de la barre Roblox
+	IgnoreGuiInset = true,
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 	DisplayOrder = 10,
 }, playerGui)
 HUD.Screen = screen
 
 -- ---------------------------------------------------------------------------
--- Pastilles en haut à gauche
+-- Menus en haut à droite (à gauche du tableau des équipes pendant la manche)
 -- ---------------------------------------------------------------------------
 local pillRow: Frame = New("Frame", {
 	Name = "Pills",
-	Position = UDim2.new(0, 228, 0, 14),
-	Size = UDim2.new(0, 360, 0, 42),
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -12, 0, 14),
+	Size = UDim2.new(0, 328, 0, 40),
 	BackgroundTransparency = 1,
 }, screen)
-New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, pillRow)
+New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, pillRow)
 HUD.Pills = {}
 for index, name in { "SHOP", "SPIN", "HELP" } do
 	local pill = Theme.Pill(pillRow, name, { Name = name, Size = UDim2.new(0, 104, 1, 0), LayoutOrder = index })
@@ -83,46 +101,64 @@ end
 local spinBadge = Theme.Badge(HUD.Pills.SPIN)
 
 -- ---------------------------------------------------------------------------
--- Haut centre : libellé de phase, message principal, sous-ligne
+-- Haut centre : capsule chrono, ruban de rôle, ligne d'objectif
 -- ---------------------------------------------------------------------------
 local topCenter: Frame = New("Frame", {
 	Name = "TopCenter",
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 58),
-	Size = UDim2.new(0.56, 0, 0, 108),
+	Position = UDim2.new(0.5, 0, 0, 10),
+	Size = UDim2.new(0.56, 0, 0, 112),
 	BackgroundTransparency = 1,
 }, screen)
-local phaseLabel = Title(topCenter, { Name = "Phase", Size = UDim2.new(1, 0, 0, 18), Text = "LOBBY", FontFace = Theme.FaceHeavy })
-local mainLabel = Title(topCenter, { Name = "Main", Position = UDim2.new(0, 0, 0, 22), Size = UDim2.new(1, 0, 0, 40), Text = Teams.Rule, RichText = true })
-Theme.MaxText(mainLabel, 34)
-local subLabel = Title(topCenter, { Name = "Sub", Position = UDim2.new(0, 0, 0, 66), Size = UDim2.new(1, 0, 0, 20), Text = "", FontFace = Theme.FaceBold })
-local timerLabel = Title(topCenter, { Name = "Timer", Position = UDim2.new(0, 0, 0, 86), Size = UDim2.new(1, 0, 0, 22), Text = "", FontFace = Theme.FaceHeavy, TextColor3 = Theme.Gold })
+local clock: Frame = panel(topCenter, {
+	Name = "Clock",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 0),
+	Size = UDim2.new(0, 176, 0, 46),
+}, 3)
+Theme.CornerScale(clock, 0.5)
+local phaseLabel = Title(clock, { Name = "Phase", Position = UDim2.new(0.06, 0, 0.22, 0), Size = UDim2.new(0.36, 0, 0.56, 0), Text = "LOBBY", TextColor3 = Theme.Mint })
+local timerLabel = Title(clock, { Name = "Timer", Position = UDim2.new(0.42, 0, 0.1, 0), Size = UDim2.new(0.52, 0, 0.8, 0), Text = "", TextColor3 = Theme.White })
+local mainLabel = Title(topCenter, {
+	Name = "Main",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 52),
+	Size = UDim2.new(1, 0, 0, 34),
+	Text = Teams.Rule,
+	RichText = true,
+	BackgroundColor3 = Theme.Panel,
+	BackgroundTransparency = 0.1,
+})
+Theme.CornerScale(mainLabel, 0.5)
+local ribbonStroke = Theme.Stroke(mainLabel, 3, Theme.Mint)
+New("UIPadding", { PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5), PaddingLeft = UDim.new(0, 16), PaddingRight = UDim.new(0, 16) }, mainLabel)
+Theme.MaxText(mainLabel, 22)
+local subLabel = Title(topCenter, { Name = "Sub", Position = UDim2.new(0, 0, 0, 90), Size = UDim2.new(1, 0, 0, 20), Text = "", TextColor3 = Theme.Cream })
 
 -- ---------------------------------------------------------------------------
--- Haut droite : équipes
+-- Haut droite : tableau des équipes
 -- ---------------------------------------------------------------------------
-local teamPanel: Frame = New("Frame", {
+local teamPanel: Frame = panel(screen, {
 	Name = "Teams",
 	AnchorPoint = Vector2.new(1, 0),
 	Position = UDim2.new(1, -12, 0, 14),
 	Size = UDim2.new(0, 230, 0, 112),
-	BackgroundColor3 = Theme.Panel,
-	BackgroundTransparency = 0.15,
 	Visible = false,
-}, screen)
-Theme.Corner(teamPanel, 10)
-Theme.Stroke(teamPanel, 2, Theme.White, 0.35)
+}, 2)
+Theme.Corner(teamPanel, 14)
 New("UIListLayout", { Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, teamPanel)
 local teamRows: { [string]: { Row: Frame, Count: TextLabel, Score: TextLabel, Stroke: UIStroke } } = {}
 for index, teamId in Teams.Order do
 	local def = Teams.Get(teamId)
 	assert(def)
-	local row: Frame = New("Frame", { Name = teamId, Size = UDim2.new(0.92, 0, 0, 30), BackgroundColor3 = def.Color, LayoutOrder = index }, teamPanel)
-	Theme.Corner(row, 7)
-	local stroke = Theme.Stroke(row, 0, Theme.White)
-	Title(row, { Size = UDim2.fromScale(0.5, 0.7), Position = UDim2.fromScale(0.05, 0.15), Text = def.Display, TextXAlignment = Enum.TextXAlignment.Left, FontFace = Theme.FaceHeavy })
-	local count = Title(row, { Size = UDim2.fromScale(0.2, 0.7), Position = UDim2.fromScale(0.55, 0.15), Text = "x0", FontFace = Theme.FaceHeavy })
-	local score = Title(row, { Size = UDim2.fromScale(0.22, 0.7), Position = UDim2.fromScale(0.76, 0.15), Text = "", FontFace = Theme.FaceHeavy, TextColor3 = Theme.Gold })
+	local row: Frame = New("Frame", { Name = teamId, Size = UDim2.new(0.92, 0, 0, 30), BackgroundColor3 = Theme.PanelLight, LayoutOrder = index }, teamPanel)
+	Theme.CornerScale(row, 0.5)
+	local stroke = Theme.Stroke(row, 0, Theme.Cream)
+	local chip: Frame = New("Frame", { Name = "Chip", Size = UDim2.fromScale(0.5, 1), BackgroundColor3 = def.Color }, row)
+	Theme.CornerScale(chip, 0.5)
+	Label(chip, { Size = UDim2.fromScale(0.84, 0.66), Position = UDim2.fromScale(0.08, 0.17), Text = def.Display, TextColor3 = Theme.TextOn(def.Color), FontFace = Theme.FaceHeavy })
+	local count = Title(row, { Size = UDim2.fromScale(0.2, 0.66), Position = UDim2.fromScale(0.54, 0.17), Text = "x0" })
+	local score = Title(row, { Size = UDim2.fromScale(0.22, 0.66), Position = UDim2.fromScale(0.76, 0.17), Text = "", TextColor3 = Theme.Mint })
 	teamRows[teamId] = { Row = row, Count = count, Score = score, Stroke = stroke }
 end
 
@@ -130,20 +166,17 @@ end
 -- Bas gauche : pièces et niveau
 -- ---------------------------------------------------------------------------
 local function currencyPanel(name: string, order: number, iconColor: Color3): (Frame, TextLabel, TextLabel, Frame)
-	local frame: Frame = New("Frame", {
+	local frame: Frame = panel(nil, {
 		Name = name,
 		Size = UDim2.new(0, 230, 0, 52),
-		BackgroundColor3 = Theme.Dark,
-		BackgroundTransparency = 0.25,
 		LayoutOrder = order,
-	}, nil)
-	Theme.Corner(frame, 8)
-	Theme.Stroke(frame, 2, Theme.Outline)
-	local icon: Frame = New("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0), Size = UDim2.new(0, 28, 0, 28), BackgroundColor3 = iconColor }, frame)
+	}, 2)
+	Theme.CornerScale(frame, 0.5)
+	local icon: Frame = New("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0), Size = UDim2.new(0, 30, 0, 30), BackgroundColor3 = iconColor }, frame)
 	Theme.CornerScale(icon, 0.5)
-	Theme.Stroke(icon, 2, iconColor:Lerp(Color3.new(0, 0, 0), 0.35))
-	local value = Title(frame, { Name = "Value", Position = UDim2.new(0, 46, 0, 4), Size = UDim2.new(1, -54, 0, 28), Text = "0", TextXAlignment = Enum.TextXAlignment.Left, FontFace = Theme.FaceHeavy })
-	local caption = Label(frame, { Name = "Caption", Position = UDim2.new(0, 46, 0, 32), Size = UDim2.new(1, -54, 0, 14), Text = "", TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Theme.Muted })
+	Theme.Stroke(icon, 2, Theme.Cream)
+	local value = Title(frame, { Name = "Value", Position = UDim2.new(0, 48, 0, 4), Size = UDim2.new(1, -60, 0, 28), Text = "0", TextXAlignment = Enum.TextXAlignment.Left })
+	local caption = Label(frame, { Name = "Caption", Position = UDim2.new(0, 48, 0, 31), Size = UDim2.new(1, -60, 0, 14), Text = "", TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Theme.Muted })
 	return frame, value, caption, icon
 end
 local bottomLeft: Frame = New("Frame", {
@@ -157,30 +190,30 @@ New("UIListLayout", { Padding = UDim.new(0, 8), VerticalAlignment = Enum.Vertica
 local coinsPanel, coinsValue, coinsCaption = currencyPanel("Coins", 1, Theme.Coin)
 coinsPanel.Parent = bottomLeft
 coinsCaption.Text = "COINS"
-local levelPanel, levelValue, levelCaption = currencyPanel("Level", 2, Theme.Good)
+local levelPanel, levelValue, levelCaption = currencyPanel("Level", 2, Theme.Mint)
 levelPanel.Parent = bottomLeft
-local levelBar: Frame = New("Frame", { Position = UDim2.new(0, 46, 1, -8), Size = UDim2.new(1, -58, 0, 4), BackgroundColor3 = Theme.PanelLight, BorderSizePixel = 0 }, levelPanel)
-local levelFill: Frame = New("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Theme.Good, BorderSizePixel = 0 }, levelBar)
-levelCaption.Position = UDim2.new(0, 46, 0, 30)
+local levelBar: Frame = New("Frame", { Position = UDim2.new(0, 48, 1, -9), Size = UDim2.new(1, -66, 0, 4), BackgroundColor3 = Theme.PanelLight, BorderSizePixel = 0 }, levelPanel)
+local levelFill: Frame = New("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Theme.Mint, BorderSizePixel = 0 }, levelBar)
+levelCaption.Position = UDim2.new(0, 48, 0, 29)
 
 -- ---------------------------------------------------------------------------
--- Bas centre : rangée de cartes (capacité, objets) + vote
+-- Bas centre : dock des médaillons d'action (ActionBar) + vote
 -- ---------------------------------------------------------------------------
 local bottomCenter: Frame = New("Frame", {
 	Name = "BottomCenter",
 	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -64),
-	Size = UDim2.new(0, 640, 0, 82),
+	Position = UDim2.new(0.5, 0, 1, -14),
+	Size = UDim2.new(0, 300, 0, 104),
 	BackgroundTransparency = 1,
 }, screen)
-New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Bottom, SortOrder = Enum.SortOrder.LayoutOrder }, bottomCenter)
+New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 14), HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Bottom, SortOrder = Enum.SortOrder.LayoutOrder }, bottomCenter)
 HUD.BottomRow = bottomCenter
 
 -- Panneau de vote (intermission)
 local votePanel: Frame = New("Frame", {
 	Name = "VotePanel",
-	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -66),
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 310, 1, -66),
 	Size = UDim2.new(0, 660, 0, 150),
 	BackgroundTransparency = 1,
 	Visible = false,
@@ -196,8 +229,8 @@ local voteButtons: { VoteButton } = {}
 function HUD.RefreshVoteHighlight()
 	for _, entry in voteButtons do
 		local selected = entry.MapId ~= nil and entry.MapId == myVote
-		entry.Stroke.Color = selected and Theme.Gold or Theme.Outline
-		entry.Stroke.Thickness = selected and 4 or 3
+		entry.Stroke.Color = selected and Theme.Mint or Theme.Cream
+		entry.Stroke.Thickness = selected and 4 or 2
 	end
 end
 
@@ -211,12 +244,12 @@ for index = 1, 3 do
 		AutoButtonColor = true,
 		LayoutOrder = index,
 	}, voteButtonsFrame)
-	Theme.Corner(button, 10)
-	local stroke = Theme.Stroke(button, 3, Theme.Outline)
-	local stripe: Frame = New("Frame", { Size = UDim2.new(1, 0, 0, 8), BackgroundColor3 = Theme.Gold, BorderSizePixel = 0 }, button)
+	Theme.Corner(button, 16)
+	local stroke = Theme.Stroke(button, 2, Theme.Cream)
+	local stripe: Frame = New("Frame", { Size = UDim2.new(1, 0, 0, 8), BackgroundColor3 = Theme.Mint, BorderSizePixel = 0 }, button)
 	Theme.Corner(stripe, 6)
 	local nameLabel = Title(button, { Size = UDim2.new(0.9, 0, 0.34, 0), Position = UDim2.fromScale(0.05, 0.12), Text = "?" })
-	local modeLabel = Label(button, { Size = UDim2.new(0.9, 0, 0.2, 0), Position = UDim2.fromScale(0.05, 0.5), Text = "", TextColor3 = Theme.Gold, FontFace = Theme.FaceHeavy })
+	local modeLabel = Label(button, { Size = UDim2.new(0.9, 0, 0.2, 0), Position = UDim2.fromScale(0.05, 0.5), Text = "", TextColor3 = Theme.Mint, FontFace = Theme.FaceHeavy })
 	local votesLabel = Label(button, { Size = UDim2.new(0.9, 0, 0.18, 0), Position = UDim2.fromScale(0.05, 0.74), Text = "", TextColor3 = Theme.Muted })
 	local entry: VoteButton = { Button = button, Name = nameLabel, Mode = modeLabel, Votes = votesLabel, Stripe = stripe, MapId = nil, Stroke = stroke }
 	button.Activated:Connect(function()
@@ -233,15 +266,15 @@ end
 -- ---------------------------------------------------------------------------
 -- Annonces, notifications, spectateur, aide
 -- ---------------------------------------------------------------------------
--- Annonce de la map (oeuf volé, points...) : petite pastille sous le bloc du
--- haut, jamais au milieu de l'écran, où se joue la poursuite
+-- Annonce de la map (oeuf volé, points...) : petite pastille sous le ruban de
+-- rôle, jamais au milieu de l'écran, où se joue la poursuite
 local announcePill: Frame = New("Frame", {
 	Name = "Announce",
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 174),
+	Position = UDim2.new(0.5, 0, 0, 128),
 	Size = UDim2.new(0, 440, 0, 30),
-	BackgroundColor3 = Theme.Dark,
-	BackgroundTransparency = 0.35,
+	BackgroundColor3 = Theme.Panel,
+	BackgroundTransparency = 0.3,
 	Visible = false,
 	ZIndex = 5,
 }, screen)
@@ -251,7 +284,6 @@ local announceLabel = Title(announcePill, {
 	Position = UDim2.new(0, 14, 0, 4),
 	Size = UDim2.new(1, -28, 1, -8),
 	Text = "",
-	FontFace = Theme.FaceHeavy,
 	ZIndex = 5,
 })
 Theme.MaxText(announceLabel, 22)
@@ -261,13 +293,14 @@ local toast: TextLabel = Label(screen, {
 	AnchorPoint = Vector2.new(0.5, 1),
 	Position = UDim2.new(0.5, 0, 1, -170),
 	Size = UDim2.new(0, 420, 0, 34),
-	BackgroundColor3 = Theme.Dark,
-	BackgroundTransparency = 0.15,
+	BackgroundColor3 = Theme.Panel,
+	BackgroundTransparency = 0.1,
 	Text = "",
 	Visible = false,
 	ZIndex = 30,
 })
-Theme.Corner(toast, 8)
+Theme.CornerScale(toast, 0.5)
+Theme.Stroke(toast, 2, Theme.Cream, 0.1)
 New("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6) }, toast)
 
 local spectatorLabel = Title(screen, {
@@ -279,27 +312,25 @@ local spectatorLabel = Title(screen, {
 	Visible = false,
 })
 
-local helpPanel: Frame = New("Frame", {
+local helpPanel: Frame = panel(screen, {
 	Name = "Help",
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.new(0, 520, 0, 330),
-	BackgroundColor3 = Theme.Panel,
-	BackgroundTransparency = 0.05,
+	Size = UDim2.new(0, 520, 0, 300),
+	BackgroundTransparency = 0.04,
 	Visible = false,
 	ZIndex = 40,
-}, screen)
-Theme.Corner(helpPanel, 14)
-Theme.Stroke(helpPanel, 4, Theme.Outline)
-Title(helpPanel, { Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 0, 12), Text = "HOW TO PLAY", ZIndex = 40 })
+}, 4)
+Theme.Corner(helpPanel, 22)
+Title(helpPanel, { Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 0, 14), Text = "HOW TO PLAY", TextColor3 = Theme.Mint, ZIndex = 40 })
 -- Règles : la partie "commandes" suit l'appareil (clavier ou tactile)
 local HELP_RULES = "Catch your prey. Run from your hunter.\n\nFOX catches CHICKEN, CHICKEN catches SNAKE, SNAKE catches FOX.\nGreen outline = your prey. Red outline = your hunter.\nCaught? You join the team that caught you and keep playing.\n\n"
 local HELP_KEYS = "Q / E : dash sideways to dodge    F : stop dead to fake out\nR : your animal's ability    Hide in tall grass and bushes!"
 local HELP_TOUCH = "DASH buttons : dodge sideways    STOP : stop dead to fake out\nBig round button : your animal's ability    Hide in tall grass!"
 local helpText = Label(helpPanel, {
 	Name = "Rules",
-	Size = UDim2.new(1, -40, 1, -70),
-	Position = UDim2.new(0, 20, 0, 58),
+	Size = UDim2.new(1, -44, 1, -76),
+	Position = UDim2.new(0, 22, 0, 60),
 	TextScaled = true,
 	TextWrapped = true,
 	TextYAlignment = Enum.TextYAlignment.Top,
@@ -308,8 +339,9 @@ local helpText = Label(helpPanel, {
 	Text = HELP_RULES .. HELP_KEYS,
 })
 New("UIScale", { Name = "Scale" }, helpPanel)
-local helpClose: TextButton = New("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 10), Size = UDim2.new(0, 36, 0, 36), BackgroundColor3 = Theme.Bad, Text = "X", FontFace = Theme.FaceHeavy, TextScaled = true, TextColor3 = Theme.White, ZIndex = 41 }, helpPanel)
-Theme.Corner(helpClose, 8)
+local helpClose: TextButton = New("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 12), Size = UDim2.new(0, 38, 0, 38), BackgroundColor3 = Theme.Bad, Text = "X", FontFace = Theme.FaceHeavy, TextScaled = true, TextColor3 = Theme.White, ZIndex = 41 }, helpPanel)
+Theme.CornerScale(helpClose, 0.5)
+Theme.Stroke(helpClose, 2, Theme.Cream)
 helpClose.Activated:Connect(function()
 	helpPanel.Visible = false
 end)
@@ -318,104 +350,105 @@ HUD.Pills.HELP.Activated:Connect(function()
 end)
 
 -- ---------------------------------------------------------------------------
--- Résultats : podium + expérience
+-- Fin de manche : bandeau du vainqueur, équipes, distinctions, niveau
 -- ---------------------------------------------------------------------------
-local results: Frame = New("Frame", {
+local results: Frame = panel(screen, {
 	Name = "Results",
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.52),
 	Size = UDim2.new(0, 760, 0, 520),
-	BackgroundColor3 = Theme.Panel,
-	BackgroundTransparency = 0.05,
+	BackgroundTransparency = 0.04,
 	Visible = false,
 	ZIndex = 20,
-}, screen)
-Theme.Corner(results, 18)
-Theme.Stroke(results, 5, Theme.Outline)
+}, 4)
+Theme.Corner(results, 26)
 New("UISizeConstraint", { MaxSize = Vector2.new(760, 520), MinSize = Vector2.new(360, 250) }, results)
 New("UIScale", { Name = "Scale", Scale = 1 }, results)
-local resultsTitle = Title(results, { Size = UDim2.new(1, -140, 0, 44), Position = UDim2.new(0, 70, 0, 26), Text = "", ZIndex = 20 })
-local resultsReason = Title(results, { Size = UDim2.new(1, -120, 0, 24), Position = UDim2.new(0, 60, 0, 74), Text = "", TextColor3 = Theme.Good, ZIndex = 20 })
-local resultsClose: TextButton = New("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 16), Size = UDim2.new(0, 48, 0, 48), BackgroundTransparency = 1, Text = "X", TextColor3 = Theme.Bad, FontFace = Theme.FaceTitle, TextScaled = true, TextStrokeTransparency = 0, ZIndex = 21 }, results)
+local banner: Frame = New("Frame", { Name = "Banner", Position = UDim2.new(0, 16, 0, 16), Size = UDim2.new(1, -32, 0, 82), BackgroundColor3 = Theme.PanelLight, ZIndex = 20 }, results)
+Theme.Corner(banner, 18)
+local resultsTitle = Title(banner, { Name = "Title", Size = UDim2.new(1, -120, 0, 46), Position = UDim2.new(0, 60, 0, 6), Text = "", ZIndex = 21 })
+local resultsReason = Title(banner, { Name = "Reason", Size = UDim2.new(1, -60, 0, 22), Position = UDim2.new(0, 30, 0, 54), Text = "", TextColor3 = Theme.Cream, ZIndex = 21 })
+local resultsClose: TextButton = New("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -24, 0, 24), Size = UDim2.new(0, 44, 0, 44), BackgroundColor3 = Theme.Bad, Text = "X", TextColor3 = Theme.White, FontFace = Theme.FaceTitle, TextScaled = true, ZIndex = 22 }, results)
+Theme.CornerScale(resultsClose, 0.5)
+Theme.Stroke(resultsClose, 2, Theme.Cream)
 local resultsHidden = false
 resultsClose.Activated:Connect(function()
 	resultsHidden = true
 	results.Visible = false
 end)
-local tabRow: Frame = New("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 106), Size = UDim2.new(0, 420, 0, 34), BackgroundTransparency = 1, ZIndex = 20 }, results)
-New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, tabRow)
-local tabButtons: { [string]: TextButton } = {}
-local podiumFrame: Frame = New("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 150), Size = UDim2.new(0, 700, 0, 230), BackgroundTransparency = 1, ZIndex = 20 }, results)
-local readyLabel = Title(results, { Size = UDim2.new(1, -40, 0, 32), Position = UDim2.new(0, 20, 0, 392), Text = "Ready for the next match", TextColor3 = Theme.Gold, ZIndex = 20 })
-local coinsLine = Title(results, { Size = UDim2.new(1, -40, 0, 20), Position = UDim2.new(0, 20, 0, 428), Text = "", FontFace = Theme.FaceBold, TextColor3 = Theme.Coin, ZIndex = 20 })
-local xpRow: Frame = New("Frame", { Position = UDim2.new(0, 20, 1, -58), Size = UDim2.new(1, -40, 0, 30), BackgroundTransparency = 1, ZIndex = 20 }, results)
-local xpLevelLeft = Title(xpRow, { Size = UDim2.new(0, 110, 1, 0), Text = "Level 1", FontFace = Theme.FaceHeavy, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 20 })
-local xpLevelRight = Title(xpRow, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.new(0, 110, 1, 0), Text = "Level 2", FontFace = Theme.FaceHeavy, TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 20 })
-local xpBar: Frame = New("Frame", { Position = UDim2.new(0, 120, 0.15, 0), Size = UDim2.new(1, -240, 0.7, 0), BackgroundColor3 = Theme.Dark, ZIndex = 20 }, xpRow)
-Theme.CornerScale(xpBar, 0.5)
-Theme.Stroke(xpBar, 2, Theme.Outline)
-local xpFill: Frame = New("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Theme.Gold, ZIndex = 21 }, xpBar)
-Theme.CornerScale(xpFill, 0.5)
-local xpText = Title(xpBar, { Size = UDim2.fromScale(1, 0.9), Position = UDim2.fromScale(0, 0.05), Text = "", FontFace = Theme.FaceHeavy, ZIndex = 22 })
-
-local PODIUM_STYLE = {
-	{ Slot = 2, Color = Color3.fromRGB(40, 150, 150), Scale = 0.9 },
-	{ Slot = 1, Color = Color3.fromRGB(230, 170, 30), Scale = 1 },
-	{ Slot = 3, Color = Color3.fromRGB(90, 96, 110), Scale = 0.9 },
-}
-
-local function renderPodium()
-	for _, child in podiumFrame:GetChildren() do
-		child:Destroy()
-	end
-	for _, tab in PODIUM_TABS do
-		local button = tabButtons[tab.Key]
-		if button then
-			local selected = tab.Key == podiumTab
-			button.BackgroundColor3 = selected and Theme.Good or Theme.PanelLight
-		end
-	end
-	local state = lastState
-	local list = state and state.Podium and state.Podium[podiumTab] or {}
-	local width = 210
-	for index, style in PODIUM_STYLE do
-		local entry = list[style.Slot]
-		local x = (index - 2) * (width + 16)
-		local h = 220 * style.Scale
-		local card: Frame = New("Frame", {
-			AnchorPoint = Vector2.new(0.5, 1),
-			Position = UDim2.new(0.5, x, 1, 0),
-			Size = UDim2.new(0, width * style.Scale, 0, h),
-			BackgroundColor3 = style.Color,
-			ZIndex = 21,
-		}, podiumFrame)
-		Theme.Corner(card, 12)
-		Theme.Stroke(card, style.Slot == 1 and 4 or 3, style.Slot == 1 and Theme.Gold or Theme.Outline)
-		Title(card, { Size = UDim2.new(1, 0, 0, 34), Position = UDim2.new(0, 0, 0, 6), Text = "#" .. style.Slot, ZIndex = 22 })
-		if entry then
-			local portrait: Frame = New("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 40), Size = UDim2.new(0, h * 0.45, 0, h * 0.45), BackgroundColor3 = style.Color:Lerp(Color3.new(1, 1, 1), 0.25), ZIndex = 22 }, card)
-			Theme.Corner(portrait, 10)
-			if entry.UserId and entry.UserId > 0 then
-				New("ImageLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = string.format("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150", entry.UserId), ZIndex = 23 }, portrait)
-			else
-				Title(portrait, { Size = UDim2.fromScale(0.8, 0.8), Position = UDim2.fromScale(0.1, 0.1), Text = string.upper(string.sub(entry.Name, 1, 1)), ZIndex = 23 })
-			end
-			Title(card, { Size = UDim2.new(0.92, 0, 0, 26), Position = UDim2.new(0.04, 0, 1, -66), Text = entry.Name, FontFace = Theme.FaceHeavy, ZIndex = 22 })
-			Title(card, { Size = UDim2.new(0.92, 0, 0, 30), Position = UDim2.new(0.04, 0, 1, -38), Text = entry.Value, TextColor3 = Theme.Gold, ZIndex = 22 })
-		end
-	end
+-- Colonnes des équipes (effectif final et score du mode)
+local teamStrip: Frame = New("Frame", { Name = "TeamStrip", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 110), Size = UDim2.new(0, 660, 0, 56), BackgroundTransparency = 1, ZIndex = 20 }, results)
+New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 12), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, teamStrip)
+local teamChips: { [string]: { Frame: Frame, Text: TextLabel, Stroke: UIStroke } } = {}
+for index, teamId in Teams.Order do
+	local def = Teams.Get(teamId)
+	assert(def)
+	local chip: Frame = New("Frame", { Name = teamId, Size = UDim2.new(0, 204, 1, 0), BackgroundColor3 = def.Color, LayoutOrder = index, ZIndex = 21 }, teamStrip)
+	Theme.CornerScale(chip, 0.5)
+	local stroke = Theme.Stroke(chip, 0, Theme.Cream)
+	local text = Label(chip, { Size = UDim2.new(0.86, 0, 0.62, 0), Position = UDim2.fromScale(0.07, 0.19), Text = def.Plural, TextColor3 = Theme.TextOn(def.Color), FontFace = Theme.FaceHeavy, ZIndex = 22 })
+	teamChips[teamId] = { Frame = chip, Text = text, Stroke = stroke }
 end
+-- Trois cartes de distinction côte à côte (pas de podium)
+local awardsRow: Frame = New("Frame", { Name = "Awards", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 180), Size = UDim2.new(0, 700, 0, 196), BackgroundTransparency = 1, ZIndex = 20 }, results)
+New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 14), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, awardsRow)
+type AwardCard = { Frame: Frame, Portrait: Frame, Initial: TextLabel, Name: TextLabel, Value: TextLabel }
+local awardCards: { [string]: AwardCard } = {}
+for index, award in AWARDS do
+	local card: Frame = New("Frame", { Name = award.Key, Size = UDim2.new(0, 222, 1, 0), BackgroundColor3 = Theme.PanelLight, LayoutOrder = index, ZIndex = 21 }, awardsRow)
+	Theme.Corner(card, 18)
+	Theme.Stroke(card, 2, Theme.Cream, 0.2)
+	Title(card, { Size = UDim2.new(0.9, 0, 0, 24), Position = UDim2.new(0.05, 0, 0, 10), Text = award.Title, TextColor3 = Theme.Mint, ZIndex = 22 })
+	local portrait: Frame = New("Frame", { Name = "Portrait", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 42), Size = UDim2.new(0, 84, 0, 84), BackgroundColor3 = Theme.Panel, ZIndex = 22 }, card)
+	Theme.CornerScale(portrait, 0.5)
+	Theme.Stroke(portrait, 3, Theme.Cream)
+	local initial = Title(portrait, { Size = UDim2.fromScale(0.6, 0.6), Position = UDim2.fromScale(0.2, 0.2), Text = "?", ZIndex = 23 })
+	local nameLabel = Title(card, { Size = UDim2.new(0.9, 0, 0, 24), Position = UDim2.new(0.05, 0, 0, 132), Text = "-", ZIndex = 22 })
+	local valueLabel = Title(card, { Size = UDim2.new(0.9, 0, 0, 26), Position = UDim2.new(0.05, 0, 0, 160), Text = "", TextColor3 = Theme.Cream, ZIndex = 22 })
+	awardCards[award.Key] = { Frame = card, Portrait = portrait, Initial = initial, Name = nameLabel, Value = valueLabel }
+end
+local readyLabel = Title(results, { Size = UDim2.new(1, -60, 0, 26), Position = UDim2.new(0, 30, 0, 388), Text = "Next round soon", TextColor3 = Theme.Cream, ZIndex = 20 })
+local coinsLine = Title(results, { Size = UDim2.new(1, -60, 0, 20), Position = UDim2.new(0, 30, 0, 420), Text = "", TextColor3 = Theme.Coin, ZIndex = 20 })
+-- Puce de niveau : pastille "LV n", jauge menthe, XP dans la jauge
+local xpRow: Frame = New("Frame", { Name = "LevelChip", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -22), Size = UDim2.new(0, 440, 0, 40), BackgroundTransparency = 1, ZIndex = 20 }, results)
+local xpBadge: Frame = New("Frame", { Size = UDim2.new(0, 72, 1, 0), BackgroundColor3 = Theme.Mint, ZIndex = 21 }, xpRow)
+Theme.CornerScale(xpBadge, 0.5)
+local xpLevelLeft = Label(xpBadge, { Size = UDim2.fromScale(0.8, 0.6), Position = UDim2.fromScale(0.1, 0.2), Text = "LV 1", TextColor3 = Theme.Dark, FontFace = Theme.FaceHeavy, ZIndex = 22 })
+local xpBar: Frame = New("Frame", { Position = UDim2.new(0, 84, 0.18, 0), Size = UDim2.new(1, -84, 0.64, 0), BackgroundColor3 = Theme.Dark, ZIndex = 21 }, xpRow)
+Theme.CornerScale(xpBar, 0.5)
+Theme.Stroke(xpBar, 2, Theme.Cream, 0.2)
+local xpFill: Frame = New("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Theme.Mint, ZIndex = 22 }, xpBar)
+Theme.CornerScale(xpFill, 0.5)
+local xpText = Title(xpBar, { Size = UDim2.fromScale(1, 0.84), Position = UDim2.fromScale(0, 0.08), Text = "", ZIndex = 23 })
 
-for index, tab in PODIUM_TABS do
-	local button: TextButton = New("TextButton", { Size = UDim2.new(0, 134, 1, 0), BackgroundColor3 = Theme.PanelLight, Text = tab.Label, TextColor3 = Theme.White, FontFace = Theme.FaceHeavy, TextScaled = true, LayoutOrder = index, ZIndex = 21 }, tabRow)
-	Theme.Corner(button, 6)
-	Theme.Stroke(button, 2, Theme.Outline)
-	New("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6) }, button)
-	button.Activated:Connect(function()
-		podiumTab = tab.Key
-		renderPodium()
-	end)
-	tabButtons[tab.Key] = button
+local function renderAwards()
+	local state = lastState
+	for _, award in AWARDS do
+		local card = awardCards[award.Key]
+		local list = state and state.Podium and state.Podium[award.Key] or {}
+		local entry = list[1]
+		for _, child in card.Portrait:GetChildren() do
+			if child:IsA("ImageLabel") then
+				child:Destroy()
+			end
+		end
+		if entry then
+			card.Name.Text = entry.Name
+			card.Value.Text = entry.Value
+			card.Initial.Text = string.upper(string.sub(entry.Name, 1, 1))
+			card.Initial.Visible = true
+			if entry.UserId and entry.UserId > 0 then
+				card.Initial.Visible = false
+				local image = New("ImageLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = string.format("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150", entry.UserId), ZIndex = 23 }, card.Portrait)
+				Theme.CornerScale(image, 0.5)
+			end
+		else
+			card.Name.Text = "-"
+			card.Value.Text = ""
+			card.Initial.Text = "?"
+			card.Initial.Visible = true
+		end
+	end
 end
 
 -- ---------------------------------------------------------------------------
@@ -436,7 +469,8 @@ function HUD.SetRole(teamId: string?)
 	end
 end
 
--- Bandeau de rôle en texte riche : animal en couleur, proie en vert, prédateur en rouge
+-- Ruban de rôle : animal en couleur, proie en vert, prédateur en rouge
+-- (les mêmes couleurs que les contours dans le monde)
 local function roleText(teamId: string): string
 	local def = Teams.Get(teamId)
 	if not def then
@@ -445,8 +479,8 @@ local function roleText(teamId: string): string
 	local prey = Teams.Defs[def.Prey]
 	local predator = Teams.Defs[def.Predator]
 	return string.format(
-		'You are a <font color="%s">%s</font> - Catch <font color="%s">%s</font> - Avoid <font color="%s">%s</font>',
-		Theme.Hex(def.Color), def.Display, Theme.Hex(Teams.PreyOutlineColor), prey.Plural, Theme.Hex(Teams.PredatorOutlineColor), predator.Plural
+		'<font color="%s">%s</font>  ·  catch <font color="%s">%s</font>  ·  avoid <font color="%s">%s</font>',
+		Theme.Hex(def.Color:Lerp(Color3.new(1, 1, 1), 0.3)), def.Display, Theme.Hex(Teams.PreyOutlineColor), prey.Plural, Theme.Hex(Teams.PredatorOutlineColor), predator.Plural
 	)
 end
 
@@ -483,7 +517,7 @@ function HUD.Announce(text: string, color: Color3?)
 	announceLabel.TextColor3 = color or Theme.White
 	announceLabel.TextTransparency = 0
 	announceLabel.TextStrokeTransparency = 0
-	announcePill.BackgroundTransparency = 0.35
+	announcePill.BackgroundTransparency = 0.3
 	announcePill.Visible = true
 	-- Petit rebond d'apparition, sans grossir au-delà de la pastille
 	local scale = announcePill:FindFirstChildOfClass("UIScale") or New("UIScale", {}, announcePill)
@@ -552,9 +586,11 @@ local function updateResults(state: Types.GameState)
 	if winnerDef then
 		resultsTitle.Text = winnerDef.Plural .. " WIN!"
 		resultsTitle.TextColor3 = winnerDef.Color
+		banner.BackgroundColor3 = winnerDef.DarkColor
 	else
 		resultsTitle.Text = "DRAW!"
 		resultsTitle.TextColor3 = Theme.White
+		banner.BackgroundColor3 = Theme.PanelLight
 	end
 	-- Raison détaillée : écrite par le serveur, là où la règle est appliquée
 	local reason = state.WinDetail or REASONS[state.WinReason or ""] or ""
@@ -563,7 +599,15 @@ local function updateResults(state: Types.GameState)
 		reason = (myTeam == winnerDef.Id and "Your team won! " or "Your team lost. ") .. reason
 	end
 	resultsReason.Text = reason
-	renderPodium()
+	-- Colonnes des équipes : effectif final (et score du mode)
+	for teamId, chip in teamChips do
+		local def = Teams.Get(teamId)
+		local count = state.TeamCounts[teamId] or 0
+		local score = state.ScoreLabel ~= nil and (" · " .. tostring(state.Scores[teamId] or 0)) or ""
+		chip.Text.Text = string.format("%s x%d%s", def and def.Plural or teamId, count, score)
+		chip.Stroke.Thickness = (winnerDef and winnerDef.Id == teamId) and 4 or 0
+	end
+	renderAwards()
 	local reward = lastReward
 	if reward and type(reward.Total) == "number" then
 		local parts = {}
@@ -572,8 +616,7 @@ local function updateResults(state: Types.GameState)
 		end
 		coinsLine.Text = string.format("+%d coins   (%s)", reward.Total, table.concat(parts, ", "))
 		local needed = reward.XPNeeded or 100
-		xpLevelLeft.Text = "Level " .. (reward.Level or 1)
-		xpLevelRight.Text = "Level " .. ((reward.Level or 1) + 1)
+		xpLevelLeft.Text = "LV " .. (reward.Level or 1)
 		xpText.Text = string.format("%d/%d XP", reward.XP or 0, needed)
 		xpFill.Size = UDim2.fromScale(math.clamp((reward.XP or 0) / needed, 0, 1), 1)
 		local leveledUp = reward.LevelBefore and reward.Level and reward.Level > reward.LevelBefore
@@ -590,13 +633,14 @@ local function updateResults(state: Types.GameState)
 	else
 		coinsLine.Text = ""
 		local level = profile.Level or 1
-		xpLevelLeft.Text = "Level " .. level
-		xpLevelRight.Text = "Level " .. (level + 1)
+		xpLevelLeft.Text = "LV " .. level
 		xpText.Text = string.format("%d/%d XP", profile.XP or 0, profile.XPNeeded or 100)
 		xpFill.Size = UDim2.fromScale(math.clamp((profile.XP or 0) / (profile.XPNeeded or 100), 0, 1), 1)
-		readyLabel.Text = "Ready for the next match"
+		readyLabel.Text = "Next round soon"
 	end
 end
+
+local rescale: () -> ()
 
 function HUD.UpdateState(state: Types.GameState)
 	local previousPhase = lastState and lastState.Phase
@@ -610,34 +654,41 @@ function HUD.UpdateState(state: Types.GameState)
 	local myTeam = player:GetAttribute("Team")
 	phaseLabel.Text = PHASE_LABELS[phase] or phase
 
-	-- Message principal : bandeau de rôle pendant la manche, sinon statut
-	if (phase == "Countdown" or phase == "Round") and currentRole then
+	-- Ruban : rôle pendant la manche, sinon statut
+	local roleDef = Teams.Get(currentRole)
+	if (phase == "Countdown" or phase == "Round") and currentRole and roleDef then
 		mainLabel.Text = roleText(currentRole)
-	elseif phase == "Intermission" then
-		mainLabel.Text = "Vote for the next map!"
-	elseif phase == "Waiting" then
-		mainLabel.Text = "Waiting for players..."
-	elseif phase == "Results" then
-		mainLabel.Text = "Back to the lobby soon"
+		ribbonStroke.Color = roleDef.Color
 	else
-		mainLabel.Text = Teams.Rule
+		ribbonStroke.Color = Theme.Mint
+		if phase == "Intermission" then
+			mainLabel.Text = "Vote for the next map!"
+		elseif phase == "Waiting" then
+			mainLabel.Text = "Waiting for players..."
+		elseif phase == "Results" then
+			mainLabel.Text = "Back to the lobby soon"
+		else
+			mainLabel.Text = Teams.Rule
+		end
 	end
 
 	local mapDef = MapInfo.Get(state.MapId)
 	if phase == "Intermission" then
-		subLabel.Text = "Next match soon"
+		subLabel.Text = "Walk onto a plate or tap a card"
 	elseif phase == "Countdown" then
 		-- Comment gagner sur cette map, lisible pendant le décompte
 		subLabel.Text = mapDef and (mapDef.ModeName .. ": " .. mapDef.Tagline) or ""
 	elseif phase == "Round" and mapDef then
-		local goal = state.ScoreGoal and string.format(" · First to %d %s", state.ScoreGoal, state.ScoreLabel or "points") or ""
+		local goal = state.ScoreGoal and string.format(" · first to %d %s", state.ScoreGoal, state.ScoreLabel or "points") or ""
 		subLabel.Text = mapDef.DisplayName .. " · " .. mapDef.ModeName .. goal
-	elseif phase == "Results" then
-		subLabel.Text = ""
 	else
 		subLabel.Text = ""
 	end
-	timerLabel.Text = (phase == "Waiting") and "" or Theme.FormatTime(state.TimeLeft)
+	local showTimer = phase ~= "Waiting"
+	timerLabel.Text = showTimer and Theme.FormatTime(state.TimeLeft) or ""
+	timerLabel.Visible = showTimer
+	phaseLabel.Position = UDim2.new(showTimer and 0.06 or 0.1, 0, 0.22, 0)
+	phaseLabel.Size = UDim2.new(showTimer and 0.36 or 0.8, 0, 0.56, 0)
 
 	for teamId, row in teamRows do
 		row.Count.Text = "x" .. tostring(state.TeamCounts[teamId] or 0)
@@ -649,22 +700,22 @@ function HUD.UpdateState(state: Types.GameState)
 	if votePanel.Visible then
 		updateVotePanel(state)
 	end
-	-- Barre d'action (capacité, dash) : seulement en jeu, jamais sous les résultats.
-	-- En tactile, les boutons ronds affichent déjà capacité et recharges.
+	-- Dock d'action : seulement en jeu, jamais sous les résultats.
+	-- En tactile, les médaillons sont autour du bouton de saut (ActionBar).
 	bottomCenter.Visible = not votePanel.Visible and phase ~= "Results" and not touchMode
-	local dashBar = screen:FindFirstChild("DashBar")
-	if dashBar and dashBar:IsA("GuiObject") then
-		dashBar.Visible = phase ~= "Results" and phase ~= "Intermission" and not touchMode
-	end
 	spectatorLabel.Visible = (phase == "Countdown" or phase == "Round") and myTeam == nil
 
 	-- Les annonces appartiennent à la manche (jamais par-dessus les résultats)
 	if phase ~= "Round" then
 		announcePill.Visible = false
 	end
+	-- Menus : à gauche du tableau des équipes quand il est affiché ; en tactile
+	-- pendant la manche, ils s'effacent (le pouce reste sur le jeu)
+	local playing = (phase == "Countdown" or phase == "Round") and myTeam ~= nil
+	pillRow.Visible = not (touchMode and playing)
 	if phase == "Results" then
 		results.Visible = not resultsHidden
-		-- Le titre du haut ne passe pas derrière la fenêtre de résultats ; sur
+		-- Le haut centre ne passe pas derrière la fenêtre de résultats ; sur
 		-- téléphone, les panneaux de pièces, de niveau et d'équipes s'effacent aussi
 		topCenter.Visible = not results.Visible
 		bottomLeft.Visible = not (compact and results.Visible)
@@ -674,12 +725,13 @@ function HUD.UpdateState(state: Types.GameState)
 		results.Visible = false
 		topCenter.Visible = true
 		-- En tactile, le coin bas-gauche appartient au joystick pendant la manche
-		bottomLeft.Visible = not (touchMode and (phase == "Countdown" or phase == "Round") and myTeam ~= nil)
+		bottomLeft.Visible = not (touchMode and playing)
 		resultsHidden = false
 		if phase == "Intermission" or phase == "Waiting" then
 			lastReward = nil
 		end
 	end
+	rescale()
 end
 
 -- Appelé par ActionBar quand on passe du clavier au tactile (ou l'inverse)
@@ -694,79 +746,86 @@ function HUD.SetTouchMode(on: boolean)
 	end
 end
 
--- Échelle de l'écran de résultats sur petit écran
-local function rescale()
+-- Disposition selon la taille de l'écran (téléphone = plus petit côté < 500 px)
+rescale = function()
 	local camera = workspace.CurrentCamera
 	if not camera then
 		return
 	end
 	local size = camera.ViewportSize
-	local small = size.Y < 500
+	local small = math.min(size.X, size.Y) < 500
+	-- Portrait (si l'orientation libre est activée) : les blocs s'empilent
+	local portrait = size.Y > size.X
 	compact = small
-	-- Résultats : tiennent entre les pastilles du haut et le bas de l'écran
+	-- Résultats : tiennent dans l'écran
 	local scale = math.clamp(math.min(size.X / 820, (size.Y - (small and 72 or 0)) / 560), 0.45, 1)
 	local s = results:FindFirstChild("Scale")
 	if s and s:IsA("UIScale") then
 		s.Scale = scale
 	end
-	results.Position = small and UDim2.new(0.5, 0, 0.5, 30) or UDim2.fromScale(0.5, 0.52)
-	-- Pastilles plus basses et plus étroites sur téléphone : le bloc du haut respire
-	pillRow.Position = UDim2.new(0, 228, 0, small and 8 or 14)
-	pillRow.Size = UDim2.new(0, 360, 0, small and 32 or 42)
-	local pillList = pillRow:FindFirstChildOfClass("UIListLayout")
-	if pillList then
-		pillList.Padding = UDim.new(0, small and 6 or 8)
-	end
-	for _, pill in HUD.Pills do
-		pill.Size = UDim2.new(0, small and 84 or 104, 1, 0)
-	end
-	-- Haut centre sur téléphone : pas de libellé de phase, lignes bien séparées
-	phaseLabel.Visible = not small
-	mainLabel.Position = UDim2.new(0, 0, 0, small and 0 or 22)
-	mainLabel.Size = UDim2.new(1, 0, 0, small and 24 or 40)
-	subLabel.Position = UDim2.new(0, 0, 0, small and 28 or 66)
-	subLabel.Size = UDim2.new(1, 0, 0, small and 16 or 20)
-	timerLabel.Position = UDim2.new(0, 0, 0, small and 48 or 88)
-	timerLabel.Size = UDim2.new(1, 0, 0, small and 20 or 22)
+	results.Position = small and UDim2.new(0.5, 0, 0.5, 24) or UDim2.fromScale(0.5, 0.52)
 	local helpScale = helpPanel:FindFirstChild("Scale")
 	if helpScale and helpScale:IsA("UIScale") then
-		helpScale.Scale = math.clamp(math.min(size.X / 600, size.Y / 420), 0.55, 1)
+		helpScale.Scale = math.clamp(math.min(size.X / 600, size.Y / 400), 0.55, 1)
 	end
-	bottomLeft.Size = UDim2.new(0, small and 150 or 230, 0, small and 78 or 112)
-	coinsPanel.Size = UDim2.new(0, small and 150 or 230, 0, small and 35 or 52)
-	levelPanel.Size = coinsPanel.Size
-	-- Bloc central : jamais sous le panneau des équipes ni sous le fil des captures
-	-- (largeur 170 px sur téléphone, 250 px sinon, voir KillFeed.Rescale)
+	-- Haut centre : capsule chrono, ruban, ligne d'objectif (jamais sous le
+	-- tableau des équipes ni le fil des captures, voir KillFeed.Rescale)
+	local teamWidth = small and 160 or 230
 	local sideWidth = small and (170 + 8 + 8) or (250 + 14 + 8)
-	local centerWidth = math.min((small and 0.44 or 0.56) * size.X, size.X - 2 * sideWidth)
-	topCenter.Size = UDim2.new(0, centerWidth, 0, small and 68 or 110)
-	topCenter.Position = UDim2.new(0.5, 0, 0, small and 44 or 58)
-	teamPanel.Size = UDim2.new(0, small and 160 or 230, 0, small and 78 or 112)
-	for _, row in teamRows do
-		row.Row.Size = UDim2.new(0.92, 0, 0, small and 21 or 30)
+	local centerWidth = portrait and (size.X - 24) or math.min((small and 0.44 or 0.56) * size.X, size.X - 2 * sideWidth, 600)
+	topCenter.Size = UDim2.new(0, centerWidth, 0, small and 82 or 112)
+	topCenter.Position = UDim2.new(0.5, 0, 0, small and 6 or 10)
+	clock.Size = UDim2.new(0, small and 132 or 176, 0, small and 34 or 46)
+	mainLabel.Position = UDim2.new(0.5, 0, 0, small and 38 or 52)
+	mainLabel.Size = UDim2.new(1, 0, 0, small and 26 or 34)
+	local ribbonMax = mainLabel:FindFirstChildOfClass("UITextSizeConstraint")
+	if ribbonMax then
+		ribbonMax.MaxTextSize = small and 15 or 22
 	end
-	-- Annonce : juste sous le bloc du haut (qui finit à 112 px sur téléphone, 168 px sinon)
-	announcePill.Position = UDim2.new(0.5, 0, 0, small and 116 or 174)
-	announcePill.Size = UDim2.new(0, math.min(small and 300 or 440, 0.42 * size.X), 0, small and 22 or 30)
+	subLabel.Position = UDim2.new(0, 0, 0, small and 66 or 90)
+	subLabel.Size = UDim2.new(1, 0, 0, small and 15 or 20)
+	-- Annonce : sous la ligne d'objectif (en portrait, sous les équipes)
+	announcePill.Position = UDim2.new(0.5, 0, 0, portrait and 186 or (small and 88 or 128))
+	announcePill.Size = UDim2.new(0, math.min(small and 300 or 440, portrait and (size.X - 24) or 0.42 * size.X), 0, small and 22 or 30)
 	local announceMax = announceLabel:FindFirstChildOfClass("UITextSizeConstraint")
 	if announceMax then
 		announceMax.MaxTextSize = small and 15 or 22
 	end
-	-- Vote : à droite des pièces quand l'écran est trop étroit pour le centrer
+	-- Menus en haut à droite, à gauche du tableau des équipes s'il est visible
+	local pillWidth = small and 72 or 104
+	for _, pill in HUD.Pills do
+		pill.Size = UDim2.new(0, pillWidth, 1, 0)
+	end
+	local pillList = pillRow:FindFirstChildOfClass("UIListLayout")
+	if pillList then
+		pillList.Padding = UDim.new(0, small and 6 or 8)
+	end
+	pillRow.Size = UDim2.new(0, 3 * pillWidth + 2 * (small and 6 or 8), 0, small and 30 or 40)
+	local rightInset = (teamPanel.Visible and not portrait) and (12 + teamWidth + 8) or 12
+	pillRow.Position = UDim2.new(1, -rightInset, 0, portrait and 94 or (small and 8 or 14))
+	-- Panneaux du bas
+	bottomLeft.Size = UDim2.new(0, small and 150 or 230, 0, small and 78 or 112)
+	coinsPanel.Size = UDim2.new(0, small and 150 or 230, 0, small and 35 or 52)
+	levelPanel.Size = coinsPanel.Size
+	teamPanel.Size = UDim2.new(0, teamWidth, 0, small and 78 or 112)
+	-- En portrait, le tableau des équipes passe sous le bloc du haut, à gauche
+	teamPanel.AnchorPoint = portrait and Vector2.new(0, 0) or Vector2.new(1, 0)
+	teamPanel.Position = portrait and UDim2.new(0, 12, 0, 94) or UDim2.new(1, -12, 0, 14)
+	for _, row in teamRows do
+		row.Row.Size = UDim2.new(0.92, 0, 0, small and 21 or 30)
+	end
+	bottomCenter.Position = UDim2.new(0.5, 0, 1, small and -8 or -14)
+	-- Vote : à droite des pièces quand l'écran est trop étroit pour le centrer ;
+	-- en portrait, sur toute la largeur au-dessus des pièces
 	local currencyRight = 12 + (small and 150 or 230) + 8
 	local voteWidth = math.min(660, size.X - currencyRight - 12)
 	local voteLeft = math.max(currencyRight, (size.X - voteWidth) / 2)
-	votePanel.AnchorPoint = Vector2.new(0, 1)
-	votePanel.Position = UDim2.new(0, voteLeft, 1, small and -10 or -66)
-	votePanel.Size = UDim2.new(0, voteWidth, 0, small and 130 or 150)
-	bottomCenter.Position = UDim2.new(0.5, 0, 1, small and -50 or -64)
-	local dash = screen:FindFirstChild("DashBar")
-	if dash and dash:IsA("Frame") then
-		dash.Size = small and UDim2.new(0.4, 0, 0, 36) or UDim2.new(0, 460, 0, 44)
-		local hint = dash:FindFirstChild("Hint")
-		if hint and hint:IsA("GuiObject") then
-			hint.Visible = not small
-		end
+	if portrait then
+		votePanel.Position = UDim2.new(0, 12, 1, -(12 + (small and 78 or 112) + 10))
+		votePanel.Size = UDim2.new(0, size.X - 24, 0, small and 130 or 150)
+	else
+		votePanel.Position = UDim2.new(0, voteLeft, 1, small and -10 or -66)
+		votePanel.Size = UDim2.new(0, voteWidth, 0, small and 130 or 150)
 	end
 end
 HUD.Rescale = rescale

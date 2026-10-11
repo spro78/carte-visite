@@ -5,8 +5,8 @@
 	  - mon prédateur est entouré en ROUGE,
 	  - mes coéquipiers n'ont pas de contour,
 	  - un porteur d'objectif est entouré en OR pour tout le monde,
-	  - un petit badge "FOX / CHICKEN / SNAKE" flotte au-dessus de chaque autre
-	    acteur (l'avatar Roblox reste intact).
+	  - une étiquette d'une ligne flotte au-dessus de chaque autre acteur : puce
+	    d'équipe (ou PREY / HUNTER) puis pseudo ; l'avatar Roblox reste intact.
 	Un acteur caché (attribut "Hidden") perd son contour et son nom, sauf s'il
 	est tout proche. Roblox limite le nombre de Highlights affichés (31) :
 	on garde les plus proches.
@@ -28,7 +28,7 @@ local player = Players.LocalPlayer
 local TAG = "HoH_Actor"
 local HIGHLIGHT_NAME = "HoH_Outline"
 local BADGE_NAME = "HoH_TeamBadge"
-local RELATION_SUFFIX = { Prey = " · PREY", Predator = " · HUNTER" }
+local RELATION_WORD = { Prey = "PREY", Predator = "HUNTER" }
 local MAX_HIGHLIGHTS = 28
 local UPDATE_INTERVAL = 0.2
 
@@ -51,11 +51,10 @@ local function getHighlight(model: Model): Highlight
 	return highlight
 end
 
--- Étiquette locale au-dessus de la tête (remplace le nom Roblox) :
---   ligne 1 : équipe en couleur (+ "PREY" / "HUNTER")
---   ligne 2 : pseudo en gros blanc contouré
---   ligne 3 : "Level 6 · 12 wins"
-type Tag = { Gui: BillboardGui, Team: TextLabel, Name: TextLabel, Info: TextLabel }
+-- Étiquette locale au-dessus de la tête (remplace le nom Roblox), sur une ligne
+-- (bible visuelle, §7) : puce aux couleurs de l'équipe à gauche (animal, ou
+-- PREY / HUNTER pour qui me concerne, bord vert ou rouge), pseudo à droite.
+type Tag = { Gui: BillboardGui, Team: TextLabel, Name: TextLabel, Stroke: UIStroke }
 local tags: { [Model]: Tag } = {}
 
 local function getTag(model: Model): Tag?
@@ -72,20 +71,22 @@ local function getTag(model: Model): Tag?
 	gui.Adornee = head
 	-- Taille en studs : l'étiquette rapetisse avec la distance (pas de mur de
 	-- pseudos qui se chevauchent au loin), plafonnée de près.
-	gui.Size = UDim2.new(7, 0, 2.2, 0)
-	gui.StudsOffset = Vector3.new(0, 3.2, 0)
+	gui.Size = UDim2.new(8, 0, 1.3, 0)
+	gui.StudsOffset = Vector3.new(0, 2.8, 0)
 	gui.MaxDistance = Config.Appearance.BadgeMaxDistance
 	gui.LightInfluence = 0
 	gui.AlwaysOnTop = false
 	gui.Enabled = false
-	local team = Theme.Title(gui, { Name = "Team", Size = UDim2.fromScale(1, 0.26), Text = "", FontFace = Theme.FaceTitle })
-	local name = Theme.Title(gui, { Name = "PlayerName", Position = UDim2.fromScale(0, 0.27), Size = UDim2.fromScale(1, 0.44), Text = "", FontFace = Theme.FaceHeavy })
-	local info = Theme.Label(gui, { Name = "Info", Position = UDim2.fromScale(0, 0.73), Size = UDim2.fromScale(1, 0.22), Text = "", TextColor3 = Color3.fromRGB(215, 220, 230), TextStrokeTransparency = 0.4 })
-	Theme.MaxText(team, 16)
-	Theme.MaxText(name, 28)
-	Theme.MaxText(info, 14)
+	local row = Theme.New("Frame", { Name = "Row", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, gui)
+	Theme.New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0.02, 0), SortOrder = Enum.SortOrder.LayoutOrder }, row)
+	local team = Theme.Label(row, { Name = "Team", Size = UDim2.fromScale(0.34, 0.84), Text = "", BackgroundTransparency = 0, BackgroundColor3 = Theme.Panel, FontFace = Theme.FaceHeavy, LayoutOrder = 1 })
+	Theme.CornerScale(team, 0.5)
+	local stroke = Theme.Stroke(team, 0, Theme.White)
+	local name = Theme.Title(row, { Name = "PlayerName", Size = UDim2.fromScale(0.62, 1), Text = "", TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 2 })
+	Theme.MaxText(team, 15)
+	Theme.MaxText(name, 26)
 	gui.Parent = head
-	local tag = { Gui = gui, Team = team, Name = name, Info = info }
+	local tag = { Gui = gui, Team = team, Name = name, Stroke = stroke }
 	tags[model] = tag
 	return tag
 end
@@ -102,20 +103,17 @@ local function updateTag(model: Model, team: any, relation: string?, visible: bo
 	tag.Gui.Enabled = true
 	local def = Teams.Get(team)
 	if def and Config.Appearance.ShowTeamBadge then
-		tag.Team.Text = def.Display .. (relation and RELATION_SUFFIX[relation] or "")
-		tag.Team.TextColor3 = relation == "Prey" and Teams.PreyOutlineColor or relation == "Predator" and Teams.PredatorOutlineColor or def.Color
+		tag.Team.Visible = true
+		tag.Team.Text = RELATION_WORD[relation or ""] or def.Display
+		tag.Team.BackgroundColor3 = def.Color
+		tag.Team.TextColor3 = Theme.TextOn(def.Color)
+		tag.Stroke.Thickness = (relation == "Prey" or relation == "Predator") and 3 or 0
+		tag.Stroke.Color = relation == "Prey" and Teams.PreyOutlineColor or Teams.PredatorOutlineColor
 	else
-		tag.Team.Text = ""
+		tag.Team.Visible = false
 	end
 	local displayName = model:GetAttribute("DisplayName")
 	tag.Name.Text = type(displayName) == "string" and displayName or model.Name
-	local level = model:GetAttribute("Level")
-	local wins = model:GetAttribute("Wins")
-	if type(level) == "number" then
-		tag.Info.Text = string.format("Level %d · %d win%s", level, type(wins) == "number" and wins or 0, wins == 1 and "" or "s")
-	else
-		tag.Info.Text = ""
-	end
 end
 
 local function setNameVisible(model: Model, visible: boolean)
