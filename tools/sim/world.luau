@@ -672,22 +672,111 @@ local function newPart(name, size, cf, parent, transparency)
 	return p
 end
 
-local function buildRig(name, at)
+-- Apparence factice réaliste : peau, haut, bas, cheveux (pour les rendus).
+local SKINS = {
+	Color3.fromRGB(255, 220, 185), Color3.fromRGB(234, 184, 146), Color3.fromRGB(204, 142, 105),
+	Color3.fromRGB(160, 105, 72), Color3.fromRGB(112, 72, 50), Color3.fromRGB(253, 214, 76),
+}
+local SHIRTS = {
+	Color3.fromRGB(40, 110, 220), Color3.fromRGB(220, 50, 70), Color3.fromRGB(40, 40, 46),
+	Color3.fromRGB(245, 245, 245), Color3.fromRGB(46, 170, 96), Color3.fromRGB(250, 160, 40),
+	Color3.fromRGB(160, 80, 210), Color3.fromRGB(80, 200, 230), Color3.fromRGB(255, 120, 170),
+}
+local PANTS = {
+	Color3.fromRGB(40, 60, 120), Color3.fromRGB(30, 30, 36), Color3.fromRGB(90, 96, 110),
+	Color3.fromRGB(120, 86, 60), Color3.fromRGB(60, 100, 70), Color3.fromRGB(200, 200, 205),
+}
+local HAIRS = {
+	Color3.fromRGB(40, 28, 22), Color3.fromRGB(90, 56, 30), Color3.fromRGB(230, 190, 100),
+	Color3.fromRGB(20, 20, 24), Color3.fromRGB(180, 70, 40), Color3.fromRGB(240, 120, 180),
+}
+local function nameSeed(name)
+	local h = 7
+	for i = 1, #name do
+		h = (h * 31 + string.byte(name, i)) % 2147483647
+	end
+	return h
+end
+local function pickFrom(list, seed, salt)
+	return list[((seed // salt) % #list) + 1]
+end
+
+local function colorRig(model, colors)
+	for _, part in model:GetChildren() do
+		if part:IsA("BasePart") then
+			local n = props(part).Name
+			local c
+			if n == "Head" or string.find(n, "Hand") or string.find(n, "Arm") then
+				c = colors.Skin
+			elseif string.find(n, "Torso") then
+				c = colors.Shirt
+			elseif string.find(n, "Leg") or string.find(n, "Foot") then
+				c = colors.Pants
+			end
+			if string.find(n, "UpperArm") or n == "Left Arm" or n == "Right Arm" then
+				-- Manches courtes : haut du bras de la couleur du haut
+				c = colors.Sleeves and colors.Shirt or colors.Skin
+			end
+			if c then
+				props(part).Color = c
+			end
+		end
+	end
+end
+World.ColorRig = colorRig
+
+local function addHair(model, head, color, style)
+	local acc = Instance.new("Accessory")
+	acc.Name = "Hair"
+	local hp = props(head)
+	local s = hp.Size
+	local handle = newPart("Handle", Vector3.new(s.X * 0.62, s.Y * 0.32, s.Z * 1.08), hp.CFrame * CFrame.new(0, s.Y * 0.52, 0.04), acc)
+	props(handle).Color = color
+	props(handle).CanCollide = false
+	if style == 2 then
+		local back = newPart("Handle2", Vector3.new(s.X * 0.62, s.Y * 0.7, s.Z * 0.3), hp.CFrame * CFrame.new(0, s.Y * 0.18, s.Z * 0.42), acc)
+		props(back).Color = color
+		props(back).CanCollide = false
+	end
+	acc.Parent = model
+end
+
+-- Rig R6 (Head, Torso, bras, jambes) ou R15 simplifié, centré sur at.
+local function buildRig(name, at, rigType, colors)
 	local model = Instance.new("Model")
 	model.Name = name
 	local base = CFrame.new(at)
 	local root = newPart("HumanoidRootPart", Vector3.new(2, 2, 1), base, model, 1)
-	newPart("Head", Vector3.new(1.2, 1.2, 1.2), base * CFrame.new(0, 2.1, 0), model)
-	newPart("UpperTorso", Vector3.new(2, 1.6, 1), base * CFrame.new(0, 0.6, 0), model)
-	newPart("LowerTorso", Vector3.new(2, 0.4, 1), base * CFrame.new(0, -0.4, 0), model)
-	newPart("LeftUpperArm", Vector3.new(1, 1.2, 1), base * CFrame.new(-1.5, 0.6, 0), model)
-	newPart("RightUpperArm", Vector3.new(1, 1.2, 1), base * CFrame.new(1.5, 0.6, 0), model)
-	newPart("LeftUpperLeg", Vector3.new(1, 1.2, 1), base * CFrame.new(-0.5, -1.2, 0), model)
-	newPart("RightUpperLeg", Vector3.new(1, 1.2, 1), base * CFrame.new(0.5, -1.2, 0), model)
-	newPart("LeftLowerLeg", Vector3.new(1, 1, 1), base * CFrame.new(-0.5, -2.4, 0), model)
-	newPart("RightLowerLeg", Vector3.new(1, 1, 1), base * CFrame.new(0.5, -2.4, 0), model)
+	local head
+	if rigType == "R15" then
+		head = newPart("Head", Vector3.new(1.2, 1.2, 1.2), base * CFrame.new(0, 2.1, 0), model)
+		newPart("UpperTorso", Vector3.new(2, 1.6, 1), base * CFrame.new(0, 0.6, 0), model)
+		newPart("LowerTorso", Vector3.new(2, 0.4, 1), base * CFrame.new(0, -0.4, 0), model)
+		newPart("LeftUpperArm", Vector3.new(1, 1.2, 1), base * CFrame.new(-1.5, 0.6, 0), model)
+		newPart("RightUpperArm", Vector3.new(1, 1.2, 1), base * CFrame.new(1.5, 0.6, 0), model)
+		newPart("LeftLowerArm", Vector3.new(1, 0.8, 1), base * CFrame.new(-1.5, -0.4, 0), model)
+		newPart("RightLowerArm", Vector3.new(1, 0.8, 1), base * CFrame.new(1.5, -0.4, 0), model)
+		newPart("LeftUpperLeg", Vector3.new(1, 1.2, 1), base * CFrame.new(-0.5, -1.2, 0), model)
+		newPart("RightUpperLeg", Vector3.new(1, 1.2, 1), base * CFrame.new(0.5, -1.2, 0), model)
+		newPart("LeftLowerLeg", Vector3.new(1, 1, 1), base * CFrame.new(-0.5, -2.4, 0), model)
+		newPart("RightLowerLeg", Vector3.new(1, 1, 1), base * CFrame.new(0.5, -2.4, 0), model)
+	else
+		head = newPart("Head", Vector3.new(2, 1, 1), base * CFrame.new(0, 1.5, 0), model)
+		newPart("Torso", Vector3.new(2, 2, 1), base, model)
+		newPart("Left Arm", Vector3.new(1, 2, 1), base * CFrame.new(-1.5, 0, 0), model)
+		newPart("Right Arm", Vector3.new(1, 2, 1), base * CFrame.new(1.5, 0, 0), model)
+		newPart("Left Leg", Vector3.new(1, 2, 1), base * CFrame.new(-0.5, -2, 0), model)
+		newPart("Right Leg", Vector3.new(1, 2, 1), base * CFrame.new(0.5, -2, 0), model)
+	end
+	if colors then
+		colorRig(model, colors)
+		if colors.Hair then
+			addHair(model, head, colors.Hair, colors.HairStyle)
+		end
+	end
 	local humanoid = Instance.new("Humanoid")
 	humanoid.Parent = model
+	props(humanoid).RigType = rigType == "R15" and Enum.HumanoidRigType.R15 or Enum.HumanoidRigType.R6
 	local animator = Instance.new("Animator")
 	animator.Parent = humanoid
 	Engine.AddMethods(animator, {
@@ -700,6 +789,19 @@ local function buildRig(name, at)
 	})
 	props(model).PrimaryPart = root
 	return model, humanoid
+end
+
+-- Couleurs d'avatar déterministes à partir du nom
+function World.AvatarColors(name)
+	local seed = nameSeed(name)
+	return {
+		Skin = pickFrom(SKINS, seed, 1),
+		Shirt = pickFrom(SHIRTS, seed, 7),
+		Pants = pickFrom(PANTS, seed, 53),
+		Hair = pickFrom(HAIRS, seed, 331),
+		HairStyle = (seed // 997) % 3,
+		Sleeves = (seed // 13) % 2 == 0,
+	}
 end
 World.BuildRig = buildRig
 
@@ -766,9 +868,22 @@ Engine.AddMethods(Players, {
 	end,
 	CreateHumanoidModelFromDescription = function(_, desc, rigType)
 		assert(desc and desc:IsA("HumanoidDescription"), "CreateHumanoidModelFromDescription expects a HumanoidDescription")
-		local model, humanoid = buildRig("NPC", Vector3.new(0, 3, 0))
+		local dp = props(desc)
+		local colors = {
+			Skin = dp.HeadColor or Color3.fromRGB(255, 220, 185),
+			Shirt = dp.TorsoColor or Color3.fromRGB(40, 110, 220),
+			Pants = dp.LeftLegColor or Color3.fromRGB(40, 60, 120),
+		}
+		local r15 = rigType == nil or rigType == Enum.HumanoidRigType.R15
+		local model, humanoid = buildRig("NPC", Vector3.new(0, 3, 0), r15 and "R15" or "R6", colors)
+		-- Bras : couleur de la description
+		for _, n in { "Left Arm", "Right Arm", "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm" } do
+			local part = model:FindFirstChild(n)
+			if part then
+				props(part).Color = dp.LeftArmColor or colors.Skin
+			end
+		end
 		humanoid:ApplyDescription(desc)
-		props(humanoid).RigType = rigType or Enum.HumanoidRigType.R15
 		return model
 	end,
 	GetHumanoidDescriptionFromUserId = function()
@@ -804,7 +919,7 @@ local function loadCharacter(player)
 	end
 	local spawn = findSpawn()
 	local at = spawn and (props(spawn).CFrame.Position + Vector3.new(0, Engine.GroundY + 3 - props(spawn).CFrame.Position.Y, 0)) or Vector3.new(0, Engine.GroundY + 3, 0)
-	local model, humanoid = buildRig(props(player).Name, at)
+	local model, humanoid = buildRig(props(player).Name, at, "R6", World.AvatarColors(props(player).Name))
 	props(player).Character = model
 	model.Parent = workspace
 	humanoid.Died:Connect(function()

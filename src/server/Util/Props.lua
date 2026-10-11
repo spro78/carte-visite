@@ -750,4 +750,119 @@ function Props.Umbrella(parent: Instance, ground: Vector3, color: Color3)
 	end
 end
 
+-- ---------------------------------------------------------------------------
+-- Vie de la ferme
+-- ---------------------------------------------------------------------------
+
+-- Mouton laineux (décor, petit obstacle)
+function Props.Sheep(parent: Instance, ground: Vector3, yaw: number?)
+	local cf = CFrame.new(ground) * CFrame.Angles(0, yaw or random:NextNumber(0, math.pi * 2), 0)
+	local wool = rgb(246, 244, 236)
+	local face = rgb(56, 50, 48)
+	local model = Instance.new("Model")
+	model.Name = "Sheep"
+	Build.Part({ Name = "Wool", Shape = Enum.PartType.Ball, Size = Vector3.new(3, 2.6, 4), CFrame = cf * CFrame.new(0, 2.4, 0), Color = wool, Material = Enum.Material.Fabric }, model)
+	for _, o in { Vector3.new(0.7, 3.4, 0.6), Vector3.new(-0.6, 3.3, -0.4), Vector3.new(0, 3.5, 1.2) } do
+		Build.Part(deco({ Name = "WoolTuft", Shape = Enum.PartType.Ball, Size = Vector3.new(1.6, 1.4, 1.6), CFrame = cf * CFrame.new(o), Color = wool, Material = Enum.Material.Fabric }), model)
+	end
+	Build.Part(deco({ Name = "Head", Size = Vector3.new(1.2, 1.4, 1.4), CFrame = cf * CFrame.new(0, 3, -2.3), Color = face }), model)
+	for _, sx in { -1, 1 } do
+		Build.Part(deco({ Name = "Ear", Size = Vector3.new(0.7, 0.25, 0.4), CFrame = cf * CFrame.new(sx * 0.85, 3.4, -2.2) * CFrame.Angles(0, 0, sx * 0.4), Color = face }), model)
+		Build.Part(deco({ Name = "Eye", Size = Vector3.new(0.18, 0.22, 0.1), CFrame = cf * CFrame.new(sx * 0.32, 3.25, -3.02), Color = Color3.new(1, 1, 1), Accent = true }), model)
+		for _, sz in { -1, 1 } do
+			Build.Part(deco({ Name = "Leg", Size = Vector3.new(0.45, 1.4, 0.45), CFrame = cf * CFrame.new(sx * 0.8, 0.7, sz * 1.2), Color = face }), model)
+		end
+	end
+	model.Parent = parent
+	return model
+end
+
+-- Ruche en bois (empilement + toit), avec abeilles
+function Props.Beehive(parent: Instance, ground: Vector3)
+	local cf = CFrame.new(ground) * CFrame.Angles(0, random:NextNumber(-0.3, 0.3), 0)
+	Build.Part({ Name = "HiveStand", Size = Vector3.new(3, 1, 3), CFrame = cf * CFrame.new(0, 0.5, 0), Color = Props.Colors.WoodDark, Material = Enum.Material.Wood }, parent)
+	for k = 0, 2 do
+		Build.Part({ Name = "HiveBox", Size = Vector3.new(2.6, 1.2, 2.6), CFrame = cf * CFrame.new(0, 1.6 + k * 1.25, 0), Color = k % 2 == 0 and rgb(250, 214, 96) or rgb(244, 236, 214), Material = Enum.Material.WoodPlanks }, parent)
+	end
+	Props.Roof(parent, cf * CFrame.new(0, 5.4, 0), { Width = 3.2, Depth = 3.2, Rise = 1, Color = rgb(186, 66, 52), Gable = rgb(244, 236, 214), Overhang = 0.3, Thickness = 0.3 })
+	Build.Part(deco({ Name = "HiveDoor", Size = Vector3.new(1, 0.3, 0.1), CFrame = cf * CFrame.new(0, 1.2, -1.32), Color = rgb(40, 30, 24) }), parent)
+	for i = 1, 3 do
+		local p = ground + Vector3.new(random:NextNumber(-2.5, 2.5), random:NextNumber(3, 6), random:NextNumber(-2.5, 2.5))
+		Build.Part(deco({ Name = "Bee" .. i, Shape = Enum.PartType.Ball, Size = Vector3.new(0.35, 0.3, 0.45), Position = p, Color = rgb(255, 200, 40), Accent = true, CastShadow = false }), parent)
+	end
+end
+
+-- Tas de bûches
+function Props.LogPile(parent: Instance, ground: Vector3, yaw: number?)
+	local cf = CFrame.new(ground) * CFrame.Angles(0, yaw or 0, 0)
+	local rows = { { 4, 0 }, { 3, 1 }, { 2, 2 } }
+	for _, row in rows do
+		local n, level = row[1], row[2]
+		for i = 1, n do
+			local x = (i - (n + 1) / 2) * 1.7
+			local log = cf * CFrame.new(x, 0.85 + level * 1.45, 0) * CFrame.Angles(0, math.rad(90), 0)
+			Build.Part({ Name = "Log", Shape = Enum.PartType.Cylinder, Size = Vector3.new(6, 1.7, 1.7), CFrame = log, Color = vary(Props.Colors.Trunk, 0.06), Material = Enum.Material.Wood }, parent)
+			Build.Part(deco({ Name = "LogEnd", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.1, 1.45, 1.45), CFrame = log * CFrame.new(3.02, 0, 0), Color = rgb(222, 184, 130) }), parent)
+		end
+	end
+	-- Billot et hache
+	local block = cf * CFrame.new(5, 0, 1)
+	Build.VerticalCylinder((block * CFrame.new(0, 1, 0)).Position, 1.2, 2, { Name = "ChoppingBlock", Color = Props.Colors.Trunk, Material = Enum.Material.Wood }, parent)
+	Build.Part(deco({ Name = "AxeHandle", Size = Vector3.new(0.25, 2.6, 0.25), CFrame = block * CFrame.new(0, 2.9, 0) * CFrame.Angles(0, 0, 0.35), Color = Props.Colors.Wood }), parent)
+	Build.Part(deco({ Name = "AxeHead", Size = Vector3.new(0.9, 0.7, 0.15), CFrame = block * CFrame.new(0.15, 2.15, 0) * CFrame.Angles(0, 0, 0.35), Color = rgb(150, 154, 164), Material = Enum.Material.Metal }), parent)
+end
+
+-- Tournesol
+function Props.Sunflower(parent: Instance, ground: Vector3, height: number?)
+	local h = height or random:NextNumber(4.5, 6.5)
+	local face = random:NextNumber(0, math.pi * 2)
+	Build.Part(deco({ Name = "Stem", Size = Vector3.new(0.3, h, 0.3), Position = ground + Vector3.new(0, h / 2, 0), Color = rgb(70, 150, 56), CastShadow = false }), parent)
+	Build.Part(deco({ Name = "Leaf", Size = Vector3.new(1.2, 0.15, 0.6), CFrame = CFrame.new(ground + Vector3.new(0, h * 0.45, 0)) * CFrame.Angles(0, face, 0.4) * CFrame.new(0.6, 0, 0), Color = rgb(80, 160, 60), CastShadow = false }), parent)
+	local head = CFrame.new(ground + Vector3.new(0, h + 0.4, 0)) * CFrame.Angles(0, face, 0) * CFrame.Angles(math.rad(-20), 0, 0)
+	Build.Part(deco({ Name = "Petals", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 2.6, 2.6), CFrame = head * CFrame.Angles(0, math.rad(90), 0), Color = rgb(255, 204, 40), Accent = true }), parent)
+	Build.Part(deco({ Name = "Seeds", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 1.3, 1.3), CFrame = head * CFrame.new(0, 0, -0.05) * CFrame.Angles(0, math.rad(90), 0), Color = rgb(110, 70, 36), Accent = true }), parent)
+end
+
+-- Brouette
+function Props.Wheelbarrow(parent: Instance, ground: Vector3, yaw: number?, cargo: Color3?)
+	local cf = CFrame.new(ground) * CFrame.Angles(0, yaw or 0, 0)
+	Build.Part({ Name = "Tray", Size = Vector3.new(2.8, 1.2, 3.6), CFrame = cf * CFrame.new(0, 1.8, 0), Color = rgb(70, 140, 200), Material = Enum.Material.Metal }, parent)
+	if cargo then
+		Build.Part(deco({ Name = "Cargo", Size = Vector3.new(2.4, 0.5, 3.2), CFrame = cf * CFrame.new(0, 2.5, 0), Color = cargo }), parent)
+	end
+	Build.Part(deco({ Name = "Wheel", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 1.6, 1.6), CFrame = cf * CFrame.new(0, 0.8, -2.2), Color = rgb(40, 40, 46) }), parent)
+	for _, sx in { -1, 1 } do
+		Build.Part(deco({ Name = "Handle", Size = Vector3.new(0.25, 0.25, 4.4), CFrame = cf * CFrame.new(sx * 1.1, 1.7, 1.6) * CFrame.Angles(math.rad(10), 0, 0), Color = Props.Colors.Wood }), parent)
+		Build.Part(deco({ Name = "Leg", Size = Vector3.new(0.25, 1.4, 0.25), CFrame = cf * CFrame.new(sx * 1, 0.7, 1.2), Color = Props.Colors.Wood }), parent)
+	end
+end
+
+-- Enclos à moutons : clôture avec une entrée, moutons, abreuvoir et foin
+function Props.SheepPen(parent: Instance, cf: CFrame, width: number, depth: number, sheep: number)
+	local model = Instance.new("Model")
+	model.Name = "SheepPen"
+	local hw, hd = width / 2, depth / 2
+	local corners = { cf * CFrame.new(-hw, 0, -hd), cf * CFrame.new(hw, 0, -hd), cf * CFrame.new(hw, 0, hd), cf * CFrame.new(-hw, 0, hd) }
+	for k = 1, 4 do
+		local a, b = corners[k].Position, corners[k % 4 + 1].Position
+		if k == 1 then
+			-- Entrée au milieu du côté avant (face au centre de la map)
+			local mid = (a + b) / 2
+			local half = (b - a).Unit * 4
+			Props.Fence(model, a, mid - half)
+			Props.Fence(model, mid + half, b)
+		else
+			Props.Fence(model, a, b)
+		end
+	end
+	for i = 1, sheep do
+		local p = (cf * CFrame.new(random:NextNumber(-hw + 3, hw - 3), 0, random:NextNumber(-hd + 3, hd - 3))).Position
+		Props.Sheep(model, p)
+	end
+	Props.HayBale(model, (cf * CFrame.new(hw - 4, 0, hd - 3)).Position, 0, true)
+	Build.Part({ Name = "Trough", Size = Vector3.new(6, 1.6, 2), CFrame = cf * CFrame.new(-hw + 5, 0.8, hd - 2.5), Color = Props.Colors.Wood, Material = Enum.Material.WoodPlanks }, model)
+	model.Parent = parent
+	return model
+end
+
 return Props

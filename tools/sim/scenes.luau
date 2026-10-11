@@ -61,6 +61,7 @@ local function addScene(name, caption, center, radius, camera, extra)
 		terrain = data.terrain,
 		terrainColors = data.terrainColors,
 		water = data.water,
+		lighting = data.lighting,
 		camera = camera,
 		sky = extra and extra.sky,
 		hud = extra and extra.hud,

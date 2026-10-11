@@ -17,12 +17,13 @@
   .t { width: 100%; height: 100%; display: flex; white-space: pre-line; line-height: 1; }
   #caption { position: absolute; left: 12px; bottom: 10px; color: #fff; font-size: 15px; text-shadow: 0 1px 3px #000a; }
 </style>
-<script type="importmap">{ "imports": { "three": "./node_modules/three/build/three.module.js" } }</script>
+<script type="importmap">{ "imports": { "three": "./node_modules/three/build/three.module.js", "three/addons/": "./node_modules/three/examples/jsm/" } }</script>
 </head>
 <body>
 <div id="wrap"><canvas id="gl"></canvas><div id="hud"></div><div id="caption"></div></div>
 <script type="module">
 import * as THREE from "three";
+import { render3D } from "./scene3d.js";
 
 const data = window.__SCENE__;
 const W = data.width, H = data.height;
@@ -51,34 +52,6 @@ function richSegments(text, base) {
   if (last < text.length) out.push([text.slice(last), base]); return out;
 }
 const plain = (el) => el.rich ? String(el.text).replace(/<[^>]+>/g, "") : String(el.text);
-
-const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("gl"), antialias: true, preserveDrawingBuffer: true });
-renderer.setSize(W, H);
-renderer.setPixelRatio(1);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
-
-const scene = new THREE.Scene();
-// Ciel bleu en dégradé (plein jour)
-{ const c = document.createElement("canvas"); c.width = 2; c.height = 256; const g = c.getContext("2d");
-  const grad = g.createLinearGradient(0, 0, 0, 256); grad.addColorStop(0, "#3f8ff0"); grad.addColorStop(0.6, "#86c3ff"); grad.addColorStop(1, "#d6ecff");
-  g.fillStyle = grad; g.fillRect(0, 0, 2, 256); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; scene.background = data.sky ? new THREE.Color(data.sky) : t; }
-scene.fog = new THREE.Fog(data.fog || "#cfe6ff", data.fogNear || 600, data.fogFar || 2600);
-
-scene.add(new THREE.HemisphereLight(0xeaf4ff, 0x6a8a50, 1.6));
-const sun = new THREE.DirectionalLight(0xfffaf0, 2.6);
-const c = data.center || [0, 0, 0];
-sun.position.set(c[0] + 120, 260, c[2] + 90);
-sun.target.position.set(c[0], 0, c[2]);
-sun.castShadow = true;
-sun.shadow.mapSize.set(4096, 4096);
-const S = data.shadowExtent || 260;
-Object.assign(sun.shadow.camera, { left: -S, right: S, top: S, bottom: -S, near: 10, far: 900 });
-sun.shadow.bias = -0.0005;
-scene.add(sun, sun.target);
 
 const arr = x => Array.isArray(x) ? x : [];
 const toCss = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
@@ -210,110 +183,8 @@ function drawGui(ctx, el, rect, k) {
   for (const [kid, r] of layoutChildren(el, rect, k)) drawGui(ctx, kid, r, k);
 }
 
-// ---------- Parts ----------
-const FACE = {
-  Front: { dims: s => [s[0], s[1]], pos: s => [0, 0, -s[2] / 2], rot: [0, Math.PI, 0] },
-  Back: { dims: s => [s[0], s[1]], pos: s => [0, 0, s[2] / 2], rot: [0, 0, 0] },
-  Right: { dims: s => [s[2], s[1]], pos: s => [s[0] / 2, 0, 0], rot: [0, Math.PI / 2, 0] },
-  Left: { dims: s => [s[2], s[1]], pos: s => [-s[0] / 2, 0, 0], rot: [0, -Math.PI / 2, 0] },
-  Top: { dims: s => [s[0], s[2]], pos: s => [0, s[1] / 2, 0], rot: [-Math.PI / 2, 0, 0] },
-  Bottom: { dims: s => [s[0], s[2]], pos: s => [0, -s[1] / 2, 0], rot: [Math.PI / 2, 0, 0] },
-};
-
-const highlightByModel = new Map();
-for (const h of arr(data.highlights)) highlightByModel.set(h.model, h);
-
-const geoCache = new Map();
-function geometry(shape, size) {
-  const key = shape + size.join(",");
-  if (geoCache.has(key)) return geoCache.get(key);
-  let g;
-  if (shape === "Ball") g = new THREE.SphereGeometry(Math.min(...size) / 2, 28, 18);
-  else if (shape === "Cylinder") { g = new THREE.CylinderGeometry(Math.min(size[1], size[2]) / 2, Math.min(size[1], size[2]) / 2, size[0], 40); g.rotateZ(Math.PI / 2); }
-  else g = new THREE.BoxGeometry(size[0], size[1], size[2]);
-  geoCache.set(key, g);
-  return g;
-}
-
-// Texture de tenons (dessus des pièces "Studs")
-const studCanvas = document.createElement("canvas"); studCanvas.width = studCanvas.height = 64;
-{ const c = studCanvas.getContext("2d"); c.fillStyle = "#fff"; c.fillRect(0, 0, 64, 64);
-  c.strokeStyle = "rgba(0,0,0,0.10)"; c.lineWidth = 2; c.strokeRect(1, 1, 62, 62);
-  c.fillStyle = "rgba(0,0,0,0.13)"; c.beginPath(); c.arc(34, 34, 17, 0, Math.PI * 2); c.fill();
-  c.fillStyle = "rgba(255,255,255,0.35)"; c.beginPath(); c.arc(30, 30, 15, 0, Math.PI * 2); c.fill(); }
-const studCache = new Map();
-function studTexture(sx, sz) {
-  const key = Math.round(sx) + "x" + Math.round(sz);
-  if (studCache.has(key)) return studCache.get(key);
-  const t = new THREE.CanvasTexture(studCanvas); t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(Math.max(1, sx / 2), Math.max(1, sz / 2)); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
-  studCache.set(key, t); return t;
-}
-
-const ROUGH = { Neon: 0.3, Glass: 0.05, SmoothPlastic: 0.55, Plastic: 0.6, Grass: 0.95, Mud: 1, Sand: 1, Sandstone: 0.95, Slate: 0.9, Brick: 0.9, Cobblestone: 0.95, Wood: 0.8, WoodPlanks: 0.8, Metal: 0.4, CorrodedMetal: 0.7, DiamondPlate: 0.35, Fabric: 1, Rock: 0.95, Concrete: 0.95, Ice: 0.15 };
-
-for (const p of arr(data.parts)) {
-  const col = new THREE.Color(`rgb(${p.color[0]},${p.color[1]},${p.color[2]})`);
-  const mat = new THREE.MeshStandardMaterial({
-    color: col, roughness: ROUGH[p.material] ?? 0.6, metalness: p.material === "Metal" || p.material === "DiamondPlate" ? 0.4 : 0,
-    transparent: p.t > 0, opacity: 1 - p.t,
-    emissive: p.neon ? col : new THREE.Color(0), emissiveIntensity: p.neon ? 0.9 : 0,
-    flatShading: p.material === "Grass" || p.material === "Rock" || p.material === "Slate",
-  });
-  let meshMat = mat;
-  if (p.studs && p.shape === "Block") {
-    const top = mat.clone(); top.map = studTexture(p.size[0], p.size[2]);
-    meshMat = [mat, mat, top, mat, mat, mat];
-  }
-  const mesh = new THREE.Mesh(geometry(p.shape, p.size), meshMat);
-  const m = p.cf;
-  mesh.matrixAutoUpdate = false;
-  mesh.matrix.set(m[3], m[4], m[5], m[0], m[6], m[7], m[8], m[1], m[9], m[10], m[11], m[2], 0, 0, 0, 1);
-  mesh.castShadow = p.t < 0.5 && Math.max(...p.size) < 300;
-  mesh.receiveShadow = true;
-  scene.add(mesh);
-
-  const hl = p.model && highlightByModel.get(p.model);
-  if (hl && p.name !== "HumanoidRootPart") {
-    const outline = new THREE.Mesh(geometry(p.shape, p.size), new THREE.MeshBasicMaterial({ color: new THREE.Color(`rgb(${hl.outline.join(",")})`), side: THREE.BackSide }));
-    outline.matrixAutoUpdate = false;
-    outline.matrix.copy(mesh.matrix).multiply(new THREE.Matrix4().makeScale(...p.size.map(s => (s + 0.35) / s)));
-    scene.add(outline);
-  }
-
-  for (const g of arr(p.guis)) {
-    const f = FACE[g.face]; if (!f) continue;
-    const [fw, fh] = f.dims(p.size);
-    const K = 40; // pixels GUI par stud (PixelsPerStud du jeu)
-    const scale = Math.min(1, 2048 / Math.max(fw * K, fh * K));
-    const cw = Math.max(2, Math.round(fw * K * scale)), ch = Math.max(2, Math.round(fh * K * scale));
-    const canvas = document.createElement("canvas"); canvas.width = cw; canvas.height = ch;
-    const ctx = canvas.getContext("2d");
-    for (const [kid, r] of layoutChildren({ children: arr(g.children) }, [0, 0, cw, ch], scale)) drawGui(ctx, kid, r, scale);
-    const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-    const plane = new THREE.Mesh(new THREE.PlaneGeometry(fw, fh), new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false }));
-    const pos = f.pos(p.size); const n = new THREE.Vector3(...pos).normalize().multiplyScalar(0.03);
-    plane.position.set(pos[0] + n.x, pos[1] + n.y, pos[2] + n.z);
-    plane.rotation.set(...f.rot);
-    plane.updateMatrix();
-    const holder = new THREE.Object3D(); holder.matrixAutoUpdate = false; holder.matrix.copy(mesh.matrix);
-    holder.add(plane); scene.add(holder);
-  }
-}
-
-// ---------- Caméra ----------
-const cam = data.camera;
-let camera;
-if (cam.ortho) {
-  const half = cam.ortho / 2, aspect = W / H;
-  camera = new THREE.OrthographicCamera(-half * aspect, half * aspect, half, -half, 1, 3000);
-} else {
-  camera = new THREE.PerspectiveCamera(cam.fov || 60, W / H, 0.5, 4000);
-}
-camera.position.set(...cam.position);
-camera.up.set(...(cam.up || [0, 1, 0]));
-camera.lookAt(...cam.target);
-renderer.render(scene, camera);
+// ---------- Scène 3D (scene3d.js) ----------
+const { camera } = await render3D(data, { W, H, drawGui, layoutChildren });
 
 // ---------- BillboardGui (badges au-dessus des têtes) ----------
 const billboards = [];

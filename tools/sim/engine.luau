@@ -10,7 +10,33 @@
 	réplication instantanée (serveur et clients partagent les mêmes objets).
 ]]
 
-local roblox = require("@lune/roblox")
+local robloxLib = require("@lune/roblox")
+
+-- Correctif : CFrame.lookAt de Lune 0.8.9 renvoie une orientation miroir
+-- (composante Z du LookVector inversée). On le remplace par un calcul exact
+-- (même convention que Roblox : -Z vers la cible, Y vers le haut).
+local function lookAt(pos, target, up)
+	local V3 = robloxLib.Vector3
+	local upVector = up or V3.new(0, 1, 0)
+	local delta = target - pos
+	if delta.Magnitude < 1e-9 then
+		return robloxLib.CFrame.new(pos.X, pos.Y, pos.Z)
+	end
+	local look = delta.Unit
+	local right = look:Cross(upVector)
+	if right.Magnitude < 1e-6 then
+		right = look:Cross(V3.new(0, 0, 1))
+		if right.Magnitude < 1e-6 then
+			right = look:Cross(V3.new(1, 0, 0))
+		end
+	end
+	right = right.Unit
+	local up2 = right:Cross(look).Unit
+	local b = -look
+	return robloxLib.CFrame.new(pos.X, pos.Y, pos.Z, right.X, up2.X, b.X, right.Y, up2.Y, b.Y, right.Z, up2.Z, b.Z)
+end
+local CFrameLib = setmetatable({ lookAt = lookAt }, { __index = robloxLib.CFrame })
+local roblox = setmetatable({ CFrame = CFrameLib }, { __index = robloxLib })
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")
 local serde = require("@lune/serde")

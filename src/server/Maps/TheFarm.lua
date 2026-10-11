@@ -72,7 +72,7 @@ local THEME: MapBase.ArenaTheme = {
 	Valley = { Ground = Enum.Material.Grass, Hill = Enum.Material.Grass, Rock = Enum.Material.Rock, Height = 95, Gap = 26, RockChance = 0.45 },
 	Perimeter = "Fence",
 	Trees = { "Block", "Round", "Green", "Round" },
-	TreeCount = 70,
+	TreeCount = 120,
 	Camp = { Wall = Enum.Material.WoodPlanks },
 }
 
@@ -538,6 +538,38 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	buildWindmill(f, MapBase.Polar(origin, 225, 168), origin)
 	buildWaterTower(f, MapBase.Polar(origin, 315, 168))
 
+	-- Petites scènes de la vie de la ferme (remplissent les pelouses, servent d'obstacles)
+	Props.SheepPen(f, CFrame.lookAt(MapBase.Polar(origin, 0, 130), origin), 22, 16, 4)
+	for k = 0, 2 do
+		Props.Beehive(f, MapBase.Polar(origin, 180 + (k - 1) * 6, 132 + (k % 2) * 4))
+	end
+	for k = 0, 9 do
+		Props.Sunflower(f, MapBase.Polar(origin, 172 + k * 1.8, 142 + (k % 3) * 2.5))
+	end
+	Props.Flowers(f, MapBase.Polar(origin, 186, 120), 16, 7)
+	Props.LogPile(f, MapBase.Polar(origin, 300, 132), math.rad(-60))
+	Props.Wheelbarrow(f, MapBase.Polar(origin, 306, 122), math.rad(20), Color3.fromRGB(196, 150, 90))
+	Props.Cart(f, CFrame.new(MapBase.Polar(origin, 238, 132)) * CFrame.Angles(0, math.rad(-30), 0), Color3.fromRGB(244, 204, 74))
+	Props.HayBale(f, MapBase.Polar(origin, 244, 140), 0.4, true)
+	Props.HayBale(f, MapBase.Polar(origin, 232, 142), -0.3, true)
+	for k = 0, 5 do
+		Props.Sunflower(f, MapBase.Polar(origin, 112 + k * 2.2, 140 + (k % 2) * 3))
+	end
+	Props.Wheelbarrow(f, MapBase.Polar(origin, 66, 132), math.rad(140), Color3.fromRGB(226, 40, 46))
+
+	-- Touffes d'herbe et fleurs semées sur la pelouse (texture du sol)
+	local random = MapBase.Random()
+	for _ = 1, 70 do
+		local a = random:NextNumber(0, 360)
+		local r = random:NextNumber(70, 145)
+		local p = MapBase.Polar(origin, a, r)
+		if random:NextNumber() < 0.7 then
+			Props.GrassTuft(f, p)
+		else
+			Props.Flowers(f, p, 4, 1.5)
+		end
+	end
+
 	-- Cachettes : hautes herbes, terriers et buissons
 	for _, deg in { 22, 150, 262 } do
 		MapBase.BuildTallGrass(f, MapBase.Polar(origin, deg, 100), 6.5)
@@ -550,8 +582,8 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	end
 
 	-- Clôtures basses avec passages (raccourcis à sauter) entre les lieux
-	for _, deg in { 0, 120, 240 } do
-		local center = MapBase.Polar(origin, deg, 128)
+	for _, deg in { 120, 240 } do
+		local center = MapBase.Polar(origin, deg, 114)
 		local a = math.rad(deg)
 		local tangent = Vector3.new(-math.sin(a), 0, math.cos(a))
 		Props.Fence(f, center - tangent * 13, center - tangent * 3)

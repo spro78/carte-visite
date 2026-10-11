@@ -99,7 +99,7 @@ end
 -- ---------------------------------------------------------------------------
 
 -- Taille totale de la région de terrain d'une map (pour ClearArena)
-local ARENA_EXTENT = 1500
+local ARENA_EXTENT = 1600
 local ARENA_HEIGHT = 320
 
 function MapBase.ClearArena(origin: Vector3)

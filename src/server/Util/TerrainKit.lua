@@ -187,6 +187,7 @@ export type ValleyTheme = {
 	Height: number?, -- hauteur max des montagnes
 	Gap: number?, -- distance entre le bord de la zone de jeu et le pied des collines
 	RockChance: number?,
+	Mountains: boolean?, -- grandes montagnes lointaines (défaut : oui)
 }
 function TerrainKit.Valley(origin: Vector3, playSize: number, theme: ValleyTheme, random: Random)
 	local topY = origin.Y
@@ -223,27 +224,48 @@ function TerrainKit.Valley(origin: Vector3, playSize: number, theme: ValleyTheme
 		local r = random:NextNumber(85, 120)
 		local h = random:NextNumber(height * 0.75, height)
 		TerrainKit.Hill(p, r, h, topY, theme.Hill)
-		-- Arêtes rocheuses sur le flanc tourné vers la vallée
+		-- Arêtes rocheuses qui affleurent sur le flanc tourné vers la vallée
 		local inward = (origin - p).Unit
 		for k = 1, 3 do
-			local along = inward * random:NextNumber(r * 0.15, r * 0.45)
+			local along = inward * random:NextNumber(r * 0.25, r * 0.6)
 			local side = Vector3.new(-inward.Z, 0, inward.X) * random:NextNumber(-r * 0.4, r * 0.4)
 			local q = p + along + side
-			local hy = topY + h * random:NextNumber(0.35, 0.7)
-			TerrainKit.Boulder(Vector3.new(q.X, hy, q.Z), random:NextNumber(10, 18) * (k == 1 and 1.3 or 1), theme.Rock)
+			local rr = random:NextNumber(9, 16) * (k == 1 and 1.3 or 1)
+			TerrainKit.Boulder(Vector3.new(q.X, TerrainKit.HeightAt(q.X, q.Z) - rr * 0.35, q.Z), rr, theme.Rock)
 		end
 		if theme.Peak then
 			TerrainKit.Boulder(Vector3.new(p.X, topY + h - 6, p.Z), random:NextNumber(14, 22), theme.Peak)
 		end
 	end
-	-- Rochers épars sur les talus
+	-- Quatrième rang : grandes montagnes lointaines (profondeur, brume)
+	if theme.Mountains ~= false then
+		local ring4 = ring3 + 170
+		for i = 0, 15 do
+			local a = (i + random:NextNumber(-0.25, 0.25)) / 16 * math.pi * 2
+			local d = ring4 + random:NextNumber(-30, 40)
+			local p = origin + Vector3.new(math.cos(a) * d, 0, math.sin(a) * d)
+			local r = random:NextNumber(130, 175)
+			local h = random:NextNumber(height * 1.3, height * 1.9)
+			TerrainKit.Hill(p, r, h, topY, theme.Hill)
+			local inward = (origin - p).Unit
+			for k = 1, 2 do
+				local q = p + inward * random:NextNumber(r * 0.2, r * 0.45) + Vector3.new(-inward.Z, 0, inward.X) * random:NextNumber(-r * 0.4, r * 0.4)
+				local rr = random:NextNumber(18, 30)
+				TerrainKit.Boulder(Vector3.new(q.X, TerrainKit.HeightAt(q.X, q.Z) - rr * 0.3, q.Z), rr, theme.Rock)
+			end
+			local top = Vector3.new(p.X, topY + h, p.Z)
+			TerrainKit.Boulder(top - Vector3.new(0, 14, 0), random:NextNumber(26, 34), theme.Peak or theme.Rock)
+		end
+	end
+	-- Rochers épars qui affleurent sur les talus
 	local chance = theme.RockChance or 0.5
 	for i = 0, 27 do
 		if random:NextNumber() < chance then
 			local a = i / 28 * math.pi * 2 + random:NextNumber(-0.1, 0.1)
-			local d = ring1 + random:NextNumber(10, 50)
+			local d = ring1 + random:NextNumber(-10, 40)
 			local p = origin + Vector3.new(math.cos(a) * d, 0, math.sin(a) * d)
-			TerrainKit.Boulder(Vector3.new(p.X, topY + random:NextNumber(2, 10), p.Z), random:NextNumber(5, 10), theme.Rock)
+			local rr = random:NextNumber(5, 10)
+			TerrainKit.Boulder(Vector3.new(p.X, TerrainKit.HeightAt(p.X, p.Z) - rr * 0.4, p.Z), rr, theme.Rock)
 		end
 	end
 end

@@ -172,6 +172,16 @@ function Export.Parts(center, radius)
 				if model then
 					entry.model = props(model).Name
 				end
+				-- Pièce d'un personnage (tête arrondie, visage, membres arrondis)
+				local anc = props(d).Parent
+				while anc and anc ~= World.workspace do
+					if rawget(anc, "_class") == "Model" and anc:FindFirstChildOfClass("Humanoid") then
+						entry.char = true
+						entry.charName = props(anc).Name
+						break
+					end
+					anc = props(anc).Parent
+				end
 				table.insert(parts, entry)
 			end
 		end
@@ -207,12 +217,32 @@ function Export.Parts(center, radius)
 		colors[name] = c3(color)
 	end
 	local tp = props(World.workspace.Terrain)
+	local lighting = World.game:GetService("Lighting")
+	local lp = props(lighting)
+	local light = {
+		clock = lp.ClockTime or 14,
+		brightness = lp.Brightness or 2,
+		ambient = lp.Ambient and c3(lp.Ambient) or { 110, 110, 120 },
+		outdoor = lp.OutdoorAmbient and c3(lp.OutdoorAmbient) or { 150, 150, 160 },
+	}
+	for _, child in lighting:GetChildren() do
+		local cls = rawget(child, "_class")
+		local cp = props(child)
+		if cls == "Atmosphere" then
+			light.atmosphere = { density = cp.Density, haze = cp.Haze, color = cp.Color and c3(cp.Color), decay = cp.Decay and c3(cp.Decay), offset = cp.Offset }
+		elseif cls == "ColorCorrectionEffect" then
+			light.cc = { brightness = cp.Brightness, contrast = cp.Contrast, saturation = cp.Saturation, tint = cp.TintColor and c3(cp.TintColor) }
+		elseif cls == "BloomEffect" then
+			light.bloom = { intensity = cp.Intensity, size = cp.Size, threshold = cp.Threshold }
+		end
+	end
 	return {
 		parts = parts,
 		highlights = highlights,
 		terrain = terrain,
 		terrainColors = colors,
 		water = { color = c3(tp.WaterColor), transparency = tp.WaterTransparency },
+		lighting = light,
 	}
 end
 
