@@ -99,6 +99,12 @@ local function exportGui(node)
 			out.aspect = cp.AspectRatio or 1
 		elseif ccls == "UITextSizeConstraint" then
 			out.maxText = cp.MaxTextSize
+		elseif ccls == "UIScale" then
+			out.uiScale = cp.Scale or 1
+		elseif ccls == "UISizeConstraint" then
+			local mx, mn = cp.MaxSize, cp.MinSize
+			out.maxSize = mx and { mx.X, mx.Y } or nil
+			out.minSize = mn and { mn.X, mn.Y } or nil
 		elseif ccls == "UIGradient" then
 			-- ignoré
 		elseif child:IsA("GuiObject") then

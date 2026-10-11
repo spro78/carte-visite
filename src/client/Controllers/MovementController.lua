@@ -225,18 +225,21 @@ function MovementController.GetCooldowns()
 	local now = serverNow()
 	local team = myTeam()
 	local info = {}
+	-- Les boutons d'action ne s'affichent qu'en manche (avec une équipe) : au
+	-- lobby, l'écran tactile reste au vote et à la boutique
+	local inRound = char ~= nil and team ~= nil
 	local function cd(localReady: number, attr: string, total: number)
 		local serverReady = char and char:GetAttribute(attr)
 		local ready = localReady
 		if type(serverReady) == "number" then
 			ready = math.max(ready, serverReady)
 		end
-		return { Remaining = ready - now, Total = total, Available = char ~= nil }
+		return { Remaining = ready - now, Total = total, Available = inRound }
 	end
 	local dashTotal = char and Movement.GetDashCooldown(char) or Config.Movement.DashCooldown
 	info.DashLeft = cd(localDashReadyAt, "DashReadyAt", dashTotal)
 	info.DashRight = info.DashLeft
-	info.Stop = { Remaining = localStopReadyAt - os.clock(), Total = Config.Movement.StopCooldown, Available = char ~= nil }
+	info.Stop = { Remaining = localStopReadyAt - os.clock(), Total = Config.Movement.StopCooldown, Available = inRound }
 	local abilityCfg = team and Config.Abilities[team]
 	if abilityCfg then
 		info.Ability = cd(localAbilityReadyAt, "AbilityReadyAt", abilityCfg.Cooldown)

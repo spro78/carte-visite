@@ -633,11 +633,73 @@ InstanceMT.__index = function(self, key)
 	return nil
 end
 
+-- ---------------------------------------------------------------------------
+-- Validation des propriétés contre l'API Roblox réelle (tools/bin/globalTypes.d.luau) :
+-- écrire une propriété qui n'existe pas lève la même erreur que Roblox
+-- ("X is not a valid member of Class"). Sans ce contrôle, une faute de nom
+-- passait inaperçue dans la simulation et cassait le jeu dans Studio.
+-- ---------------------------------------------------------------------------
+local apiClasses: { [string]: { Parent: string?, Members: { [string]: boolean } } } = {}
+do
+	local ok, src = pcall(fs.readFile, "tools/bin/globalTypes.d.luau")
+	if ok and type(src) == "string" then
+		local current = nil
+		for line in string.gmatch(src, "[^\n]+") do
+			local name, parent, tail = string.match(line, "^declare extern type ([%w_]+) extends ([%w_]+) with(.*)$")
+			if name then
+				if string.match(tail, "^%s*end%s*$") then
+					current = nil
+				else
+					current = { Parent = parent, Members = {} }
+					apiClasses[name] = current
+				end
+			elseif line == "end" then
+				current = nil
+			elseif current then
+				local member = string.match(line, "^%s+([%w_]+)%s*:") or string.match(line, "^%s+function%s+([%w_]+)%s*%(")
+				if member then
+					current.Members[member] = true
+				end
+			end
+		end
+	end
+end
+Engine.ApiClassCount = 0
+for _ in apiClasses do
+	Engine.ApiClassCount += 1
+end
+
+local function isApiMember(className: string, key: string): boolean?
+	local class = apiClasses[className]
+	if not class then
+		return nil -- classe inconnue de l'API : pas de contrôle
+	end
+	local name: string? = className
+	while name do
+		local c = apiClasses[name]
+		if not c then
+			break
+		end
+		if c.Members[key] then
+			return true
+		end
+		name = c.Parent
+	end
+	return false
+end
+Engine.IsApiMember = isApiMember
+
 InstanceMT.__newindex = function(self, key, value)
 	local props = rawget(self, "_props")
 	if key == "Parent" then
 		setParent(self, value)
 		return
+	end
+	if type(key) == "string" and string.sub(key, 1, 1) ~= "_" then
+		local className = rawget(self, "_class")
+		if isApiMember(className, key) == false then
+			error(string.format("%s is not a valid member of %s \"%s\"", key, className, tostring(props.Name)), 2)
+		end
 	end
 	local set = rawget(self, "_set")
 	if set and set(self, key, value) then

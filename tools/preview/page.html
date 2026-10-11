@@ -62,6 +62,10 @@ function resolveRect(el, px, py, pw, ph, k) {
   const s = el.size || [0, 100, 0, 100], p = el.position || [0, 0, 0, 0], a = el.anchor || [0, 0];
   let w = s[0] * pw + s[1] * k, h = s[2] * ph + s[3] * k;
   if (el.aspect) { const r = el.aspect; if (w / h > r) w = h * r; else h = w / r; }
+  // UISizeConstraint (en pixels), puis UIScale (taille de l'élément et de ses enfants)
+  if (el.maxSize) { w = Math.min(w, el.maxSize[0] * k); h = Math.min(h, el.maxSize[1] * k); }
+  if (el.minSize) { w = Math.max(w, el.minSize[0] * k); h = Math.max(h, el.minSize[1] * k); }
+  if (el.uiScale) { w *= el.uiScale; h *= el.uiScale; }
   const x = px + p[0] * pw + p[1] * k - a[0] * w;
   const y = py + p[2] * ph + p[3] * k - a[1] * h;
   return [x, y, w, h];
@@ -181,7 +185,8 @@ function drawGui(ctx, el, rect, k) {
     ctx.beginPath(); ctx.arc(x + w / 2, y + h * 0.38, Math.min(w, h) * 0.22, 0, Math.PI * 2); ctx.fill();
     roundRect(ctx, x + w * 0.2, y + h * 0.62, w * 0.6, h * 0.34, w * 0.12); ctx.fill(); ctx.restore();
   }
-  for (const [kid, r] of layoutChildren(el, rect, k)) drawGui(ctx, kid, r, k);
+  const kk = k * (el.uiScale || 1);
+  for (const [kid, r] of layoutChildren(el, rect, kk)) drawGui(ctx, kid, r, kk);
 }
 
 // ---------- Scène 3D (scene3d.js) ----------
@@ -225,6 +230,32 @@ if (arr(data.hud).length) {
     const inset = screen.inset ? 0 : 36 * k;
     for (const [kid, r] of layoutChildren({ children: arr(screen.children) }, [0, inset, W, H - inset], k)) drawGui(ctx, kid, r, k);
   }
+}
+// ---------- Contrôles tactiles de Roblox (interface du moteur, absente de la simulation) ----------
+// Dessinés à leur place par défaut pour vérifier qu'ils ne gênent pas nos boutons :
+// bouton de saut (géométrie du module TouchJump) et anneau du joystick.
+if (data.coreTouch) {
+  const tc = document.createElement("canvas"); tc.width = W; tc.height = H;
+  tc.style.position = "absolute"; tc.style.left = "0"; tc.style.top = "0";
+  hud.appendChild(tc);
+  const ctx = tc.getContext("2d");
+  const small = Math.min(W, H) <= 500;
+  const js = small ? 70 : 120;
+  const jx = W - (js * 1.5 - 10) + js / 2, jy = H - (small ? js + 20 : js * 1.75) + js / 2;
+  const ring = (x, y, r, fill) => {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.stroke();
+  };
+  ring(jx, jy, js / 2 - 2, "rgba(30,30,30,0.35)");
+  ctx.beginPath(); ctx.moveTo(jx - js * 0.18, jy + js * 0.08); ctx.lineTo(jx, jy - js * 0.12); ctx.lineTo(jx + js * 0.18, jy + js * 0.08);
+  ctx.lineWidth = js * 0.08; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.stroke();
+  const tr = js * 0.75, tx = tr + 30, ty = H - tr - 24;
+  ring(tx, ty, tr, "rgba(30,30,30,0.18)");
+  ring(tx, ty, tr * 0.42, "rgba(255,255,255,0.35)");
+  ctx.font = `600 ${small ? 10 : 12}px sans-serif`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.fillText("Roblox jump", jx, jy + js / 2 + (small ? 12 : 15));
+  ctx.fillText("Roblox joystick", tx, ty - tr - 6);
 }
 window.__DONE__ = true;
 </script>

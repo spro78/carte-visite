@@ -30,21 +30,24 @@ local function v(t)
 	return { t.X, t.Y, t.Z }
 end
 
+-- Groupe "mobile" : appareil tactile simulé (pas de clavier), vues de téléphone
+local touchDevice = group == "mobile"
+if touchDevice then
+	World.Input.TouchEnabled = true
+	World.Input.KeyboardEnabled = false
+	World.Input.MouseEnabled = false
+end
+
+-- Taille d'écran : comme sur un vrai appareil, le changement prévient le HUD,
+-- le fil des captures et les boutons tactiles
 local function setViewport(w, h)
 	local cam = World.workspace.CurrentCamera
-	rawget(cam, "_props").ViewportSize = roblox.Vector2.new(w, h)
-	local hud = hero and hero.PlayerGui:FindFirstChild("HuntOrHideHUD")
-	Engine.Run(hero, function()
-		local HUD = World.Require(hero.PlayerScripts.Client.UI.HUD)
-		if HUD.Rescale then
-			HUD.Rescale()
-		end
-	end)
-	local _ = hud
+	cam.ViewportSize = roblox.Vector2.new(w, h)
 end
 
 local function addScene(name, caption, center, radius, camera, extra)
 	if extra and extra.hud then
+		-- (hud = true : exporter l'interface du héros à la taille demandée)
 		setViewport(extra.width or 1280, extra.height or 720)
 		extra.hud = Export.PlayerGui(hero)
 	end
@@ -66,6 +69,7 @@ local function addScene(name, caption, center, radius, camera, extra)
 		sky = extra and extra.sky,
 		hud = extra and extra.hud,
 		hudScale = extra and extra.hudScale,
+		coreTouch = extra and extra.hud ~= nil and touchDevice or nil,
 	}
 	table.insert(scenes, scene)
 	print(string.format("scene %-28s parts=%d", name, #data.parts))
@@ -75,6 +79,45 @@ local Config
 Engine.Run("server", function()
 	Config = World.Require(World.game.ReplicatedStorage.Shared.Config)
 end)
+
+-- Caméra par défaut de Roblox (ClassicCamera) : derrière le personnage, à 12,5 studs
+-- du point suivi (racine + 1,5 stud), inclinée de 15° vers le bas, champ vertical 70°
+local function robloxCamera(player)
+	local root = player.Character:FindFirstChild("HumanoidRootPart")
+	local cf = root.CFrame
+	local focus = cf.Position + Vector3.new(0, 1.5, 0)
+	local look = (cf * roblox.CFrame.Angles(math.rad(-15), 0, 0)).LookVector
+	return { position = v(focus - look * 12.5), target = v(focus), fov = 70 }
+end
+
+local function serverPhase()
+	local phase
+	Engine.Run("server", function()
+		phase = World.Require(World.game.ServerScriptService.Server.Services.RoundState).Phase
+	end)
+	return phase
+end
+
+local function waitFor(predicate, maxSeconds)
+	local t = 0
+	while t < maxSeconds and not predicate() do
+		Engine.Advance(0.5)
+		t += 0.5
+	end
+end
+
+-- Le joueur ferme les règles (bouton X)
+local function closeHelp()
+	local help = hero.PlayerGui.HuntOrHideHUD:FindFirstChild("Help")
+	if help and help.Visible then
+		for _, child in help:GetChildren() do
+			if child:IsA("TextButton") and child.Text == "X" then
+				child.Activated:Fire()
+			end
+		end
+	end
+	Engine.Advance(0.1)
+end
 
 local function playerCamera(player, back, up)
 	local char = player.Character
@@ -103,6 +146,36 @@ if group == "all" or group == "lobby" then
 	addScene("lobby_shop", "Lobby - giant gift box (shop)", L, 120, { position = { 22, 10, 6 }, target = { 52, 6, -6 }, fov = 70 })
 	addScene("lobby_top", "Lobby - top-down", L, 120, { position = { 0, 300, 0.01 }, target = { 0, 0, 0 }, ortho = 160, up = { 0, 0, -1 } })
 	addScene("hud_lobby_pc", "HUD in the lobby during the vote (PC 1280x720)", L, 120, playerCamera(hero, 14, 6), { hud = Export.PlayerGui(hero) })
+	-- Vue joueur réelle : caméra par défaut de Roblox au spawn, règles affichées
+	-- (première visite), puis fermées comme le ferait le joueur
+	addScene("lobby_player_first_visit_pc", "Lobby, player view at spawn, first visit (PC 1280x720)", L, 120, robloxCamera(hero), { hud = true })
+	closeHelp()
+	addScene("lobby_player_pc", "Lobby, player view at spawn (PC 1280x720)", L, 120, robloxCamera(hero), { hud = true })
+end
+
+if group == "mobile" then
+	-- Appareil tactile simulé : vraies interfaces du jeu, contrôles Roblox dessinés
+	local L = Config.World.LobbyOrigin
+	closeHelp()
+	addScene("phone_lobby", "Phone 844x390 (touch): lobby at spawn, vote", L, 120, robloxCamera(hero), { hud = true, width = 844, height = 390 })
+	waitFor(function()
+		return hero:GetAttribute("Team") ~= nil and serverPhase() == "Round"
+	end, 120)
+	Engine.Advance(6)
+	local O = Config.World.MapOrigin
+	Engine.Run("server", function()
+		local Remotes = World.Require(World.game.ReplicatedStorage.Shared.Remotes)
+		Remotes.Get("Announce"):FireAllClients("The egg went back to the CHICKENS!", roblox.Color3.fromRGB(255, 214, 60))
+	end)
+	Engine.Advance(0.3)
+	addScene("phone_round", "Phone 844x390 (touch): in round, map announcement", O, 300, robloxCamera(hero), { hud = true, width = 844, height = 390 })
+	addScene("phone_round_se", "Small phone 667x375 (touch): in round", O, 300, robloxCamera(hero), { hud = true, width = 667, height = 375 })
+	addScene("tablet_round", "Tablet 1024x768 (touch): in round", O, 300, robloxCamera(hero), { hud = true, width = 1024, height = 768 })
+	waitFor(function()
+		return serverPhase() == "Results"
+	end, 400)
+	Engine.Advance(1)
+	addScene("phone_results", "Phone 844x390 (touch): end of round", L, 120, robloxCamera(hero), { hud = true, width = 844, height = 390 })
 end
 
 if group == "all" or group == "maps" then

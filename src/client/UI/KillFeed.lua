@@ -130,11 +130,12 @@ function KillFeed.Init(screen: ScreenGui)
 	end
 end
 
--- Taille compacte sur téléphone
+-- Taille compacte sur téléphone : sous le panneau des équipes, au-dessus des
+-- boutons tactiles (le bloc central du HUD tient compte de cette largeur)
 function KillFeed.Rescale(compact: boolean)
 	if container then
-		container.Size = compact and UDim2.fromOffset(190, 96) or UDim2.fromOffset(250, 130)
-		container.Position = compact and UDim2.new(1, -8, 0, 108) or UDim2.new(1, -14, 0, 150)
+		container.Size = compact and UDim2.fromOffset(170, 84) or UDim2.fromOffset(250, 130)
+		container.Position = compact and UDim2.new(1, -8, 0, 100) or UDim2.new(1, -14, 0, 150)
 	end
 end
 

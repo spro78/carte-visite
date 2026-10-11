@@ -15,7 +15,7 @@ local FOLDER_NAME = "Remotes"
 Remotes.Names = {
 	-- Serveur -> Client
 	StateUpdate = "StateUpdate", -- état de la partie (phase, chrono, scores...)
-	Announce = "Announce", -- annonce courte au centre de l'écran
+	Announce = "Announce", -- annonce courte (pastille sous le bloc du haut)
 	Effect = "Effect", -- effet visuel/sonore (capture, éjection, capacité...)
 	Launch = "Launch", -- éjection du personnage du joueur (vitesse, ragdoll)
 	DataUpdate = "DataUpdate", -- pièces, inventaire, améliorations du joueur

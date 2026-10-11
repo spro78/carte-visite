@@ -64,6 +64,32 @@ local function phase()
 	return server.RoundState.Phase
 end
 
+-- Disposition du HUD sur les écrans de PC courants : aucun bloc ne se chevauche
+local Layout = require("./layout")
+local function checkHudLayout(player, label)
+	local hud = player.PlayerGui:FindFirstChild("HuntOrHideHUD")
+	local camera = World.workspace.CurrentCamera
+	local saved = camera.ViewportSize
+	for _, size in { { 1280, 720 }, { 1366, 768 }, { 1440, 900 }, { 1920, 1080 } } do
+		local viewport = roblox.Vector2.new(size[1], size[2])
+		camera.ViewportSize = viewport
+		local problems, count = Layout.HudProblems(hud, viewport)
+		check(#problems == 0, string.format("HUD %s %dx%d : %d blocs sans chevauchement", label, size[1], size[2], count) .. (#problems > 0 and ("\n      " .. table.concat(problems, "\n      ")) or ""))
+	end
+	camera.ViewportSize = saved
+end
+
+-- ---------------------------------------------------------------------------
+section("Simulateur : API Roblox réelle")
+check(Engine.ApiClassCount > 1000, "définitions de l'API Roblox chargées (" .. Engine.ApiClassCount .. " classes)")
+do
+	local ok, err = pcall(function()
+		local label = Engine.Instance.new("TextLabel")
+		label.NoStroke = true
+	end)
+	check(not ok and string.find(tostring(err), "not a valid member", 1, true) ~= nil, "une propriété inexistante lève l'erreur Roblox")
+end
+
 -- ---------------------------------------------------------------------------
 section("Démarrage et lobby")
 local alice = World.AddPlayer("Alice", { client = true })
@@ -76,6 +102,7 @@ check(alice.PlayerGui:FindFirstChild("HuntOrHideHUD") ~= nil, "le HUD client est
 check(phase() == "Intermission", "phase Intermission (vote) : " .. tostring(phase()))
 local lobbyPos = alice.Character.HumanoidRootPart.Position
 check(math.abs(lobbyPos.Z) < 80, "Alice est dans le lobby")
+checkHudLayout(alice, "lobby")
 
 -- Vote par le client (intention validée par le serveur)
 Engine.Run(alice, function()
@@ -107,6 +134,7 @@ check(aliceChar.HumanoidRootPart.Position.Z > 1500, "Alice est téléportée sur
 check(advanceUntil(function()
 	return phase() == "Round"
 end, 10), "passage en manche")
+checkHudLayout(alice, "manche")
 check(aliceChar:GetAttribute("Frozen") == nil, "dégel au GO")
 
 -- ---------------------------------------------------------------------------
@@ -256,6 +284,8 @@ elseif state.WinReason == "TimeUp" and not (server.RoundState.Map and server.Rou
 	detailOk = detailOk and (string.find(detail, "biggest team", 1, true) ~= nil or string.find(detail, "tied in size", 1, true) ~= nil)
 end
 check(detailOk, "explication cohérente avec la règle : \"" .. detail .. "\"")
+Engine.Advance(0.5)
+checkHudLayout(alice, "résultats")
 Engine.Advance(0.5)
 local resultsHud = alice.PlayerGui:FindFirstChild("HuntOrHideHUD")
 local feedFrame = resultsHud and resultsHud:FindFirstChild("KillFeed")

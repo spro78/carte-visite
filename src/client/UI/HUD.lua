@@ -6,7 +6,7 @@
 	  - en haut au centre : petit libellé de phase, grand message (bandeau de rôle :
 	    "You are a FOX - Catch CHICKENS - Avoid SNAKES"), sous-ligne avec le chrono ;
 	  - en haut à droite : équipes (membres et score) pendant la manche ;
-	  - au centre : annonces courtes ;
+	  - sous le bloc du haut : annonces courtes (petite pastille, le centre reste libre) ;
 	  - en bas à gauche : pièces et niveau ;
 	  - en bas au centre : cartes (capacité, objets) et barre de dash (ActionBar,
 	    Inventory) ; panneau de vote pendant l'intermission ;
@@ -44,6 +44,8 @@ local REASONS = {
 local PODIUM_TABS = { { Key = "MVP", Label = "Best player" }, { Key = "Survival", Label = "Survival" }, { Key = "Catches", Label = "Catches" } }
 
 local voteCallback: ((string) -> ())? = nil
+local compact = false -- petit écran (téléphone en paysage)
+local touchMode = false -- commandes tactiles affichées (voir ActionBar)
 local myVote: string? = nil
 local lastCandidatesKey = ""
 local lastReward: { [string]: any }? = nil
@@ -231,16 +233,28 @@ end
 -- ---------------------------------------------------------------------------
 -- Annonces, notifications, spectateur, aide
 -- ---------------------------------------------------------------------------
-local announceLabel = Title(screen, {
+-- Annonce de la map (oeuf volé, points...) : petite pastille sous le bloc du
+-- haut, jamais au milieu de l'écran, où se joue la poursuite
+local announcePill: Frame = New("Frame", {
 	Name = "Announce",
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.new(0.5, 0, 0.3, 0),
-	Size = UDim2.new(0.8, 0, 0.08, 0),
-	Text = "",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 174),
+	Size = UDim2.new(0, 440, 0, 30),
+	BackgroundColor3 = Theme.Dark,
+	BackgroundTransparency = 0.35,
 	Visible = false,
 	ZIndex = 5,
+}, screen)
+Theme.CornerScale(announcePill, 0.5)
+local announceLabel = Title(announcePill, {
+	Name = "Text",
+	Position = UDim2.new(0, 14, 0, 4),
+	Size = UDim2.new(1, -28, 1, -8),
+	Text = "",
+	FontFace = Theme.FaceHeavy,
+	ZIndex = 5,
 })
-Theme.MaxText(announceLabel, 52)
+Theme.MaxText(announceLabel, 22)
 
 local toast: TextLabel = Label(screen, {
 	Name = "Toast",
@@ -278,7 +292,12 @@ local helpPanel: Frame = New("Frame", {
 Theme.Corner(helpPanel, 14)
 Theme.Stroke(helpPanel, 4, Theme.Outline)
 Title(helpPanel, { Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 0, 12), Text = "HOW TO PLAY", ZIndex = 40 })
-Label(helpPanel, {
+-- Règles : la partie "commandes" suit l'appareil (clavier ou tactile)
+local HELP_RULES = "Catch your prey. Run from your hunter.\n\nFOX catches CHICKEN, CHICKEN catches SNAKE, SNAKE catches FOX.\nGreen outline = your prey. Red outline = your hunter.\nCaught? You join the team that caught you and keep playing.\n\n"
+local HELP_KEYS = "Q / E : dash sideways to dodge    F : stop dead to fake out\nR : your animal's ability    Hide in tall grass and bushes!"
+local HELP_TOUCH = "DASH buttons : dodge sideways    STOP : stop dead to fake out\nBig round button : your animal's ability    Hide in tall grass!"
+local helpText = Label(helpPanel, {
+	Name = "Rules",
 	Size = UDim2.new(1, -40, 1, -70),
 	Position = UDim2.new(0, 20, 0, 58),
 	TextScaled = true,
@@ -286,7 +305,7 @@ Label(helpPanel, {
 	TextYAlignment = Enum.TextYAlignment.Top,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	ZIndex = 40,
-	Text = "Catch your prey. Run from your hunter.\n\nFOX catches CHICKEN, CHICKEN catches SNAKE, SNAKE catches FOX.\nGreen outline = your prey. Red outline = your hunter.\nCaught? You join the team that caught you and keep playing.\n\nQ / E : dash sideways to dodge    F : stop dead to fake out\nR : your animal's ability    Hide in tall grass and bushes!\nOn mobile, use the buttons at the bottom right.",
+	Text = HELP_RULES .. HELP_KEYS,
 })
 New("UIScale", { Name = "Scale" }, helpPanel)
 local helpClose: TextButton = New("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 10), Size = UDim2.new(0, 36, 0, 36), BackgroundColor3 = Theme.Bad, Text = "X", FontFace = Theme.FaceHeavy, TextScaled = true, TextColor3 = Theme.White, ZIndex = 41 }, helpPanel)
@@ -439,9 +458,9 @@ end
 local helpShownOnce = false
 function HUD.SetProfile(data: { [string]: any })
 	profile = data
-	-- Nouveau joueur : les règles s'affichent une fois, tout de suite
-	if not helpShownOnce and type(data.Stats) == "table" and (data.Stats.RoundsPlayed or 0) == 0 then
-		helpShownOnce = true
+	-- Nouveau joueur : les règles s'affichent une fois, au lobby seulement
+	local inLobby = lastState == nil or lastState.Phase == "Waiting" or lastState.Phase == "Intermission"
+	if not helpShownOnce and inLobby and type(data.Stats) == "table" and (data.Stats.RoundsPlayed or 0) == 0 then
 		helpPanel.Visible = true
 	end
 	helpShownOnce = true
@@ -464,18 +483,23 @@ function HUD.Announce(text: string, color: Color3?)
 	announceLabel.TextColor3 = color or Theme.White
 	announceLabel.TextTransparency = 0
 	announceLabel.TextStrokeTransparency = 0
-	announceLabel.Visible = true
-	announceLabel.Size = UDim2.new(0.6, 0, 0.06, 0)
-	TweenService:Create(announceLabel, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.new(0.8, 0, 0.08, 0) }):Play()
-	task.delay(2.2, function()
+	announcePill.BackgroundTransparency = 0.35
+	announcePill.Visible = true
+	-- Petit rebond d'apparition, sans grossir au-delà de la pastille
+	local scale = announcePill:FindFirstChildOfClass("UIScale") or New("UIScale", {}, announcePill)
+	scale.Scale = 0.85
+	TweenService:Create(scale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	task.delay(1.8, function()
 		if token ~= announceToken then
 			return
 		end
-		local tween = TweenService:Create(announceLabel, TweenInfo.new(0.4), { TextTransparency = 1, TextStrokeTransparency = 1 })
+		local fade = TweenInfo.new(0.35)
+		TweenService:Create(announcePill, fade, { BackgroundTransparency = 1 }):Play()
+		local tween = TweenService:Create(announceLabel, fade, { TextTransparency = 1, TextStrokeTransparency = 1 })
 		tween:Play()
 		tween.Completed:Connect(function()
 			if token == announceToken then
-				announceLabel.Visible = false
+				announcePill.Visible = false
 			end
 		end)
 	end)
@@ -575,8 +599,13 @@ local function updateResults(state: Types.GameState)
 end
 
 function HUD.UpdateState(state: Types.GameState)
+	local previousPhase = lastState and lastState.Phase
 	lastState = state
 	local phase = state.Phase
+	-- Les règles se ferment quand la manche démarre (et ne couvrent jamais les résultats)
+	if phase ~= previousPhase and (phase == "Countdown" or phase == "Results") then
+		helpPanel.Visible = false
+	end
 	local inRound = phase == "Countdown" or phase == "Round" or phase == "Results"
 	local myTeam = player:GetAttribute("Team")
 	phaseLabel.Text = PHASE_LABELS[phase] or phase
@@ -620,26 +649,48 @@ function HUD.UpdateState(state: Types.GameState)
 	if votePanel.Visible then
 		updateVotePanel(state)
 	end
-	-- Barre d'action (capacité, dash) : seulement en jeu, jamais sous les résultats
-	bottomCenter.Visible = not votePanel.Visible and phase ~= "Results"
+	-- Barre d'action (capacité, dash) : seulement en jeu, jamais sous les résultats.
+	-- En tactile, les boutons ronds affichent déjà capacité et recharges.
+	bottomCenter.Visible = not votePanel.Visible and phase ~= "Results" and not touchMode
 	local dashBar = screen:FindFirstChild("DashBar")
 	if dashBar and dashBar:IsA("GuiObject") then
-		dashBar.Visible = phase ~= "Results" and phase ~= "Intermission"
+		dashBar.Visible = phase ~= "Results" and phase ~= "Intermission" and not touchMode
 	end
 	spectatorLabel.Visible = (phase == "Countdown" or phase == "Round") and myTeam == nil
 
+	-- Les annonces appartiennent à la manche (jamais par-dessus les résultats)
+	if phase ~= "Round" then
+		announcePill.Visible = false
+	end
 	if phase == "Results" then
 		results.Visible = not resultsHidden
-		-- Le titre du haut ne passe pas derrière la fenêtre de résultats
+		-- Le titre du haut ne passe pas derrière la fenêtre de résultats ; sur
+		-- téléphone, les panneaux de pièces, de niveau et d'équipes s'effacent aussi
 		topCenter.Visible = not results.Visible
+		bottomLeft.Visible = not (compact and results.Visible)
+		teamPanel.Visible = not (compact and results.Visible)
 		updateResults(state)
 	else
 		results.Visible = false
 		topCenter.Visible = true
+		-- En tactile, le coin bas-gauche appartient au joystick pendant la manche
+		bottomLeft.Visible = not (touchMode and (phase == "Countdown" or phase == "Round") and myTeam ~= nil)
 		resultsHidden = false
 		if phase == "Intermission" or phase == "Waiting" then
 			lastReward = nil
 		end
+	end
+end
+
+-- Appelé par ActionBar quand on passe du clavier au tactile (ou l'inverse)
+function HUD.SetTouchMode(on: boolean)
+	if touchMode == on then
+		return
+	end
+	touchMode = on
+	helpText.Text = HELP_RULES .. (on and HELP_TOUCH or HELP_KEYS)
+	if lastState then
+		HUD.UpdateState(lastState)
 	end
 end
 
@@ -650,12 +701,33 @@ local function rescale()
 		return
 	end
 	local size = camera.ViewportSize
-	local scale = math.clamp(math.min(size.X / 820, size.Y / 600), 0.5, 1)
+	local small = size.Y < 500
+	compact = small
+	-- Résultats : tiennent entre les pastilles du haut et le bas de l'écran
+	local scale = math.clamp(math.min(size.X / 820, (size.Y - (small and 72 or 0)) / 560), 0.45, 1)
 	local s = results:FindFirstChild("Scale")
 	if s and s:IsA("UIScale") then
 		s.Scale = scale
 	end
-	local small = size.Y < 500
+	results.Position = small and UDim2.new(0.5, 0, 0.5, 30) or UDim2.fromScale(0.5, 0.52)
+	-- Pastilles plus basses et plus étroites sur téléphone : le bloc du haut respire
+	pillRow.Position = UDim2.new(0, 228, 0, small and 8 or 14)
+	pillRow.Size = UDim2.new(0, 360, 0, small and 32 or 42)
+	local pillList = pillRow:FindFirstChildOfClass("UIListLayout")
+	if pillList then
+		pillList.Padding = UDim.new(0, small and 6 or 8)
+	end
+	for _, pill in HUD.Pills do
+		pill.Size = UDim2.new(0, small and 84 or 104, 1, 0)
+	end
+	-- Haut centre sur téléphone : pas de libellé de phase, lignes bien séparées
+	phaseLabel.Visible = not small
+	mainLabel.Position = UDim2.new(0, 0, 0, small and 0 or 22)
+	mainLabel.Size = UDim2.new(1, 0, 0, small and 24 or 40)
+	subLabel.Position = UDim2.new(0, 0, 0, small and 28 or 66)
+	subLabel.Size = UDim2.new(1, 0, 0, small and 16 or 20)
+	timerLabel.Position = UDim2.new(0, 0, 0, small and 48 or 88)
+	timerLabel.Size = UDim2.new(1, 0, 0, small and 20 or 22)
 	local helpScale = helpPanel:FindFirstChild("Scale")
 	if helpScale and helpScale:IsA("UIScale") then
 		helpScale.Scale = math.clamp(math.min(size.X / 600, size.Y / 420), 0.55, 1)
@@ -663,14 +735,30 @@ local function rescale()
 	bottomLeft.Size = UDim2.new(0, small and 150 or 230, 0, small and 78 or 112)
 	coinsPanel.Size = UDim2.new(0, small and 150 or 230, 0, small and 35 or 52)
 	levelPanel.Size = coinsPanel.Size
-	-- Petit écran : bloc central plus étroit, équipes plus compactes, annonce plus bas
-	topCenter.Size = UDim2.new(small and 0.48 or 0.56, 0, 0, small and 90 or 108)
-	topCenter.Position = UDim2.new(0.5, 0, 0, small and 48 or 58)
+	-- Bloc central : jamais sous le panneau des équipes ni sous le fil des captures
+	-- (largeur 170 px sur téléphone, 250 px sinon, voir KillFeed.Rescale)
+	local sideWidth = small and (170 + 8 + 8) or (250 + 14 + 8)
+	local centerWidth = math.min((small and 0.44 or 0.56) * size.X, size.X - 2 * sideWidth)
+	topCenter.Size = UDim2.new(0, centerWidth, 0, small and 68 or 110)
+	topCenter.Position = UDim2.new(0.5, 0, 0, small and 44 or 58)
 	teamPanel.Size = UDim2.new(0, small and 160 or 230, 0, small and 78 or 112)
 	for _, row in teamRows do
 		row.Row.Size = UDim2.new(0.92, 0, 0, small and 21 or 30)
 	end
-	announceLabel.Position = UDim2.new(0.5, 0, small and 0.46 or 0.3, 0)
+	-- Annonce : juste sous le bloc du haut (qui finit à 112 px sur téléphone, 168 px sinon)
+	announcePill.Position = UDim2.new(0.5, 0, 0, small and 116 or 174)
+	announcePill.Size = UDim2.new(0, math.min(small and 300 or 440, 0.42 * size.X), 0, small and 22 or 30)
+	local announceMax = announceLabel:FindFirstChildOfClass("UITextSizeConstraint")
+	if announceMax then
+		announceMax.MaxTextSize = small and 15 or 22
+	end
+	-- Vote : à droite des pièces quand l'écran est trop étroit pour le centrer
+	local currencyRight = 12 + (small and 150 or 230) + 8
+	local voteWidth = math.min(660, size.X - currencyRight - 12)
+	local voteLeft = math.max(currencyRight, (size.X - voteWidth) / 2)
+	votePanel.AnchorPoint = Vector2.new(0, 1)
+	votePanel.Position = UDim2.new(0, voteLeft, 1, small and -10 or -66)
+	votePanel.Size = UDim2.new(0, voteWidth, 0, small and 130 or 150)
 	bottomCenter.Position = UDim2.new(0.5, 0, 1, small and -50 or -64)
 	local dash = screen:FindFirstChild("DashBar")
 	if dash and dash:IsA("Frame") then

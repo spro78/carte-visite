@@ -44,7 +44,8 @@ local plateCallback: ((Player, number) -> ())? = nil
 local shopCallback: ((Player) -> ())? = nil
 local spinCallback: ((Player) -> ())? = nil
 local lastTouch: { [Player]: number } = {}
-local leaderboardLabels: { [string]: TextLabel } = {}
+type Leaderboard = { Rows: { { Frame: Frame, Name: TextLabel, Value: TextLabel } }, Message: TextLabel }
+local leaderboards: { [string]: Leaderboard } = {}
 local wheel: Model? = nil
 local wheelSegments = 8
 
@@ -52,7 +53,10 @@ local wheelSegments = 8
 -- Éléments génériques
 -- ---------------------------------------------------------------------------
 local function text(parent: Instance, props: { [string]: any }): TextLabel
-	local label = Build.TextLabel(parent, props)
+	-- NoStroke est une option de ce helper, pas une propriété Roblox
+	local clean = table.clone(props)
+	clean.NoStroke = nil
+	local label = Build.TextLabel(parent, clean)
 	label.Font = Enum.Font.GothamBlack
 	if not props.NoStroke then
 		label.TextStrokeTransparency = 0.2
@@ -366,26 +370,56 @@ end
 -- ---------------------------------------------------------------------------
 -- Ouest : murs de classement et roue de récompense
 -- ---------------------------------------------------------------------------
+local MEDALS = { Color3.fromRGB(255, 200, 40), Color3.fromRGB(200, 210, 225), Color3.fromRGB(214, 140, 80) }
+
 local function buildLeaderboards(parent: Folder, origin: Vector3)
-	local walls = { { Key = "Wins", Title = "TOP WINS", Pos = Vector3.new(-58, 0, -22), Yaw = 70 }, { Key = "Captures", Title = "TOP CATCHES", Pos = Vector3.new(-60, 0, 6), Yaw = 85 } }
+	local walls = {
+		{ Key = "Wins", Title = "TOP WINS", Accent = P.Gold, Pos = Vector3.new(-58, 0, -22), Yaw = 70 },
+		{ Key = "Captures", Title = "TOP CATCHES", Accent = Color3.fromRGB(70, 200, 160), Pos = Vector3.new(-60, 0, 6), Yaw = 85 },
+	}
 	for _, info in walls do
-		local cf = CFrame.new(origin + info.Pos + Vector3.new(0, 11, 0)) * CFrame.Angles(0, math.rad(info.Yaw), 0)
-		local wall = Build.Part({ Name = "Leaderboard" .. info.Key, Size = Vector3.new(26, 22, 2), CFrame = cf, Color = P.BoardGray, Studs = true }, parent)
-		Build.Part({ Name = "LeaderboardBase", Size = Vector3.new(28, 2, 4), CFrame = cf * CFrame.new(0, -11, 0), Color = P.StoneDark, Studs = true }, parent)
+		local cf = CFrame.new(origin + info.Pos + Vector3.new(0, 11.5, 0)) * CFrame.Angles(0, math.rad(info.Yaw), 0)
+		-- Cadre de pierre, écran sombre encastré, socle
+		Build.Part({ Name = "LeaderboardFrame", Size = Vector3.new(27, 23, 2.4), CFrame = cf, Color = Color3.fromRGB(176, 172, 166), Material = Enum.Material.Slate }, parent)
+		Build.Part({ Name = "LeaderboardCap", Size = Vector3.new(28.4, 1.4, 3.2), CFrame = cf * CFrame.new(0, 12.1, 0), Color = info.Accent, Accent = true }, parent)
+		Build.Part({ Name = "LeaderboardBase", Size = Vector3.new(29, 2, 4.4), CFrame = cf * CFrame.new(0, -11.5, 0), Color = Color3.fromRGB(150, 146, 140), Material = Enum.Material.Slate }, parent)
+		local screen = Build.Part({ Name = "Leaderboard" .. info.Key, Size = Vector3.new(24, 20, 0.4), CFrame = cf * CFrame.new(0, 0, 1.3), Color = P.Screen, Accent = true }, parent)
 		-- Face Back : celle qui regarde le centre du lobby
-		local gui = Build.SurfaceGui(wall, Enum.NormalId.Back)
-		text(gui, { Name = "Title", Size = UDim2.fromScale(1, 0.12), Position = UDim2.fromScale(0, 0.03), Text = info.Title, TextColor3 = Color3.new(1, 1, 1) })
-		text(gui, { Name = "Sub", Size = UDim2.fromScale(1, 0.05), Position = UDim2.fromScale(0, 0.15), Text = "ALL TIME", TextColor3 = Color3.fromRGB(225, 230, 240) })
-		local entries = text(gui, {
-			Name = "Entries",
-			Size = UDim2.fromScale(0.88, 0.76),
-			Position = UDim2.fromScale(0.06, 0.22),
-			Text = "Loading...",
-			TextColor3 = Color3.new(1, 1, 1),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Top,
-		})
-		leaderboardLabels[info.Key] = entries
+		local gui = Build.SurfaceGui(screen, Enum.NormalId.Back)
+		local header = Instance.new("Frame")
+		header.Size = UDim2.fromScale(1, 0.17)
+		header.BackgroundColor3 = info.Accent
+		header.BorderSizePixel = 0
+		header.Parent = gui
+		text(header, { Size = UDim2.fromScale(0.9, 0.62), Position = UDim2.fromScale(0.05, 0.08), Text = info.Title, TextColor3 = Color3.fromRGB(20, 22, 36), NoStroke = true })
+		text(header, { Size = UDim2.fromScale(0.9, 0.24), Position = UDim2.fromScale(0.05, 0.7), Text = "ALL TIME", TextColor3 = Color3.fromRGB(40, 44, 64), NoStroke = true })
+		local rows = {}
+		for rank = 1, Config.Lobby.LeaderboardSize do
+			local row = Instance.new("Frame")
+			row.Name = "Row" .. rank
+			row.Position = UDim2.fromScale(0.04, 0.2 + (rank - 1) * 0.078)
+			row.Size = UDim2.fromScale(0.92, 0.07)
+			row.BackgroundColor3 = Color3.new(1, 1, 1)
+			row.BackgroundTransparency = rank % 2 == 1 and 0.9 or 0.96
+			row.BorderSizePixel = 0
+			row.Visible = false
+			row.Parent = gui
+			local badge = Instance.new("Frame")
+			badge.Size = UDim2.fromScale(0.1, 0.9)
+			badge.Position = UDim2.fromScale(0.01, 0.05)
+			badge.BackgroundColor3 = MEDALS[rank] or Color3.fromRGB(70, 80, 110)
+			badge.BorderSizePixel = 0
+			badge.Parent = row
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(0.5, 0)
+			corner.Parent = badge
+			text(badge, { Size = UDim2.fromScale(0.8, 0.8), Position = UDim2.fromScale(0.1, 0.1), Text = tostring(rank), TextColor3 = rank <= 3 and Color3.fromRGB(20, 22, 36) or Color3.new(1, 1, 1), NoStroke = rank <= 3 })
+			local name = text(row, { Name = "PlayerName", Size = UDim2.fromScale(0.6, 0.8), Position = UDim2.fromScale(0.14, 0.1), Text = "", TextColor3 = Color3.new(1, 1, 1), TextXAlignment = Enum.TextXAlignment.Left })
+			local value = text(row, { Name = "Value", Size = UDim2.fromScale(0.24, 0.8), Position = UDim2.fromScale(0.74, 0.1), Text = "", TextColor3 = info.Accent, TextXAlignment = Enum.TextXAlignment.Right })
+			rows[rank] = { Frame = row, Name = name, Value = value }
+		end
+		local message = text(gui, { Name = "Message", Size = UDim2.fromScale(0.84, 0.16), Position = UDim2.fromScale(0.08, 0.48), Text = "Loading...", TextColor3 = Color3.fromRGB(200, 210, 230) })
+		leaderboards[info.Key] = { Rows = rows, Message = message }
 	end
 end
 
@@ -627,26 +661,36 @@ end
 
 -- Message à la place de la liste (classements indisponibles...)
 function LobbyBuilder.SetLeaderboardMessage(key: string, message: string)
-	local label = leaderboardLabels[key]
-	if label then
-		label.Text = message
+	local board = leaderboards[key]
+	if not board then
+		return
 	end
+	for _, row in board.Rows do
+		row.Frame.Visible = false
+	end
+	board.Message.Text = message
+	board.Message.Visible = true
 end
 
+-- Liste classée : { { nom, valeur }, ... }
 function LobbyBuilder.SetLeaderboard(key: string, entries: { { any } })
-	local label = leaderboardLabels[key]
-	if not label then
+	local board = leaderboards[key]
+	if not board then
 		return
 	end
 	if #entries == 0 then
-		label.Text = "Play a round to\nappear here!"
+		LobbyBuilder.SetLeaderboardMessage(key, "Play a round to\nappear here!")
 		return
 	end
-	local lines = {}
-	for rank, entry in entries do
-		table.insert(lines, string.format("#%d  %s   %s", rank, tostring(entry[1]), tostring(entry[2])))
+	board.Message.Visible = false
+	for rank, row in board.Rows do
+		local entry = entries[rank]
+		row.Frame.Visible = entry ~= nil
+		if entry then
+			row.Name.Text = tostring(entry[1])
+			row.Value.Text = tostring(entry[2])
+		end
 	end
-	label.Text = table.concat(lines, "\n")
 end
 
 return LobbyBuilder

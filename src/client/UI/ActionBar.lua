@@ -4,8 +4,9 @@
 	  - carte "ABILITY" (capacité de l'animal) avec barre de recharge ;
 	  - sous les cartes : "Q / E · DASH" et une longue barre de recharge du dash
 	    ("Dash ready" / "Move, then dash left or right") ;
-	  - sur écran tactile : gros boutons ronds autour du bouton de saut
-	    (dash gauche/droite, stop, capacité) avec affichage de la recharge.
+	  - sur écran tactile : gros boutons ronds autour du bouton de saut de Roblox
+	    (dash gauche/droite, stop, capacité) avec affichage de la recharge ; la
+	    carte et la barre du bas (qui affichent les touches clavier) s'effacent.
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -42,6 +43,8 @@ local dashFill: Frame
 local dashLeft: TextLabel
 local dashTitle: TextLabel
 local usingTouch = false
+local modeCallback: ((boolean) -> ())? = nil
+local roundActive = false -- décompte ou manche en cours (pas de boutons au lobby ni sur les résultats)
 
 local function keyText(action: string): string
 	local keys = Config.Controls[action]
@@ -78,17 +81,37 @@ local function makeTouch(parent: Instance, action: string, handler: () -> ()): T
 	return { Root = root, Fill = fill, Seconds = seconds, Main = main }
 end
 
+-- Bouton de saut de Roblox (module TouchJump du PlayerModule) : 70 px si le
+-- plus petit côté de l'écran fait 500 px ou moins, 120 px sinon. Renvoie son
+-- centre, en distance depuis le coin bas-droit, et sa taille.
+function ActionBar.JumpButtonGeometry(viewport: Vector2): (number, number, number)
+	local small = math.min(viewport.X, viewport.Y) <= 500
+	local size = small and 70 or 120
+	local right = size * 1.5 - 10
+	local top = small and (size + 20) or (size * 1.75)
+	return right - size / 2, top - size / 2, size
+end
+
+-- Nos boutons entourent le saut sans jamais le recouvrir : dashs sur la même
+-- ligne à sa gauche, capacité au-dessus, stop au-dessus du dash droit.
 local function placeTouch()
+	local camera = workspace.CurrentCamera
+	local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
+	local jx, jy, j = ActionBar.JumpButtonGeometry(viewport)
+	local gap = j * 0.15
+	local dash, ability, stop = j * 0.86, j * 0.94, j * 0.72
+	local dashRightX = jx + j / 2 + gap + dash / 2
+	local upperY = jy + j / 2 + gap + ability / 2
 	local layout = {
-		Ability = { 0.76, 0.3, 0.32 },
-		Stop = { 0.44, 0.38, 0.2 },
-		DashLeft = { 0.18, 0.78, 0.24 },
-		DashRight = { 0.46, 0.8, 0.24 },
+		DashRight = { dashRightX, jy, dash },
+		DashLeft = { dashRightX + dash + gap, jy, dash },
+		Ability = { jx, upperY, ability },
+		Stop = { dashRightX, upperY, stop },
 	}
 	for action, slot in touchSlots do
 		local spec = layout[action]
-		slot.Root.Position = UDim2.fromScale(spec[1], spec[2])
-		slot.Root.Size = UDim2.fromScale(spec[3], spec[3])
+		slot.Root.Position = UDim2.fromOffset(-spec[1], -spec[2])
+		slot.Root.Size = UDim2.fromOffset(spec[3], spec[3])
 	end
 end
 
@@ -103,6 +126,13 @@ local function refreshMode()
 	touchContainer.Visible = usingTouch
 	dashTitle.Text = usingTouch and "DASH" or (keyText("DashLeft") .. " / " .. keyText("DashRight") .. " · DASH")
 	abilityKey.Text = usingTouch and "" or keyText("Ability")
+	if modeCallback then
+		modeCallback(usingTouch)
+	end
+end
+
+function ActionBar.IsTouch(): boolean
+	return usingTouch
 end
 
 function ActionBar.SetTeam(teamId: string?)
@@ -126,8 +156,12 @@ function ActionBar.SetTeam(teamId: string?)
 	end
 end
 
+function ActionBar.SetPhase(phase: string)
+	roundActive = phase == "Countdown" or phase == "Round"
+end
+
 local function setTouch(slot: TouchSlot, info: CooldownInfo?)
-	if not info or not info.Available then
+	if not info or not info.Available or not roundActive then
 		slot.Root.Visible = false
 		return
 	end
@@ -145,7 +179,9 @@ local function setTouch(slot: TouchSlot, info: CooldownInfo?)
 	end
 end
 
-function ActionBar.Init(screen: ScreenGui, bottomRow: Frame, handlers: Handlers, provider: Provider)
+-- onModeChanged(usingTouch) : prévient le HUD quand on passe du clavier au tactile
+function ActionBar.Init(screen: ScreenGui, bottomRow: Frame, handlers: Handlers, provider: Provider, onModeChanged: ((boolean) -> ())?)
+	modeCallback = onModeChanged
 	-- Carte "ABILITY" (première carte de la rangée du bas)
 	abilityCard = New("Frame", {
 		Name = "AbilityCard",
@@ -185,23 +221,25 @@ function ActionBar.Init(screen: ScreenGui, bottomRow: Frame, handlers: Handlers,
 	dashFill = New("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Theme.White }, bar)
 	Theme.CornerScale(dashFill, 0.5)
 
-	-- Boutons tactiles
+	-- Boutons tactiles : cadre de taille nulle ancré dans le coin bas-droit, pour
+	-- ne jamais couvrir (ni bloquer) le bouton de saut ou le joystick de Roblox
 	touchContainer = New("Frame", {
 		Name = "TouchActions",
-		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -6, 1, -6),
-		Size = UDim2.fromScale(0.62, 0.62),
+		Position = UDim2.fromScale(1, 1),
+		Size = UDim2.fromOffset(0, 0),
 		BackgroundTransparency = 1,
 		Visible = false,
 	}, screen)
-	New("UIAspectRatioConstraint", { AspectRatio = 1, DominantAxis = Enum.DominantAxis.Height }, touchContainer)
-	New("UISizeConstraint", { MaxSize = Vector2.new(360, 360) }, touchContainer)
 	for _, action in TOUCH do
 		touchSlots[action] = makeTouch(touchContainer, action, handlers[action] or function() end)
 	end
 	placeTouch()
 	refreshMode()
 	UserInputService.LastInputTypeChanged:Connect(refreshMode)
+	local camera = workspace.CurrentCamera
+	if camera then
+		camera:GetPropertyChangedSignal("ViewportSize"):Connect(placeTouch)
+	end
 
 	Players.LocalPlayer:GetAttributeChangedSignal("Team"):Connect(function()
 		ActionBar.SetTeam(Players.LocalPlayer:GetAttribute("Team"))

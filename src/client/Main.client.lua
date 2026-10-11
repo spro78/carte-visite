@@ -37,7 +37,7 @@ ActionBar.Init(HUD.Screen, HUD.BottomRow, {
 	end,
 	Stop = MovementController.Stop,
 	Ability = MovementController.Ability,
-}, MovementController.GetCooldowns)
+}, MovementController.GetCooldowns, HUD.SetTouchMode)
 HUD.Rescale() -- la barre de dash existe maintenant
 ShopUI.Init(HUD.Screen, HUD.Pills.SHOP)
 DataController.Init(HUD, ShopUI)
@@ -54,6 +54,7 @@ StateController.OnState(function(state)
 	local inRound = (state.Phase == "Countdown" or state.Phase == "Round") and Players.LocalPlayer:GetAttribute("Team") ~= nil
 	ShopUI.SetButtonVisible(not inRound)
 	HUD.Pills.SPIN.Visible = not inRound
+	ActionBar.SetPhase(state.Phase)
 	EffectsController.OnState(state)
 	-- Le fil des captures appartient à la manche : vidé et masqué hors manche
 	-- (il ne doit jamais contredire l'écran de résultats)
