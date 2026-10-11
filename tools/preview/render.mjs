@@ -27,7 +27,7 @@ const browser = await chromium.launch({ args: ["--use-gl=angle", "--use-angle=sw
 for (const file of files) {
   const scenes = JSON.parse(fs.readFileSync(file, "utf8"));
   for (const scene of Array.isArray(scenes) ? scenes : [scenes]) {
-    const page = await browser.newPage({ viewport: { width: scene.width, height: scene.height } });
+    const page = await browser.newPage({ viewport: { width: scene.width, height: scene.height + 26 } });
     page.on("console", m => { if (m.type() === "error") console.error("[page]", m.text()); });
     let failed = null;
     page.on("pageerror", e => { console.error("[pageerror]", scene.name, e.message); failed = e; });
@@ -36,7 +36,7 @@ for (const file of files) {
     await page.waitForFunction(() => window.__DONE__ === true || window.__FAILED__, null, { timeout: 120000 }).catch(e => { failed = failed || e; });
     if (failed) { console.error("FAILED", scene.name); await page.close(); continue; }
     const out = path.join(outDir, scene.name + ".png");
-    await page.locator("#wrap").screenshot({ path: out });
+    await page.locator("#frame").screenshot({ path: out });
     console.log("rendered", out);
     await page.close();
   }

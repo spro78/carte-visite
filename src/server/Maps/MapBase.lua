@@ -267,13 +267,8 @@ function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, p
 		orbLight.Brightness = 1
 		orbLight.Parent = orb
 
-		-- Tente du camp (toit en pente) et matériel
-		local tentCf = at(-halfPad * 0.5, 1, halfPad * 0.55) * CFrame.Angles(0, math.rad(90), 0)
-		Props.Roof(model, tentCf, { Width = 8, Depth = 7, Rise = 5.5, Color = def.Color, Gable = light, Overhang = 0.4, Thickness = 0.35 })
-		Build.Part({ Name = "TentFloor", Size = Vector3.new(8, 0.2, 7), CFrame = tentCf * CFrame.new(0, 0.1, 0), Color = def.DarkColor, Accent = true, CanCollide = false }, model)
-		Props.Crate(model, at(halfPad * 0.55, 1, halfPad * 0.62) * CFrame.Angles(0, 0.3, 0), 3)
-		Props.Crate(model, at(halfPad * 0.55 - 3.2, 1, halfPad * 0.66) * CFrame.Angles(0, -0.2, 0), 2.4)
-		Props.Barrel(model, (at(halfPad * 0.62, 1, halfPad * 0.2)).Position)
+		-- (Pas de tente ni de caisses dans le camp : la caméra du joueur qui
+		-- apparaît doit voir la carte, pas le décor ; bible visuelle §4 et §6)
 
 		-- Points d'apparition : cercle au centre de la base, tournés vers le centre de la map
 		local spawns = {}

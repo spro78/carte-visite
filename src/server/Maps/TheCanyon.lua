@@ -30,37 +30,42 @@ type MapContext = Types.MapContext
 
 local Map = {}
 Map.Id = "TheCanyon"
--- Plein soleil chaud et clair, ombres franches mais douces (bible visuelle, §2)
+-- Plein jour sous un ciel bleu franc (bible §3, principe P2) : lumière neutre,
+-- brume légère qui ne voile que les gradins du fond
 Map.Lighting = {
-	ClockTime = 14.6,
+	ClockTime = 14,
 	Brightness = 3,
-	OutdoorAmbient = Color3.fromRGB(176, 160, 150),
-	Atmosphere = { Density = 0.2, Haze = 0.8, Color = Color3.fromRGB(255, 230, 205), Decay = Color3.fromRGB(230, 170, 130) },
-	ColorCorrection = { TintColor = Color3.fromRGB(255, 246, 236), Saturation = 0.14, Contrast = 0.06 },
+	OutdoorAmbient = Color3.fromRGB(160, 162, 170),
+	Atmosphere = { Density = 0.18, Haze = 0.6, Color = Color3.fromRGB(218, 232, 248), Decay = Color3.fromRGB(150, 180, 215) },
+	ColorCorrection = { TintColor = Color3.fromRGB(255, 255, 255), Saturation = 0.12, Contrast = 0.06 },
 }
 
 local cfg = Config.Maps.TheCanyon
 local BUCKET_HEIGHT = 2.5
--- Roche terre cuite douce, en trois strates du sombre au clair : moins saturée
--- que l'orange des renards, qui reste seul à « claquer » (bible, §1)
-local ROCK = Color3.fromRGB(184, 116, 94)
-local ROCK_DARK = Color3.fromRGB(150, 92, 78)
-local ROCK_LIGHT = Color3.fromRGB(212, 160, 128)
-local SAND_TOP = Color3.fromRGB(228, 204, 156)
+-- Roche rouille en trois strates, du sombre au clair : plus sombre ou moins
+-- saturée que l'orange des renards, qui reste seul à « claquer » (bible, §2)
+local ROCK = Color3.fromRGB(168, 92, 66)
+local ROCK_DARK = Color3.fromRGB(138, 70, 54)
+local ROCK_LIGHT = Color3.fromRGB(204, 140, 108)
+local ROCK_TOP = Color3.fromRGB(150, 162, 110) -- dessus herbeux (sauge), comme le plateau
 local STRATA = { ROCK_DARK, ROCK, ROCK_LIGHT }
 
--- Sable clair à tenons, chemins de terre battue, gradins en strates brun-rouge
+-- Plateau de sauge (bible §2 : principes P1 terrain très simple et P3 avatars
+-- contrastés) : un seul ton moyen, bandes à peine visibles, chemins de terre
+-- discrets ; la roche rouille des gradins garde l'identité du canyon
+local SAGE = Color3.fromRGB(138, 150, 100)
+local SAGE_TOP = Color3.fromRGB(150, 162, 110)
 local THEME: MapBase.ArenaTheme = {
 	Seed = 3307,
-	Board = Color3.fromRGB(234, 214, 170),
-	BoardAlt = Color3.fromRGB(224, 202, 156),
+	Board = SAGE,
+	BoardAlt = Color3.fromRGB(131, 143, 95),
 	Path = Enum.Material.Ground,
 	PathWidth = 12,
 	RingPath = 76,
 	CenterRadius = 26,
 	Backdrop = {
 		Side = ROCK,
-		Top = SAND_TOP,
+		Top = SAGE_TOP,
 		Strata = STRATA,
 		Heights = { 16, 34, 58 },
 		Depths = { 28, 40, 70 },
@@ -71,8 +76,8 @@ local THEME: MapBase.ArenaTheme = {
 	TreeCount = 0,
 	Camp = { Wall = Enum.Material.WoodPlanks, Ground = Enum.Material.Ground },
 	GroundColors = {
-		Ground = Color3.fromRGB(190, 150, 118), -- terre battue
-		Salt = Color3.fromRGB(242, 234, 218), -- lit de rivière à sec
+		Ground = Color3.fromRGB(176, 150, 112), -- terre battue (chemins, abords des camps)
+		Salt = Color3.fromRGB(168, 158, 128), -- lit de rivière à sec, à peine plus clair
 	},
 }
 
@@ -96,7 +101,8 @@ local lastCatapult: { [string]: number } = {}
 local WOOD = Color3.fromRGB(150, 100, 62)
 local WOOD_DARK = Color3.fromRGB(104, 68, 44)
 local CREAM = Color3.fromRGB(242, 228, 200)
-local CACTUS = Color3.fromRGB(78, 150, 84)
+local CACTUS = Color3.fromRGB(70, 150, 86)
+local CACTUS_LIGHT = Color3.fromRGB(110, 184, 104)
 
 local function deco(props: { [string]: any }): { [string]: any }
 	props.CanCollide = false
@@ -104,24 +110,27 @@ local function deco(props: { [string]: any }): { [string]: any }
 	return props
 end
 
--- Saguaro : tronc côtelé et bras recourbés (taille variable)
+-- Saguaro en cubes (bible, §5) : colonne carrée, deux bras en équerre
 local function buildCactus(parent: Instance, ground: Vector3, scale: number?)
 	local s = scale or 1
 	local random = MapBase.Random()
 	local h = 9 * s
-	Build.VerticalCylinder(ground + Vector3.new(0, h / 2, 0), 1.1 * s, h, { Name = "Cactus", Color = CACTUS }, parent)
-	Build.Part(deco({ Name = "CactusTop", Shape = Enum.PartType.Ball, Size = Vector3.new(2.2, 2.2, 2.2) * s, Position = ground + Vector3.new(0, h, 0), Color = CACTUS }), parent)
+	local w = 2.2 * s
+	local arm = 1.4 * s
+	Build.Part({ Name = "Cactus", Size = Vector3.new(w, h, w), Position = ground + Vector3.new(0, h / 2, 0), Color = CACTUS }, parent)
+	Build.Part(deco({ Name = "CactusTop", Size = Vector3.new(w * 0.7, 0.6 * s, w * 0.7), Position = ground + Vector3.new(0, h + 0.3 * s, 0), Color = CACTUS_LIGHT }), parent)
 	local yaw = random:NextNumber(0, math.pi * 2)
 	for i, side in { -1, 1 } do
-		local armY = h * (0.4 + i * 0.12)
+		local armY = h * (0.38 + i * 0.12)
 		local cf = CFrame.new(ground + Vector3.new(0, armY, 0)) * CFrame.Angles(0, yaw, 0)
-		Build.Part(deco({ Name = "ArmOut", Size = Vector3.new(2.6 * s, 1.5 * s, 1.5 * s), CFrame = cf * CFrame.new(side * 1.6 * s, 0, 0), Color = CACTUS }), parent)
-		local up = 3 * s * (i == 1 and 1 or 0.7)
-		Build.VerticalCylinder((cf * CFrame.new(side * 2.7 * s, up / 2 + 0.4, 0)).Position, 0.75 * s, up + 0.8, deco({ Name = "ArmUp", Color = CACTUS }), parent)
-		Build.Part(deco({ Name = "ArmTip", Shape = Enum.PartType.Ball, Size = Vector3.new(1.5, 1.5, 1.5) * s, Position = (cf * CFrame.new(side * 2.7 * s, up + 0.8, 0)).Position, Color = CACTUS }), parent)
+		local reach = w / 2 + 1.6 * s
+		Build.Part(deco({ Name = "ArmOut", Size = Vector3.new(reach, arm, arm), CFrame = cf * CFrame.new(side * reach / 2, 0, 0), Color = CACTUS }), parent)
+		local up = 3.2 * s * (i == 1 and 1 or 0.7)
+		Build.Part(deco({ Name = "ArmUp", Size = Vector3.new(arm, up, arm), CFrame = cf * CFrame.new(side * (reach - arm / 2), up / 2 - arm / 2, 0), Color = CACTUS }), parent)
+		Build.Part(deco({ Name = "ArmTip", Size = Vector3.new(arm * 0.7, 0.5 * s, arm * 0.7), CFrame = cf * CFrame.new(side * (reach - arm / 2), up - arm / 2 + 0.25 * s, 0), Color = CACTUS_LIGHT }), parent)
 	end
 	-- Fleur rose au sommet
-	Build.Part(deco({ Name = "CactusFlower", Shape = Enum.PartType.Ball, Size = Vector3.new(0.8, 0.5, 0.8) * s, Position = ground + Vector3.new(0, h + 1.1 * s, 0), Color = Color3.fromRGB(255, 110, 160), Accent = true }), parent)
+	Build.Part(deco({ Name = "CactusFlower", Size = Vector3.new(0.9, 0.6, 0.9) * s, Position = ground + Vector3.new(0, h + 0.9 * s, 0), Color = Color3.fromRGB(255, 110, 160), Accent = true }), parent)
 end
 
 local function buildTumbleweed(parent: Instance, ground: Vector3)
@@ -227,7 +236,7 @@ local function buildMine(parent: Instance, center: Vector3)
 	local mesaW, mesaL, mesaH = 36, 40, 26
 	local sideW = (mesaW - 10) / 2
 	for _, s in { -1, 1 } do
-		Ground.Butte(tunnel * CFrame.new(s * (5 + sideW / 2), 0, 0), sideW, mesaL, mesaH, STRATA, SAND_TOP, random)
+		Ground.Butte(tunnel * CFrame.new(s * (5 + sideW / 2), 0, 0), sideW, mesaL, mesaH, STRATA, ROCK_TOP, random)
 	end
 	local lintel = Instance.new("Model")
 	lintel.Name = "MineLintelRock"
@@ -237,7 +246,7 @@ local function buildMine(parent: Instance, center: Vector3)
 		Build.Part({ Name = "Stratum", Size = Vector3.new(10.5, h, mesaL - 2), CFrame = tunnel * CFrame.new(0, y + h / 2, 0), Color = color }, lintel)
 		y += h
 	end
-	Build.Part({ Name = "ButteTop", Size = Vector3.new(12, 0.8, mesaL - 1), CFrame = tunnel * CFrame.new(0, mesaH + 0.4, 0), Color = SAND_TOP, Studs = true }, lintel)
+	Build.Part({ Name = "ButteTop", Size = Vector3.new(12, 0.8, mesaL - 1), CFrame = tunnel * CFrame.new(0, mesaH + 0.4, 0), Color = ROCK_TOP, Studs = true }, lintel)
 	lintel.Parent = parent
 	-- Cadres de bois tout le long
 	for k = -4, 4 do
@@ -296,6 +305,9 @@ local function buildRockArch(parent: Instance, center: Vector3)
 		local r = random:NextNumber(14, 24)
 		buildCactus(parent, center + Vector3.new(math.cos(ang) * r, 0, math.sin(ang) * r), random:NextNumber(0.6, 1.05))
 	end
+	-- Panneau de zone lisible depuis le centre (bible, §6)
+	local toward = (origin - center).Unit
+	Props.Sign(parent, CFrame.lookAt(center + toward * 14 + tangent * 14, origin), "ROCK ARCH", WOOD)
 	-- Crâne de bœuf posé sur un rocher
 	local skull = center + Vector3.new(0, 0, 0) - (center - origin).Unit * 8
 	Props.Rock(parent, skull, 3.4, Color3.fromRGB(196, 120, 80))
@@ -575,6 +587,27 @@ local function buildCatapult(parent: Instance): Model
 	return spinner
 end
 
+-- Ligne d'horizon (bible, §5) : aiguilles et grandes buttes sur les gradins du
+-- fond, une silhouette par secteur pour s'orienter pendant la poursuite
+local function buildSkyline(parent: Instance)
+	local random = MapBase.Random()
+	local specs = {
+		{ 30, 270, "Spire" }, { 78, 300, "Butte" }, { 150, 266, "Spire" },
+		{ 196, 298, "Butte" }, { 270, 272, "Spire" }, { 330, 296, "Butte" },
+	}
+	for _, spec in specs do
+		local p = MapBase.Polar(origin, spec[1], spec[2])
+		local cf = CFrame.lookAt(p, Vector3.new(origin.X, p.Y, origin.Z))
+		if spec[3] == "Spire" then
+			-- Cheminée de fée : colonne qui s'affine, chapeau plus large et sombre
+			Ground.Butte(cf, 15, 15, 86, { ROCK_DARK, ROCK, ROCK_LIGHT, ROCK }, nil, random)
+			Build.Part({ Name = "SpireCap", Size = Vector3.new(17, 5, 17), CFrame = cf * CFrame.new(0, 88.5, 0), Color = ROCK_DARK }, parent)
+		else
+			Ground.Butte(cf, 36, 30, 78, STRATA, ROCK_TOP, random)
+		end
+	end
+end
+
 function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	origin = mapOrigin
 	local f = MapBase.NewFolder("Map_" .. Map.Id)
@@ -597,7 +630,7 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	buildWaterTower(f, MapBase.Polar(origin, 270, 122) + Vector3.new(-30, 0, -14))
 	-- Gorge qui encadre la ville : deux parois rocheuses en strates
 	for _, deg in { 249, 291 } do
-		Ground.Ridge(MapBase.Polar(origin, deg, 100), MapBase.Polar(origin, deg, 136), 14, 16, STRATA, SAND_TOP, MapBase.Random())
+		Ground.Ridge(MapBase.Polar(origin, deg, 100), MapBase.Polar(origin, deg, 136), 14, 16, STRATA, ROCK_TOP, MapBase.Random())
 	end
 	-- Rivière à sec entre le camp des renards et l'arche
 	buildDryCreek(f, {
@@ -609,32 +642,24 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	})
 	buildMine(f, MapBase.Polar(origin, 30, 128))
 	buildRockArch(f, MapBase.Polar(origin, 150, 122))
+	buildSkyline(f)
 	buildWindPump(f, MapBase.Polar(origin, 315, 172))
 	buildGraveyard(f, MapBase.Polar(origin, 225, 168))
 	buildCamp(f, MapBase.Polar(origin, 45, 166))
 	buildCamp(f, MapBase.Polar(origin, 135, 168))
 	buildCorral(f, MapBase.Polar(origin, 0, 126))
-	-- Amas rocheux pour casser les grands espaces (sans fermer les lignes)
-	for _, spec in { { 200, 128 }, { 340, 132 }, { 60, 136 }, { 180, 104 } } do
-		local p = MapBase.Polar(origin, spec[1], spec[2])
-		Props.Rock(f, p, 6, ROCK)
-		Props.Rock(f, p + Vector3.new(5, 0, 3), 3.5, ROCK)
-		buildCactus(f, p + Vector3.new(-4, 0, 5), 0.7)
-	end
 
-	-- Obstacles du cercle intérieur : rochers, cactus, tonneaux, caisses
+	-- Obstacles d'esquive, peu nombreux et gros, entre les couloirs des camps
+	-- (bible §4 et §6 : la poursuite reste au premier plan, le décor s'efface)
 	local random = MapBase.Random()
-	for i = 0, 11 do
-		local deg = i * 30 + 15
-		local r = (i % 2 == 0) and 64 or 86
+	for i = 0, 5 do
+		local deg = i * 60
+		local r = (i % 2 == 0) and 86 or 60
 		local p = MapBase.Polar(origin, deg, r)
-		if i % 3 == 0 then
-			buildCactus(f, p, random:NextNumber(0.8, 1.1))
-		elseif i % 3 == 1 then
-			Props.Rock(f, p, random:NextNumber(5, 8), ROCK)
+		if i % 2 == 0 then
+			buildCactus(f, p, random:NextNumber(0.9, 1.1))
 		else
-			Props.CrateStack(f, p, math.rad(deg))
-			Props.Barrel(f, p + Vector3.new(4, 0, -3), Color3.fromRGB(130, 82, 50))
+			Ground.Butte(CFrame.lookAt(p, Vector3.new(origin.X, p.Y, origin.Z)), 8, 6, 6, { ROCK_DARK, ROCK }, ROCK_LIGHT, random)
 		end
 	end
 

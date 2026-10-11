@@ -58,7 +58,8 @@ local function exportGui(node)
 		if face then
 			out.weight = face.Weight and face.Weight.Name or "Regular"
 			out.italic = face.Style == Enum.FontStyle.Italic
-			out.font = "Face"
+			-- Police du kit (Fredoka One) ou famille de type Gotham
+			out.font = (face.Family and string.find(face.Family, "FredokaOne", 1, true)) and "FredokaOne" or "Face"
 		end
 		out.rich = p.RichText == true
 	end
@@ -74,7 +75,9 @@ local function exportGui(node)
 			out.corner = { cp.CornerRadius and cp.CornerRadius.Scale or 0, cp.CornerRadius and cp.CornerRadius.Offset or 8 }
 		elseif ccls == "UIStroke" then
 			if cp.Enabled ~= false then
-				out.uiStroke = { color = c3(cp.Color or roblox.Color3.new()), thickness = cp.Thickness or 1, transparency = cp.Transparency or 0 }
+				-- Mode Border : bord de l'élément ; Contextual (défaut) : contour du texte
+				local mode = cp.ApplyStrokeMode and cp.ApplyStrokeMode.Name or "Contextual"
+				out.uiStroke = { color = c3(cp.Color or roblox.Color3.new()), thickness = cp.Thickness or 1, transparency = cp.Transparency or 0, mode = mode }
 			end
 		elseif ccls == "UIListLayout" then
 			out.list = {

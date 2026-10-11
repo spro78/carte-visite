@@ -17,9 +17,15 @@ local Vector3 = roblox.Vector3
 local sourcemap = process.args[1] or "sourcemap.json"
 local outPath = process.args[2] or "tools/preview/out/scenes.json"
 local group = process.args[3] or "all"
+local forcedMap = process.args[4] -- map imposée pour les groupes round, mobile et players
 
 Engine.Quiet = true
 World.LoadSourcemap(sourcemap)
+if forcedMap then
+	Engine.Run("server", function()
+		World.Require(World.game.ReplicatedStorage.Shared.Config).Debug.ForceMap = forcedMap
+	end)
+end
 Engine.Run("server", function()
 	World.StartServer()
 end)
@@ -119,6 +125,48 @@ local function closeHelp()
 	Engine.Advance(0.1)
 end
 
+-- Met une vraie poursuite au premier plan : on cherche un chasseur et sa proie
+-- (bots) proches l'un de l'autre et on place le héros derrière eux, tourné vers
+-- eux. Les positions des bots, les contours et le HUD restent ceux de la simulation.
+local function stageChase()
+	local actors, Teams
+	Engine.Run("server", function()
+		actors = World.Require(World.game.ServerScriptService.Server.Services.RoundState).GetParticipants()
+		Teams = World.Require(World.game.ReplicatedStorage.Shared.Teams)
+	end)
+	local best, bestD = nil, math.huge
+	for _, a in actors do
+		for _, b in actors do
+			local ra = a.Character and a.Character:FindFirstChild("HumanoidRootPart")
+			local rb = b.Character and b.Character:FindFirstChild("HumanoidRootPart")
+			if a ~= b and ra and rb and a.Team and b.Team and a.Player ~= hero and b.Player ~= hero and Teams.CanCatch(a.Team, b.Team) then
+				local d = (ra.Position - rb.Position).Magnitude
+				-- En terrain ouvert, entre le centre et les camps (pas dans un camp)
+				local O = Config.World.MapOrigin
+				local da = Vector3.new(ra.Position.X - O.X, 0, ra.Position.Z - O.Z).Magnitude
+				local db = Vector3.new(rb.Position.X - O.X, 0, rb.Position.Z - O.Z).Magnitude
+				local open = da > 30 and da < 88 and db > 30 and db < 88
+				if open and d > 4 and d < bestD then
+					best, bestD = { ra.Position, rb.Position }, d
+				end
+			end
+		end
+	end
+	if not best then
+		return false
+	end
+	local hunter, prey = best[1], best[2]
+	local dir = Vector3.new(prey.X - hunter.X, 0, prey.Z - hunter.Z).Unit
+	-- Héros en retrait et décalé sur le côté, regard parallèle à la poursuite :
+	-- les deux bots apparaissent à côté de lui, pas cachés derrière son avatar
+	local spot = hunter - dir * 12 + Vector3.new(-dir.Z, 0, dir.X) * 7
+	Engine.Run("server", function()
+		hero.Character:PivotTo(roblox.CFrame.lookAt(Vector3.new(spot.X, hunter.Y, spot.Z), Vector3.new(spot.X + dir.X, hunter.Y, spot.Z + dir.Z)))
+	end)
+	Engine.Advance(0.25)
+	return true
+end
+
 local function playerCamera(player, back, up)
 	local char = player.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -153,6 +201,23 @@ if group == "all" or group == "lobby" then
 	addScene("lobby_player_pc", "Lobby, player view at spawn (PC 1280x720)", L, 120, robloxCamera(hero), { hud = true })
 end
 
+if group == "players" then
+	-- Vues à hauteur de joueur pendant une vraie manche (map imposée en argument)
+	local O = Config.World.MapOrigin
+	local id = forcedMap or "map"
+	waitFor(function()
+		return hero:GetAttribute("Team") ~= nil and serverPhase() == "Countdown"
+	end, 120)
+	Engine.Advance(1)
+	addScene(id .. "_player_spawn_pc", id .. " - player view at spawn (PC 1280x720)", O, 300, robloxCamera(hero), { hud = true })
+	waitFor(function()
+		return serverPhase() == "Round"
+	end, 20)
+	Engine.Advance(14)
+	stageChase()
+	addScene(id .. "_player_chase_pc", id .. " - chase in the foreground (PC 1280x720)", O, 300, robloxCamera(hero), { hud = true })
+end
+
 if group == "mobile" then
 	-- Appareil tactile simulé : vraies interfaces du jeu, contrôles Roblox dessinés
 	local L = Config.World.LobbyOrigin
@@ -168,7 +233,9 @@ if group == "mobile" then
 		Remotes.Get("Announce"):FireAllClients("The egg went back to the CHICKENS!", roblox.Color3.fromRGB(255, 214, 60))
 	end)
 	Engine.Advance(0.3)
+	stageChase()
 	addScene("phone_round", "Phone 844x390 (touch): in round, map announcement", O, 300, robloxCamera(hero), { hud = true, width = 844, height = 390 })
+	addScene("phone_round_portrait", "Phone 390x844 portrait (touch): in round", O, 300, robloxCamera(hero), { hud = true, width = 390, height = 844 })
 	addScene("phone_round_se", "Small phone 667x375 (touch): in round", O, 300, robloxCamera(hero), { hud = true, width = 667, height = 375 })
 	addScene("tablet_round", "Tablet 1024x768 (touch): in round", O, 300, robloxCamera(hero), { hud = true, width = 1024, height = 768 })
 	waitFor(function()

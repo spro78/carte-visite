@@ -49,6 +49,32 @@ local function hsv(c)
 	return h, s, v
 end
 
+-- Écart de couleur CIE76 (Lab) entre deux Color3
+local function lab(c)
+	local function lin(v)
+		return v <= 0.04045 and v / 12.92 or ((v + 0.055) / 1.055) ^ 2.4
+	end
+	local r, g, b = lin(c.R), lin(c.G), lin(c.B)
+	local x = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047
+	local y = 0.2126 * r + 0.7152 * g + 0.0722 * b
+	local z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883
+	local function f(t)
+		return t > 0.008856 and t ^ (1 / 3) or 7.787 * t + 16 / 116
+	end
+	return 116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))
+end
+local function deltaE(a, b)
+	local l1, a1, b1 = lab(a)
+	local l2, a2, b2 = lab(b)
+	return math.sqrt((l1 - l2) ^ 2 + (a1 - a2) ^ 2 + (b1 - b2) ^ 2)
+end
+-- Avatars à fort contraste (bible §2, principe P3) : le plateau s'écarte d'au
+-- moins 40 (ΔE) des trois couleurs d'équipe et des avatars très clairs ou très sombres
+local AVATAR_REFS = {
+	{ "white avatar", roblox.Color3.fromRGB(245, 245, 245) },
+	{ "dark avatar", roblox.Color3.fromRGB(27, 42, 53) },
+}
+
 -- Couleur confondable avec une couleur d'équipe : même teinte (< 22°),
 -- saturation et luminosité proches (< 0,25 chacune)
 local function confusable(color)
@@ -214,6 +240,30 @@ for _, id in maps do
 		end
 	end
 	check(#clashes == 0, "aucune grande surface aux couleurs des équipes" .. (#clashes > 0 and (" : " .. table.concat(clashes, ", ")) or ""))
+
+	-- §2 / P3 : contraste des avatars sur le plateau
+	local refs = {}
+	for _, teamId in Teams.Order do
+		table.insert(refs, { teamId, Teams.Get(teamId).Color })
+	end
+	for _, ref in AVATAR_REFS do
+		table.insert(refs, ref)
+	end
+	local worst, worstName, boardCount = math.huge, "", 0
+	local seen = {}
+	for _, part in parts do
+		if part.Name == "Board" and not seen[part.Color] then
+			seen[part.Color] = true
+			boardCount += 1
+			for _, ref in refs do
+				local d = deltaE(part.Color, ref[2])
+				if d < worst then
+					worst, worstName = d, ref[1]
+				end
+			end
+		end
+	end
+	check(boardCount > 0 and worst >= 40, string.format("avatars contrastés sur le plateau : écart minimal %.0f (%s), 40 exigé", worst, worstName))
 
 	-- Bases (MapBase) : relues depuis les points d'apparition
 	bases = {}

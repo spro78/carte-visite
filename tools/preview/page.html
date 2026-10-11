@@ -16,11 +16,12 @@
   .g { position: absolute; box-sizing: border-box; display: flex; overflow: visible; }
   .t { width: 100%; height: 100%; display: flex; white-space: pre-line; line-height: 1; }
   #caption { position: absolute; left: 12px; bottom: 10px; color: #fff; font-size: 15px; text-shadow: 0 1px 3px #000a; }
+  #tagbar { height: 26px; line-height: 26px; padding: 0 10px; background: #0a1418; color: #fff; font-family: "Fredoka One", sans-serif; font-size: 13px; white-space: nowrap; overflow: hidden; }
 </style>
 <script type="importmap">{ "imports": { "three": "./node_modules/three/build/three.module.js", "three/addons/": "./node_modules/three/examples/jsm/" } }</script>
 </head>
 <body>
-<div id="wrap"><canvas id="gl"></canvas><div id="hud"></div><div id="caption"></div></div>
+<div id="frame"><div id="wrap"><canvas id="gl"></canvas><div id="hud"></div><div id="caption"></div></div><div id="tagbar"></div></div>
 <script type="module">
 import * as THREE from "three";
 import { render3D } from "./scene3d.js";
@@ -145,7 +146,8 @@ function drawGui(ctx, el, rect, k) {
     ctx.fillStyle = toCss(el.bg, 1 - el.bgT);
     roundRect(ctx, x, y, w, h, radius); ctx.fill();
   }
-  if (el.uiStroke && el.uiStroke.transparency < 1 && !el.text) {
+  const borderStroke = el.uiStroke && (!el.text || el.uiStroke.mode === "Border");
+  if (borderStroke && el.uiStroke.transparency < 1 && el.uiStroke.thickness > 0) {
     ctx.strokeStyle = toCss(el.uiStroke.color, 1 - el.uiStroke.transparency);
     ctx.lineWidth = el.uiStroke.thickness * k;
     roundRect(ctx, x, y, w, h, radius); ctx.stroke();
@@ -165,7 +167,7 @@ function drawGui(ctx, el, rect, k) {
       let tx; ctx.textAlign = el.xAlign === "Left" ? "left" : el.xAlign === "Right" ? "right" : "center";
       tx = el.xAlign === "Left" ? x : el.xAlign === "Right" ? x + w : cx;
       if (el.stroke) { ctx.strokeStyle = toCss(el.stroke, 0.9); ctx.lineWidth = Math.max(2, size * 0.12); ctx.lineJoin = "round"; ctx.strokeText(line, tx, ty); }
-      if (el.uiStroke) { ctx.strokeStyle = toCss(el.uiStroke.color, 1 - el.uiStroke.transparency); ctx.lineWidth = el.uiStroke.thickness * k * 2; ctx.lineJoin = "round"; ctx.strokeText(line, tx, ty); }
+      if (el.uiStroke && !borderStroke && el.uiStroke.thickness > 0) { ctx.strokeStyle = toCss(el.uiStroke.color, 1 - el.uiStroke.transparency); ctx.lineWidth = el.uiStroke.thickness * k * 2; ctx.lineJoin = "round"; ctx.strokeText(line, tx, ty); }
       if (el.rich && lines.length === 1) {
         const segs = richSegments(String(el.text), toCss(el.textColor, 1 - el.textT));
         const total = segs.reduce((acc, sg) => acc + ctx.measureText(sg[0]).width, 0);
@@ -257,6 +259,8 @@ if (data.coreTouch) {
   ctx.fillText("Roblox jump", jx, jy + js / 2 + (small ? 12 : 15));
   ctx.fillText("Roblox joystick", tx, ty - tr - 6);
 }
+// ---------- Mention obligatoire, hors de l'image : ce n'est pas une capture de Roblox ----------
+document.getElementById("tagbar").textContent = "RENDU SIMULÉ (three.js) · pas une capture Roblox Studio · " + (data.caption || data.name || "");
 window.__DONE__ = true;
 </script>
 </body>

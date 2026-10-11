@@ -6,7 +6,7 @@
 # Usage : tools/check.sh            (tout)
 #         tools/check.sh types      (types seulement)
 #         tools/check.sh sim        (simulation seulement)
-#         tools/check.sh preview    (rendus 3D dans tools/preview/out)
+#         tools/check.sh preview [groupe] [map]   (rendus simulés dans tools/preview/out)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 BIN=tools/bin
@@ -49,6 +49,6 @@ fi
 if [ "$what" = preview ]; then
   echo "== Rendus"
   mkdir -p tools/preview/out
-  "$BIN/lune" run tools/sim/scenes.luau sourcemap.json tools/preview/out/scenes.json "${2:-all}"
+  "$BIN/lune" run tools/sim/scenes.luau sourcemap.json tools/preview/out/scenes.json "${2:-all}" ${3:-}
   (cd tools/preview && [ -d node_modules ] || npm install --no-audit --no-fund >/dev/null; node render.mjs out/scenes.json --out out)
 fi
