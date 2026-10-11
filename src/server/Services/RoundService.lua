@@ -330,6 +330,10 @@ local function intermission(): boolean
 		return false
 	end
 	state.MapId = VoteService.GetWinner()
+	local forced = Config.Debug.ForceMap
+	if forced and MapRegistry.Get(forced) then
+		state.MapId = forced
+	end
 	VoteService.EndVote()
 	return state.MapId ~= nil
 end
@@ -540,6 +544,7 @@ local function cleanup()
 		player:LoadCharacter()
 	end
 	resetResults()
+	setPhase("Waiting")
 	log("Cleanup done")
 end
 

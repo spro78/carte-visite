@@ -40,7 +40,14 @@ local function ctxName(ctx)
 	return "client:" .. tostring(ctx and rawget(ctx, "_props") and ctx._props.Name or "?")
 end
 
+local seenErrors = {}
 local function reportError(co, err)
+	local key = tostring(err)
+	if seenErrors[key] then
+		seenErrors[key] += 1
+		return
+	end
+	seenErrors[key] = 1
 	local trace = debug.traceback(co, tostring(err))
 	table.insert(Engine.Errors, "[" .. ctxName(threadCtx[co]) .. "] " .. trace)
 	print("\27[31m[ERROR " .. ctxName(threadCtx[co]) .. "] " .. trace .. "\27[0m")

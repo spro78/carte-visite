@@ -384,6 +384,8 @@ Config.Debug = {
 	FastIntermissionSeconds = 8,
 	FastRoundSeconds = 60,
 	FastResultsSeconds = 5,
+	ForceMap = nil :: string?, -- ex : "TheFarm" pour toujours jouer cette map (tests)
+	DisableBots = false, -- true = pas de bots (tests)
 	VerboseLogs = true,
 }
 

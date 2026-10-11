@@ -47,6 +47,32 @@ camera.Name = "Camera"
 camera.Parent = workspace
 props(workspace).CurrentCamera = camera
 
+-- Projection perspective simple (sténopé) pour la caméra factice
+local function project(cam, point)
+	local cf = props(cam).CFrame
+	local size = props(cam).ViewportSize
+	local fov = math.rad(props(cam).FieldOfView or 70)
+	local rel = cf:PointToObjectSpace(point)
+	local depth = -rel.Z
+	local f = (size.Y / 2) / math.tan(fov / 2)
+	local x = size.X / 2 + (rel.X / math.max(math.abs(depth), 1e-3)) * f
+	local y = size.Y / 2 - (rel.Y / math.max(math.abs(depth), 1e-3)) * f
+	local onScreen = depth > 0 and x >= 0 and x <= size.X and y >= 0 and y <= size.Y
+	return Vector3.new(x, y, depth), onScreen
+end
+Engine.AddMethods(camera, {
+	WorldToViewportPoint = project,
+	WorldToScreenPoint = project,
+	ViewportPointToRay = function(cam, x, y)
+		local cf = props(cam).CFrame
+		return roblox.Ray.new(cf.Position, cf.LookVector)
+	end,
+	ScreenPointToRay = function(cam, x, y)
+		local cf = props(cam).CFrame
+		return roblox.Ray.new(cf.Position, cf.LookVector)
+	end,
+})
+
 local Players = service("Players")
 local ReplicatedStorage = service("ReplicatedStorage")
 local ServerScriptService = service("ServerScriptService")

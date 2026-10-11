@@ -38,7 +38,12 @@ fi
 
 if [ "$what" = all ] || [ "$what" = sim ]; then
   echo "== Simulation"
-  "$BIN/lune" run tools/sim/test.luau sourcemap.json
+  status=0
+  for t in tools/sim/test*.luau; do
+    echo "-- $t"
+    "$BIN/lune" run "$t" sourcemap.json || status=1
+  done
+  [ $status -eq 0 ] || { echo "ÉCHEC DE LA SIMULATION"; exit 1; }
 fi
 
 if [ "$what" = preview ]; then

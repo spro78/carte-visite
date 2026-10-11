@@ -13,6 +13,10 @@ local Vector3, CFrame, Enum = roblox.Vector3, roblox.CFrame, roblox.Enum
 
 Engine.Quiet = true
 World.LoadSourcemap(process.args[1] or "sourcemap.json")
+Engine.Run("server", function()
+	local Config = World.Require(World.game.ReplicatedStorage.Shared.Config)
+	Config.Debug.DisableBots = true
+end)
 
 local failures = {}
 local passes = 0

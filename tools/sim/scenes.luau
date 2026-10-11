@@ -115,9 +115,14 @@ if group == "all" or group == "maps" then
 			Engine.Advance(0.5)
 			local size = Config.Maps[id].GroundSize
 			addScene("map_" .. id, id .. " - overview", O, size, {
-				position = { O.X + size * 0.55, size * 0.55, O.Z + size * 0.75 },
+				position = { O.X + size * 0.5, size * 0.42, O.Z + size * 0.62 },
 				target = { O.X, 0, O.Z },
 				fov = 50,
+			})
+			addScene("map_" .. id .. "_ground", id .. " - ground level", O, size, {
+				position = { O.X - size * 0.12, 9, O.Z + size * 0.3 },
+				target = { O.X, 3, O.Z },
+				fov = 70,
 			})
 			addScene("map_" .. id .. "_top", id .. " - top-down", O, size, { position = { O.X, 600, O.Z + 0.01 }, target = { O.X, 0, O.Z }, ortho = size * 1.05, up = { 0, 0, -1 } })
 			Engine.Run("server", function()
