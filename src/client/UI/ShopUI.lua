@@ -1,7 +1,7 @@
 --[[
 	ShopUI.lua
-	Fenêtre de boutique : onglets Upgrades / Items / Looks / Trails (+ Passes si
-	des Game Passes sont configurés). Le client n'envoie que des intentions
+	Fenêtre de boutique de cosmétiques : onglets Hats / Trails / Catch FX (+ Passes
+	si des Game Passes sont configurés). Chaque carte affiche son prix en pièces. Le client n'envoie que des intentions
 	d'achat ou d'équipement ; le serveur valide et renvoie le profil à jour.
 	S'ouvre au comptoir du lobby (invite "Open Shop") ou avec le bouton SHOP.
 ]]
@@ -23,11 +23,21 @@ local window: Frame
 local content: ScrollingFrame
 local coinsLabel: TextLabel
 local tabButtons: { [string]: TextButton } = {}
-local currentTab = "Upgrades"
+local currentTab = "Hats"
 local profile: { [string]: any } = {}
 local openButton: GuiButton? = nil
 
-local TABS = { "Upgrades", "Items", "Looks", "Trails" }
+-- Cosmétiques uniquement : aucun achat ne donne d'avantage en poursuite
+local TABS = { "Hats", "Trails", "Catch FX" }
+local TAB_CATEGORY = { Hats = "Looks", Trails = "Trails", ["Catch FX"] = "CatchEffects" }
+local ORDER_KEY = { Looks = "LookOrder", Trails = "TrailOrder", CatchEffects = "CatchEffectOrder" }
+local OWNED_KEY = { Looks = "OwnedLooks", Trails = "OwnedTrails", CatchEffects = "OwnedCatchEffects" }
+local EQUIPPED_KEY = { Looks = "EquippedLook", Trails = "EquippedTrail", CatchEffects = "EquippedCatchEffect" }
+local DESCRIPTIONS = {
+	Looks = "A hat on top of your avatar. Cosmetic only.",
+	Trails = "A trail behind you when you run. Cosmetic only.",
+	CatchEffects = "Plays when you catch someone. Cosmetic only.",
+}
 
 local function hasPasses(): boolean
 	for _, def in Config.Monetization.GamePasses do
@@ -81,40 +91,24 @@ local function render()
 	local purchase = Remotes.Get("ShopPurchase")
 	local equip = Remotes.Get("ShopEquip")
 
-	if currentTab == "Upgrades" then
-		for index, id in Config.Shop.UpgradeOrder do
-			local def = Config.Shop.Upgrades[id]
-			local level = profile.Upgrades and profile.Upgrades[id] or 0
-			local maxed = level >= #def.Prices
-			local price = maxed and 0 or def.Prices[level + 1]
-			card(content, index, def.Name, def.Description, string.format("Level %d/%d", level, #def.Prices), maxed and "MAX" or (price .. " coins"), not maxed and coins >= price, function()
-				purchase:FireServer("Upgrades", id)
-			end)
-		end
-	elseif currentTab == "Items" then
-		for index, id in Config.Shop.ConsumableOrder do
-			local def = Config.Shop.Consumables[id]
-			local count = profile.Consumables and profile.Consumables[id] or 0
-			card(content, index, def.Name, def.Description, "You have " .. count, def.Price .. " coins", coins >= def.Price, function()
-				purchase:FireServer("Consumables", id)
-			end)
-		end
-	elseif currentTab == "Looks" or currentTab == "Trails" then
-		local defs = currentTab == "Looks" and Config.Shop.Looks or Config.Shop.Trails
-		local order = currentTab == "Looks" and Config.Shop.LookOrder or Config.Shop.TrailOrder
-		local owned = (currentTab == "Looks" and profile.OwnedLooks or profile.OwnedTrails) or {}
-		local equipped = currentTab == "Looks" and profile.EquippedLook or profile.EquippedTrail
+	local category = TAB_CATEGORY[currentTab]
+	if category then
+		local defs = (Config.Shop :: any)[category]
+		local order = (Config.Shop :: any)[ORDER_KEY[category]]
+		local owned = profile[OWNED_KEY[category]] or {}
+		local equipped = profile[EQUIPPED_KEY[category]]
 		for index, id in order do
 			local def = defs[id]
 			local isOwned = owned[id] == true
 			local isEquipped = equipped == id
 			local text = isEquipped and "EQUIPPED" or (isOwned and "EQUIP" or (def.Price .. " coins"))
 			local enabled = (isOwned and not isEquipped) or (not isOwned and coins >= def.Price)
-			card(content, index, def.Name, "Added on top of your avatar", isOwned and "Owned" or "", text, enabled, function()
+			local status = isOwned and "Owned" or (coins >= def.Price and "" or ("Need " .. (def.Price - coins) .. " more"))
+			card(content, index, def.Name, DESCRIPTIONS[category], status, text, enabled, function()
 				if isOwned then
-					equip:FireServer(currentTab, id)
+					equip:FireServer(category, id)
 				else
-					purchase:FireServer(currentTab, id)
+					purchase:FireServer(category, id)
 				end
 			end)
 		end

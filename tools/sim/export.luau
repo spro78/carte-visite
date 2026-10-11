@@ -208,7 +208,7 @@ function Export.Parts(center, radius)
 			reach = op.size and math.max(op.size[1], op.size[3]) or math.max(op.radius or 0, op.height or 0)
 		end
 		local dx, dz = x - center.X, z - center.Z
-		if math.sqrt(dx * dx + dz * dz) <= radius + reach then
+		if math.sqrt(dx * dx + dz * dz) <= radius + 700 + reach then
 			table.insert(terrain, op)
 		end
 	end

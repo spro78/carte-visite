@@ -56,11 +56,20 @@ function DailySpinService.Spin(player: Player, lobby: any)
 	busy[player] = true
 	local index, reward = pickReward()
 	profile.LastSpin = now
+	local label = reward.Label
+	local coins = 0
 	if reward.Kind == "Coins" then
-		profile.Coins += reward.Amount
-	elseif reward.Kind == "Consumable" and profile.Consumables[reward.Item] ~= nil then
-		profile.Consumables[reward.Item] = math.min(Config.Shop.MaxConsumableStack, profile.Consumables[reward.Item] + reward.Amount)
+		coins = reward.Amount
+	elseif reward.Kind == "XP" then
+		DataService.AddXP(player, reward.Amount)
+	elseif reward.Kind == "Cosmetic" then
+		-- Déjà possédé : on donne des pièces à la place
+		if not DataService.GrantCosmetic(player, reward.Category, reward.Item) then
+			coins = reward.Fallback or 100
+			label = reward.Label .. " (owned: +" .. coins .. " coins)"
+		end
 	end
+	profile.Coins += coins
 	DataService.MarkChanged(player)
 	if lobby and lobby.SpinWheel then
 		lobby.SpinWheel(index, Config.DailySpin.SpinSeconds)
@@ -68,8 +77,8 @@ function DailySpinService.Spin(player: Player, lobby: any)
 	task.delay(Config.DailySpin.SpinSeconds, function()
 		busy[player] = nil
 		if player.Parent then
-			Remotes.Get("Notify"):FireClient(player, "Daily Spin: you won " .. reward.Label .. "!", false)
-			Remotes.Get("Effect"):FireClient(player, "Coins", { Amount = reward.Kind == "Coins" and reward.Amount or 0 })
+			Remotes.Get("Notify"):FireClient(player, "Daily Spin: you won " .. label .. "!", false)
+			Remotes.Get("Effect"):FireClient(player, "Coins", { Amount = coins })
 		end
 	end)
 end

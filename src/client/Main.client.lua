@@ -15,7 +15,6 @@ local HUD = require(UI:WaitForChild("HUD"))
 local ActionBar = require(UI:WaitForChild("ActionBar"))
 local ObjectiveArrow = require(UI:WaitForChild("ObjectiveArrow"))
 local ShopUI = require(UI:WaitForChild("ShopUI"))
-local Inventory = require(UI:WaitForChild("Inventory"))
 local StateController = require(Controllers:WaitForChild("StateController"))
 local MovementController = require(Controllers:WaitForChild("MovementController"))
 local OutlineController = require(Controllers:WaitForChild("OutlineController"))
@@ -39,20 +38,18 @@ ActionBar.Init(HUD.Screen, HUD.BottomRow, {
 }, MovementController.GetCooldowns)
 HUD.Rescale() -- la barre de dash existe maintenant
 ShopUI.Init(HUD.Screen, HUD.Pills.SHOP)
-Inventory.Init(HUD.BottomRow)
-DataController.Init(HUD, ShopUI, Inventory)
+DataController.Init(HUD, ShopUI)
 
 -- Pastille SPIN : tourner la roue de récompense
 HUD.Pills.SPIN.Activated:Connect(function()
 	Remotes.Get("RequestSpin"):FireServer()
 end)
 
--- Boutique hors manche, objets pendant la manche
+-- Boutique et roue hors manche
 StateController.OnState(function(state)
 	local inRound = (state.Phase == "Countdown" or state.Phase == "Round") and Players.LocalPlayer:GetAttribute("Team") ~= nil
 	ShopUI.SetButtonVisible(not inRound)
 	HUD.Pills.SPIN.Visible = not inRound
-	Inventory.SetVisible(inRound)
 end)
 
 print("[HuntOrHide] Client ready")

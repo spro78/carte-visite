@@ -3,7 +3,7 @@
 	Emplacements pour les Game Passes et produits Robux, DÉSACTIVÉS tant que
 	leurs identifiants valent 0 dans Config.Monetization.
 	  - Game Pass VIP : pièces x2 (Config.Monetization.VIPCoinMultiplier)
-	  - Game Pass ExtraConsumableSlot : +2 au stock maximum de chaque consommable
+	  Les pièces ne servent qu'aux cosmétiques : aucun achat ne donne d'avantage en jeu.
 	  - Produits Coins500 / Coins1500 : pièces (reçus traités une seule fois)
 ]]
 
@@ -48,10 +48,6 @@ function MonetizationService.CoinMultiplier(player: Player): number
 		return Config.Monetization.VIPCoinMultiplier
 	end
 	return 1
-end
-
-function MonetizationService.ExtraStack(player: Player): number
-	return MonetizationService.HasPass(player, "ExtraConsumableSlot") and 2 or 0
 end
 
 -- Traitement des achats de produits (appelé par Roblox, peut être rappelé)

@@ -37,30 +37,19 @@ local function serverNow(): number
 end
 
 -- ---------------------------------------------------------------------------
--- Améliorations permanentes (profil sauvegardé, phase 6)
+-- Statistiques de base : IDENTIQUES pour tous les joueurs. Aucun achat ne
+-- modifie la vitesse, le dash ou la portée de capture (seule l'adresse compte).
 -- ---------------------------------------------------------------------------
-local function upgradeLevel(actor: Actor, id: string): number
-	local data = actor.Data
-	if type(data) == "table" and type(data.Upgrades) == "table" then
-		local level = data.Upgrades[id]
-		if type(level) == "number" then
-			return math.clamp(math.floor(level), 0, #Config.Shop.Upgrades[id].Prices)
-		end
-	end
-	return 0
+function AbilityService.GetBaseSpeedMultiplier(_actor: Actor): number
+	return 1
 end
 
-function AbilityService.GetBaseSpeedMultiplier(actor: Actor): number
-	return 1 + upgradeLevel(actor, "Speed") * Config.Shop.Upgrades.Speed.PerLevel
+function AbilityService.GetDashCooldown(_actor: Actor): number
+	return Config.Movement.DashCooldown
 end
 
-function AbilityService.GetDashCooldown(actor: Actor): number
-	local reduction = upgradeLevel(actor, "DashCooldown") * Config.Shop.Upgrades.DashCooldown.PerLevel
-	return Config.Movement.DashCooldown * (1 - reduction)
-end
-
-function AbilityService.GetCaptureRange(actor: Actor): number
-	return Config.Capture.Range + upgradeLevel(actor, "CaptureRange") * Config.Shop.Upgrades.CaptureRange.PerLevel
+function AbilityService.GetCaptureRange(_actor: Actor): number
+	return Config.Capture.Range
 end
 
 -- ---------------------------------------------------------------------------

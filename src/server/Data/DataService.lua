@@ -30,12 +30,12 @@ DataService.ProfileChanged = Signal.new() -- (player, profile)
 export type Profile = {
 	Version: number,
 	Coins: number,
-	Upgrades: { [string]: number },
-	Consumables: { [string]: number },
 	OwnedLooks: { [string]: boolean },
 	EquippedLook: string,
 	OwnedTrails: { [string]: boolean },
 	EquippedTrail: string,
+	OwnedCatchEffects: { [string]: boolean },
+	EquippedCatchEffect: string,
 	Stats: { [string]: number },
 	Level: number,
 	XP: number,
@@ -73,11 +73,13 @@ function DataService.XPForLevel(level: number): number
 	return 100 + 25 * (level - 1)
 end
 
--- Ajoute de l'expérience ; retourne (niveau avant, niveau après)
-function DataService.AddXP(player: Player, amount: number): (number, number)
+-- Ajoute de l'expérience ; retourne (niveau avant, niveau après, récompenses
+-- gratuites débloquées). Chaque niveau donne des pièces ; certains niveaux
+-- offrent un cosmétique (Config.Economy.LevelRewards).
+function DataService.AddXP(player: Player, amount: number): (number, number, { string })
 	local profile = DataService.Get(player)
 	if not profile then
-		return 1, 1
+		return 1, 1, {}
 	end
 	local before = profile.Level
 	profile.XP += math.max(0, math.floor(amount))
@@ -85,29 +87,31 @@ function DataService.AddXP(player: Player, amount: number): (number, number)
 		profile.XP -= DataService.XPForLevel(profile.Level)
 		profile.Level += 1
 	end
+	local unlocks = {}
+	for level = before + 1, profile.Level do
+		profile.Coins += Config.Economy.CoinsPerLevelUp
+		table.insert(unlocks, string.format("Level %d: +%d coins", level, Config.Economy.CoinsPerLevelUp))
+		local reward = Config.Economy.LevelRewards[level]
+		if reward and DataService.GrantCosmetic(player, reward.Category, reward.Item) then
+			local def = (Config.Shop :: any)[reward.Category][reward.Item]
+			table.insert(unlocks, "Unlocked " .. def.Name .. " (free)")
+		end
+	end
 	DataService.MarkChanged(player)
-	return before, profile.Level
+	return before, profile.Level, unlocks
 end
 
 -- Profil par défaut
 function DataService.DefaultProfile(): Profile
-	local consumables = {}
-	for _, id in Config.Shop.ConsumableOrder do
-		consumables[id] = 0
-	end
-	local upgrades = {}
-	for _, id in Config.Shop.UpgradeOrder do
-		upgrades[id] = 0
-	end
 	return {
 		Version = SCHEMA_VERSION,
 		Coins = Config.Economy.StartingCoins,
-		Upgrades = upgrades,
-		Consumables = consumables,
 		OwnedLooks = { None = true },
 		EquippedLook = "None",
 		OwnedTrails = { None = true },
 		EquippedTrail = "None",
+		OwnedCatchEffects = { None = true },
+		EquippedCatchEffect = "None",
 		Stats = { Wins = 0, Captures = 0, RoundsPlayed = 0, Objectives = 0, TimesCaught = 0, CoinsEarned = 0 },
 		Level = 1,
 		XP = 0,
@@ -165,6 +169,30 @@ local function keyFor(player: Player): string
 	return "Player_" .. player.UserId
 end
 
+-- Catégories de cosmétiques -> champs "possédé" / "équipé" du profil
+DataService.CosmeticFields = {
+	Looks = { Owned = "OwnedLooks", Equipped = "EquippedLook" },
+	Trails = { Owned = "OwnedTrails", Equipped = "EquippedTrail" },
+	CatchEffects = { Owned = "OwnedCatchEffects", Equipped = "EquippedCatchEffect" },
+}
+
+-- Offre un cosmétique (récompense gratuite). Retourne true s'il est nouveau.
+function DataService.GrantCosmetic(player: Player, category: string, itemId: string): boolean
+	local profile = DataService.Get(player)
+	local fields = DataService.CosmeticFields[category]
+	local defs = (Config.Shop :: any)[category]
+	if not profile or not fields or type(defs) ~= "table" or defs[itemId] == nil then
+		return false
+	end
+	local owned = (profile :: any)[fields.Owned]
+	if owned[itemId] then
+		return false
+	end
+	owned[itemId] = true
+	DataService.MarkChanged(player)
+	return true
+end
+
 -- Envoie au client une vue de son profil
 function DataService.Replicate(player: Player)
 	local session = sessions[player]
@@ -174,12 +202,12 @@ function DataService.Replicate(player: Player)
 	local p = session.Profile
 	Remotes.Get("DataUpdate"):FireClient(player, {
 		Coins = p.Coins,
-		Upgrades = p.Upgrades,
-		Consumables = p.Consumables,
 		OwnedLooks = p.OwnedLooks,
 		EquippedLook = p.EquippedLook,
 		OwnedTrails = p.OwnedTrails,
 		EquippedTrail = p.EquippedTrail,
+		OwnedCatchEffects = p.OwnedCatchEffects,
+		EquippedCatchEffect = p.EquippedCatchEffect,
 		Stats = p.Stats,
 		Level = p.Level,
 		XP = p.XP,

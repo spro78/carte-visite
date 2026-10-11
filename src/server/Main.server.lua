@@ -48,12 +48,10 @@ MonetizationService.Init()
 LeaderboardService.Init(LobbyBuilder)
 DailySpinService.Init(LobbyBuilder)
 EconomyService.SetMultiplierProvider(MonetizationService.CoinMultiplier)
-ShopService.SetExtraStackProvider(MonetizationService.ExtraStack)
 ActorService.Init()
 
 RoundService.SetBotProvider(BotService)
 RoundService.SetRewardHandler(EconomyService)
-RoundService.OnCleanup(ShopService.ResetRound)
 RoundService.Start()
 
 print("[HuntOrHide] Server ready")

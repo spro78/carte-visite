@@ -1,7 +1,7 @@
 --[[
 	DataController.lua
 	Reçoit le profil du joueur (pièces, objets, achats) et les messages du
-	serveur, et met à jour l'interface (HUD, boutique, barre d'objets).
+	serveur, et met à jour l'interface (HUD, boutique).
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,7 +17,7 @@ function DataController.Get(): { [string]: any }
 	return profile
 end
 
-function DataController.Init(HUD: any, ShopUI: any, Inventory: any)
+function DataController.Init(HUD: any, ShopUI: any)
 	Remotes.Get("DataUpdate").OnClientEvent:Connect(function(data)
 		if type(data) ~= "table" then
 			return
@@ -25,7 +25,6 @@ function DataController.Init(HUD: any, ShopUI: any, Inventory: any)
 		profile = data
 		HUD.SetProfile(data)
 		ShopUI.SetProfile(data)
-		Inventory.SetCounts(data.Consumables)
 	end)
 	Remotes.Get("Notify").OnClientEvent:Connect(function(message: string, isError: boolean?)
 		HUD.Notify(message, isError and Theme.Bad or Theme.Good)

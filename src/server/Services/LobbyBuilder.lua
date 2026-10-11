@@ -27,13 +27,14 @@ local MapInfo = require(Shared.MapInfo)
 local Style = require(Shared.Style)
 local Mechanics = require(Shared.Mechanics)
 local Build = require(script.Parent.Parent.Util.Build)
+local Props = require(script.Parent.Parent.Util.Props)
+local TerrainKit = require(script.Parent.Parent.Util.TerrainKit)
 
 local LobbyBuilder = {}
 
 local P = Style.Palette
 local folder: Folder? = nil
 local spawnCFrame = CFrame.new(Config.World.LobbyOrigin + Vector3.new(0, 3, 0))
-local random = Random.new(7)
 
 type BoardLabels = { Status: TextLabel?, Time: TextLabel?, Map: TextLabel? }
 local boardLabels: BoardLabels = {}
@@ -73,88 +74,169 @@ local function prompt(part: BasePart, action: string, object: string, callback: 
 	return p
 end
 
-local function cubeTree(parent: Instance, position: Vector3, scale: number)
-	Build.Part({ Name = "Trunk", Size = Vector3.new(2.4, 12, 2.4) * scale, CFrame = CFrame.new(position + Vector3.new(0, 6 * scale, 0)) * CFrame.Angles(0, random:NextNumber(0, 1.5), 0), Color = P.Trunk, Material = Enum.Material.Wood }, parent)
-	local colors = { P.LeafOrange, P.LeafRed, P.LeafYellow, P.LeafOrange }
-	local cubes = { { Vector3.new(0, 14, 0), 9 }, { Vector3.new(4, 12, 2), 7 }, { Vector3.new(-3.5, 12.5, -2), 7 }, { Vector3.new(1, 18, -1), 6.5 }, { Vector3.new(-2, 11, 4), 6 } }
-	for i, spec in cubes do
-		local size = spec[2] * scale
-		Build.Part({
-			Name = "Leaves",
-			Size = Vector3.new(size, size, size),
-			CFrame = CFrame.new(position + spec[1] * scale) * CFrame.Angles(random:NextNumber(-0.5, 0.5), random:NextNumber(0, 1.5), random:NextNumber(-0.5, 0.5)),
-			Color = colors[(i - 1) % #colors + 1],
-			Studs = true,
-		}, parent)
-	end
-end
-
 local function yellowBlocks(parent: Instance, position: Vector3, layout: { Vector3 })
 	for _, offset in layout do
 		Build.Part({ Name = "YellowBlock", Size = Vector3.new(4, 4, 4), Position = position + offset * 4 + Vector3.new(0, 2, 0), Color = P.BlockYellow, Studs = true }, parent)
 	end
 end
 
-local function house(parent: Instance, position: Vector3, yaw: number, width: number)
-	local cf = CFrame.new(position) * CFrame.Angles(0, yaw, 0)
-	Build.Part({ Name = "HouseWall", Size = Vector3.new(width, 14, 18), CFrame = cf * CFrame.new(0, 7, 0), Color = P.HouseWall }, parent)
-	for _, side in { -1, 1 } do
-		Build.Part({ Name = "HouseRoof", Size = Vector3.new(width + 2, 1.2, 11), CFrame = cf * CFrame.new(0, 17, side * 4.6) * CFrame.Angles(math.rad(side * 30), 0, 0), Color = P.HouseRoof, Studs = true }, parent)
-	end
-	Build.Part({ Name = "HouseGable", Size = Vector3.new(width, 4, 9), CFrame = cf * CFrame.new(0, 15.5, 0), Color = P.HouseWall }, parent)
-	Build.Part({ Name = "Garage", Size = Vector3.new(width * 0.4, 8, 0.4), CFrame = cf * CFrame.new(-width * 0.2, 4, -9.1), Color = P.Garage }, parent)
-	Build.Part({ Name = "Window", Size = Vector3.new(4, 4, 0.3), CFrame = cf * CFrame.new(width * 0.25, 8, -9.1), Color = Color3.fromRGB(90, 160, 240), Material = Enum.Material.Glass, Accent = true }, parent)
-end
-
 -- ---------------------------------------------------------------------------
--- Sol, enceinte, décor
+-- Sol, enceinte, village autour
 -- ---------------------------------------------------------------------------
 local function buildGround(parent: Folder, origin: Vector3)
 	local size = Config.Lobby.Size
-	Build.Part({ Name = "Floor", Size = Vector3.new(size, 2, size), Position = origin + Vector3.new(0, -1, 0), Color = P.Grass, Studs = true }, parent)
-	-- Place de pierre au nord (vote + portail) avec une ligne blanche
-	Build.Part({ Name = "Plaza", Size = Vector3.new(84, 0.4, 52), Position = origin + Vector3.new(0, 0.2, -38), Color = P.Stone, Studs = true }, parent)
-	Build.Part({ Name = "PlazaLine", Size = Vector3.new(84, 0.06, 0.8), Position = origin + Vector3.new(0, 0.43, -13), Color = P.White, CanCollide = false, Accent = true }, parent)
-	-- Allée de pierre vers le sud
-	Build.Part({ Name = "Path", Size = Vector3.new(14, 0.3, 60), Position = origin + Vector3.new(0, 0.15, 30), Color = P.StoneDark, Studs = true }, parent)
+	local random = Random.new(31)
+	TerrainKit.ResetRelief(origin.Y)
+	-- Vallée en Terrain autour du lobby (collines, forêts, montagnes au loin)
+	TerrainKit.Valley(origin, size + 120, { Ground = Enum.Material.Grass, Hill = Enum.Material.Grass, Rock = Enum.Material.Rock, Height = 90, Gap = 20, RockChance = 0.4 }, random)
+	TerrainKit.Slab(origin, size + 128, size + 128, origin.Y, 16, Enum.Material.Grass)
+	-- Place pavée au nord (vote + portail), allées vers chaque attraction
+	TerrainKit.Paint(CFrame.new(origin + Vector3.new(0, 0, -38)), 92, 56, origin.Y, Enum.Material.Cobblestone)
+	TerrainKit.PaintDisc(origin, 22, origin.Y, Enum.Material.Cobblestone)
+	TerrainKit.Path({ origin, origin + Vector3.new(0, 0, 60) }, 12, origin.Y, Enum.Material.Pavement)
+	TerrainKit.Path({ origin, origin + Vector3.new(-48, 0, 34) }, 9, origin.Y, Enum.Material.Pavement)
+	TerrainKit.Path({ origin, origin + Vector3.new(44, 0, -6) }, 9, origin.Y, Enum.Material.Pavement)
+	TerrainKit.Path({ origin, origin + Vector3.new(-46, 0, -8) }, 9, origin.Y, Enum.Material.Pavement)
+	TerrainKit.Path({ origin + Vector3.new(14, 0, 18), origin + Vector3.new(36, 0, 40) }, 8, origin.Y, Enum.Material.Pavement)
+	for _ = 1, 10 do
+		local p = origin + Vector3.new(random:NextNumber(-60, 60), 0, random:NextNumber(10, 60))
+		TerrainKit.PaintDisc(p, random:NextNumber(5, 9), origin.Y, Enum.Material.LeafyGrass)
+	end
+	-- Ligne blanche du terrain de jeu (comme la référence)
+	Build.Part({ Name = "PlazaLine", Size = Vector3.new(84, 0.06, 0.8), Position = origin + Vector3.new(0, 0.05, -13), Color = P.White, CanCollide = false, Accent = true }, parent)
 end
 
 local function buildEnclosure(parent: Folder, origin: Vector3)
 	local cfg = Config.Lobby
 	local half = cfg.Size / 2
-	local h = 7
-	-- Murets de pierre (le lobby est fermé mais le ciel reste visible)
-	local sides = {
-		{ Vector3.new(0, 0, -half), Vector3.new(cfg.Size + 4, h, 4) },
-		{ Vector3.new(0, 0, half), Vector3.new(cfg.Size + 4, h, 4) },
-		{ Vector3.new(-half, 0, 0), Vector3.new(4, h, cfg.Size + 4) },
-		{ Vector3.new(half, 0, 0), Vector3.new(4, h, cfg.Size + 4) },
+	-- Murets de pierre coiffés de haies, avec barrière invisible plus haute
+	local corners = {
+		origin + Vector3.new(-half, 0, -half), origin + Vector3.new(half, 0, -half),
+		origin + Vector3.new(half, 0, half), origin + Vector3.new(-half, 0, half),
 	}
-	for index, spec in sides do
-		Build.Part({ Name = "Wall" .. index, Size = spec[2], Position = origin + spec[1] + Vector3.new(0, h / 2, 0), Color = P.StoneDark, Studs = true }, parent)
-		Build.Part({ Name = "WallCap" .. index, Size = spec[2] + Vector3.new(1, -h + 1.2, 1), Position = origin + spec[1] + Vector3.new(0, h + 0.6, 0), Color = P.GrassDark, Studs = true }, parent)
-		-- Barrière invisible plus haute pour ne pas sortir en sautant
-		Build.Part({ Name = "WallBarrier" .. index, Size = spec[2] + Vector3.new(0, 30, 0), Position = origin + spec[1] + Vector3.new(0, h + 15, 0), Transparency = 1, CanQuery = false }, parent)
+	for i = 1, 4 do
+		local a, b = corners[i], corners[i % 4 + 1]
+		Props.StoneWall(parent, a, b, 3, Color3.fromRGB(176, 172, 166))
+		local dir = (b - a).Unit
+		local mid = (a + b) / 2
+		Build.Part({ Name = "WallBarrier" .. i, Size = Vector3.new(4, 40, (b - a).Magnitude + 4), CFrame = CFrame.lookAt(mid + Vector3.new(0, 20, 0), mid + Vector3.new(0, 20, 0) + dir), Transparency = 1, CanQuery = false }, parent)
+		-- Haie basse le long de l'intérieur, interrompue tous les 30 studs
+		local length = (b - a).Magnitude
+		local inward = Vector3.new(-dir.Z, 0, dir.X)
+		if (origin - mid):Dot(inward) < 0 then
+			inward = -inward
+		end
+		for k = 0, math.floor(length / 30) - 1 do
+			local s = a + dir * (k * 30 + 6) + inward * 3.5
+			Props.Hedge(parent, s, s + dir * 18, 3.2)
+		end
+		-- Lampadaires aux coins et au milieu des côtés
+		Props.Lamp(parent, mid + inward * 6, math.atan2(inward.X, inward.Z) + math.pi)
 	end
 	-- Arbres dans les coins, à l'intérieur
 	for _, corner in { Vector3.new(-1, 0, -1), Vector3.new(1, 0, -1), Vector3.new(-1, 0, 1), Vector3.new(1, 0, 1) } do
-		cubeTree(parent, origin + corner * (half - 10), 1)
+		Props.BlockTree(parent, origin + corner * (half - 11), 1.05)
 	end
-	cubeTree(parent, origin + Vector3.new(-half + 12, 0, 0), 0.85)
-	cubeTree(parent, origin + Vector3.new(half - 10, 0, 28), 0.9)
-	-- Maisons et grands arbres au-delà des murets (décor de fond)
+	Props.BlockTree(parent, origin + Vector3.new(-half + 12, 0, 22), 0.85)
+	Props.RoundTree(parent, origin + Vector3.new(half - 10, 0, 30), 0.95)
+	-- Village au-delà des murets : maisons turquoise à toit vert (clin d'œil à la référence)
+	local walls = { Color3.fromRGB(110, 210, 184), Color3.fromRGB(250, 236, 206), Color3.fromRGB(150, 200, 240), Color3.fromRGB(246, 196, 170) }
+	local roofs = { Color3.fromRGB(44, 126, 76), Color3.fromRGB(196, 66, 56), Color3.fromRGB(60, 90, 160), Color3.fromRGB(44, 126, 76) }
+	local random = Random.new(12)
+	local spots = {}
 	for i = -2, 2 do
-		house(parent, origin + Vector3.new(i * 32, 0, -half - 22), 0, 22)
+		table.insert(spots, { origin + Vector3.new(i * 30, 0, -half - 26), origin })
+		table.insert(spots, { origin + Vector3.new(i * 30 + 8, 0, half + 26), origin })
 	end
 	for i = -1, 1 do
-		house(parent, origin + Vector3.new(half + 24, 0, i * 40), math.rad(-90), 24)
-		cubeTree(parent, origin + Vector3.new(-half - 18, 0, i * 45), 1.4)
+		table.insert(spots, { origin + Vector3.new(half + 26, 0, i * 36), origin })
+		table.insert(spots, { origin + Vector3.new(-half - 26, 0, i * 36 + 10), origin })
 	end
-	for i = -2, 2 do
-		cubeTree(parent, origin + Vector3.new(i * 30, 0, half + 18), 1.3)
+	for i, spot in spots do
+		local cf = CFrame.lookAt(spot[1], Vector3.new(spot[2].X, spot[1].Y, spot[2].Z))
+		Props.House(parent, cf, {
+			Width = random:NextNumber(18, 24),
+			Depth = 14,
+			Floors = (i % 3 == 0) and 2 or 1,
+			Wall = walls[(i % #walls) + 1],
+			Roof = roofs[(i % #roofs) + 1],
+			Shutters = Color3.fromRGB(70, 110, 160),
+		})
 	end
-	-- Ground extérieur
-	Build.Part({ Name = "OuterGround", Size = Vector3.new(cfg.Size + 120, 1.8, cfg.Size + 120), Position = origin + Vector3.new(0, -1.1, 0), Color = P.GrassDark, Studs = true, CanQuery = false }, parent)
+	-- Arbres et clôtures blanches entre les maisons
+	for _ = 1, 40 do
+		local a = random:NextNumber(0, math.pi * 2)
+		local d = random:NextNumber(half + 46, half + 120)
+		local p = origin + Vector3.new(math.cos(a) * d, 0, math.sin(a) * d)
+		Props.Tree(parent, TerrainKit.Ground(p) - Vector3.new(0, 0.6, 0), random:NextNumber(1, 1.4), { "Block", "Round", "Block", "Green" })
+	end
+end
+
+-- Statue stylisée d'un animal sur un socle (mascottes autour du spawn)
+local function buildStatue(parent: Folder, ground: Vector3, facing: Vector3, teamId: string)
+	local def = Teams.Get(teamId)
+	assert(def)
+	local cf = CFrame.lookAt(ground, Vector3.new(facing.X, ground.Y, facing.Z))
+	local white = Color3.fromRGB(250, 248, 242)
+	local dark = Color3.fromRGB(40, 32, 30)
+	Build.VerticalCylinder((cf * CFrame.new(0, 1, 0)).Position, 3.2, 2, { Name = "Plinth", Color = Color3.fromRGB(200, 196, 190), Material = Enum.Material.Marble }, parent)
+	Build.VerticalCylinder((cf * CFrame.new(0, 2.15, 0)).Position, 3.4, 0.3, { Name = "PlinthRing", Color = def.Color, Accent = true }, parent)
+	local plate = Build.Part({ Name = "Plate", Size = Vector3.new(4, 0.9, 0.2), CFrame = cf * CFrame.new(0, 1.1, -3.25), Color = def.DarkColor, Accent = true, CanCollide = false }, parent)
+	Build.SurfaceLabel(plate, Enum.NormalId.Front, def.Display, { TextColor3 = Color3.new(1, 1, 1), TextStrokeTransparency = 1, Font = Enum.Font.GothamBlack })
+	local base = cf * CFrame.new(0, 2.3, 0)
+	local function p(props: { [string]: any })
+		props.Accent = true
+		return Build.Part(props, parent)
+	end
+	if teamId == "FOX" then
+		p({ Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(2.6, 2.6, 3.8), CFrame = base * CFrame.new(0, 1.8, 0.4), Color = def.Color })
+		p({ Name = "Chest", Shape = Enum.PartType.Ball, Size = Vector3.new(1.8, 2, 1.4), CFrame = base * CFrame.new(0, 2, -1.2), Color = white })
+		p({ Name = "Head", Shape = Enum.PartType.Ball, Size = Vector3.new(2.4, 2.2, 2.2), CFrame = base * CFrame.new(0, 3.9, -1.4), Color = def.Color })
+		p({ Name = "Snout", Size = Vector3.new(1, 0.8, 1.4), CFrame = base * CFrame.new(0, 3.6, -2.6), Color = white })
+		p({ Name = "Nose", Shape = Enum.PartType.Ball, Size = Vector3.new(0.45, 0.45, 0.45), CFrame = base * CFrame.new(0, 3.75, -3.3), Color = dark })
+		for _, s in { -1, 1 } do
+			p({ Name = "Ear", Size = Vector3.new(0.7, 1.5, 0.35), CFrame = base * CFrame.new(s * 0.75, 5.2, -1.4) * CFrame.Angles(0, 0, -s * 0.25), Color = def.Color })
+			p({ Name = "EarTip", Size = Vector3.new(0.5, 0.6, 0.4), CFrame = base * CFrame.new(s * 0.88, 5.8, -1.4) * CFrame.Angles(0, 0, -s * 0.25), Color = dark })
+			p({ Name = "Eye", Shape = Enum.PartType.Ball, Size = Vector3.new(0.4, 0.5, 0.3), CFrame = base * CFrame.new(s * 0.55, 4.2, -2.4), Color = dark })
+			p({ Name = "Leg", Size = Vector3.new(0.6, 1.4, 0.6), CFrame = base * CFrame.new(s * 0.7, 0.7, -0.8), Color = dark })
+		end
+		p({ Name = "Tail", Shape = Enum.PartType.Ball, Size = Vector3.new(1.6, 1.6, 3.6), CFrame = base * CFrame.new(0.4, 2.2, 2.8) * CFrame.Angles(math.rad(-30), 0.3, 0), Color = def.Color })
+		p({ Name = "TailTip", Shape = Enum.PartType.Ball, Size = Vector3.new(1.3, 1.3, 1.4), CFrame = base * CFrame.new(0.7, 3.3, 4.2), Color = white })
+	elseif teamId == "CHICKEN" then
+		p({ Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(3, 3, 3.4), CFrame = base * CFrame.new(0, 2, 0.2), Color = def.Color })
+		p({ Name = "Head", Shape = Enum.PartType.Ball, Size = Vector3.new(1.9, 1.9, 1.9), CFrame = base * CFrame.new(0, 4, -1), Color = def.Color })
+		p({ Name = "Beak", Size = Vector3.new(0.7, 0.5, 0.9), CFrame = base * CFrame.new(0, 3.9, -2.1), Color = Color3.fromRGB(255, 160, 30) })
+		p({ Name = "Wattle", Shape = Enum.PartType.Ball, Size = Vector3.new(0.5, 0.8, 0.5), CFrame = base * CFrame.new(0, 3.3, -1.8), Color = Color3.fromRGB(230, 40, 40) })
+		for k = -1, 1 do
+			p({ Name = "Comb", Shape = Enum.PartType.Ball, Size = Vector3.new(0.5, 0.9, 0.7), CFrame = base * CFrame.new(0, 5 + (k == 0 and 0.2 or 0), -1 + k * 0.45), Color = Color3.fromRGB(230, 40, 40) })
+		end
+		for _, s in { -1, 1 } do
+			p({ Name = "Eye", Shape = Enum.PartType.Ball, Size = Vector3.new(0.35, 0.45, 0.3), CFrame = base * CFrame.new(s * 0.55, 4.3, -1.7), Color = dark })
+			p({ Name = "Wing", Shape = Enum.PartType.Ball, Size = Vector3.new(0.6, 1.8, 2.4), CFrame = base * CFrame.new(s * 1.55, 2.2, 0.3), Color = def.DarkColor })
+			p({ Name = "Leg", Size = Vector3.new(0.3, 1, 0.3), CFrame = base * CFrame.new(s * 0.6, 0.5, 0), Color = Color3.fromRGB(255, 160, 30) })
+		end
+		for i, a in { -25, 0, 25 } do
+			p({ Name = "TailFeather" .. i, Size = Vector3.new(0.4, 2, 0.8), CFrame = base * CFrame.new(0, 3, 1.8) * CFrame.Angles(math.rad(-35), 0, math.rad(a)) * CFrame.new(0, 0.6, 0), Color = i == 2 and white or def.DarkColor })
+		end
+	else
+		-- Vipère lovée (anneaux de perles), capuche déployée
+		for k = 0, 2 do
+			local r = 2.2 - k * 0.55
+			local n = 12 - k * 2
+			for i = 0, n - 1 do
+				local a = i / n * math.pi * 2
+				p({ Name = "Coil", Shape = Enum.PartType.Ball, Size = Vector3.new(1.3, 1.1, 1.3) * (1 - k * 0.12), CFrame = base * CFrame.new(math.cos(a) * r, 0.55 + k * 0.85, math.sin(a) * r), Color = (i + k) % 3 == 0 and def.DarkColor or def.Color })
+			end
+		end
+		p({ Name = "Neck", Size = Vector3.new(1, 3.4, 1), CFrame = base * CFrame.new(0, 4, -0.4) * CFrame.Angles(math.rad(-8), 0, 0), Color = def.Color })
+		p({ Name = "Hood", Shape = Enum.PartType.Ball, Size = Vector3.new(3.4, 3, 0.8), CFrame = base * CFrame.new(0, 5.4, -0.2), Color = def.Color })
+		p({ Name = "HoodMark", Shape = Enum.PartType.Ball, Size = Vector3.new(1.6, 1.4, 0.82), CFrame = base * CFrame.new(0, 5.4, -0.25), Color = def.DarkColor })
+		p({ Name = "Head", Shape = Enum.PartType.Ball, Size = Vector3.new(1.6, 1.1, 2), CFrame = base * CFrame.new(0, 6.2, -1.1), Color = def.Color })
+		p({ Name = "Tongue", Size = Vector3.new(0.15, 0.08, 0.9), CFrame = base * CFrame.new(0, 6, -2.3), Color = Color3.fromRGB(230, 50, 70) })
+		for _, s in { -1, 1 } do
+			p({ Name = "Eye", Shape = Enum.PartType.Ball, Size = Vector3.new(0.35, 0.35, 0.35), CFrame = base * CFrame.new(s * 0.45, 6.4, -1.8), Color = Color3.fromRGB(255, 220, 60), Material = Enum.Material.Neon })
+		end
+	end
 end
 
 -- ---------------------------------------------------------------------------
@@ -162,7 +244,8 @@ end
 -- ---------------------------------------------------------------------------
 local function buildSpawn(parent: Folder, origin: Vector3)
 	Build.VerticalCylinder(origin + Vector3.new(0, 0.15, 0), 10, 0.3, { Name = "SpawnRing", Color = P.White, Accent = true }, parent)
-	Build.VerticalCylinder(origin + Vector3.new(0, 0.2, 0), 9, 0.3, { Name = "SpawnPad", Color = P.Grass, Studs = true }, parent)
+	Build.VerticalCylinder(origin + Vector3.new(0, 0.2, 0), 9, 0.3, { Name = "SpawnPad", Color = Color3.fromRGB(236, 226, 206), Material = Enum.Material.Pavement }, parent)
+	Build.VerticalCylinder(origin + Vector3.new(0, 0.24, 0), 4, 0.3, { Name = "SpawnStar", Color = P.Gold, Accent = true }, parent)
 	-- Anneau des trois équipes : on lit le triangle dès l'arrivée
 	for index, teamId in Teams.Order do
 		local def = Teams.Get(teamId)
@@ -173,6 +256,27 @@ local function buildSpawn(parent: Folder, origin: Vector3)
 			Build.Part({ Name = "TeamRing", Size = Vector3.new(2.6, 0.16, 1.6), CFrame = CFrame.lookAt(pos, origin + Vector3.new(0, 0.12, 0)), Color = def.Color, Accent = true, CanCollide = false }, parent)
 		end
 	end
+	-- Statues des trois animaux sur l'anneau, tournées vers le spawn
+	for index, teamId in Teams.Order do
+		local a = math.rad((index - 1) * 120 + 60)
+		buildStatue(parent, origin + Vector3.new(math.cos(a) * 18, 0, math.sin(a) * 18), origin, teamId)
+	end
+	-- Guirlandes de fanions entre les lampadaires de la place
+	local colors = { Color3.fromRGB(240, 128, 40), Color3.fromRGB(250, 222, 90), Color3.fromRGB(145, 90, 220), Color3.new(1, 1, 1) }
+	for _, x in { -40, 40 } do
+		Props.Lamp(parent, origin + Vector3.new(x, 0, -12), x < 0 and math.rad(90) or math.rad(-90))
+	end
+	Props.Bunting(parent, origin + Vector3.new(-40, 11, -12), origin + Vector3.new(-22, 18, -58), colors, 2)
+	Props.Bunting(parent, origin + Vector3.new(40, 11, -12), origin + Vector3.new(22, 18, -58), colors, 2)
+	-- Bancs et massifs fleuris autour du spawn
+	for _, a in { 0, 120, 240 } do
+		local r = math.rad(a)
+		local pos = origin + Vector3.new(math.cos(r) * 25, 0, math.sin(r) * 25)
+		Props.FlowerBed(parent, CFrame.lookAt(pos, origin), 7, 2.4)
+	end
+	Props.Bench(parent, CFrame.lookAt(origin + Vector3.new(-14, 0, 26), origin + Vector3.new(-14, 0, 0)))
+	Props.Bench(parent, CFrame.lookAt(origin + Vector3.new(14, 0, 26), origin + Vector3.new(14, 0, 0)))
+
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "LobbySpawn"
 	spawn.Anchored = true
@@ -527,7 +631,7 @@ function LobbyBuilder.SetLeaderboard(key: string, entries: { { any } })
 		return
 	end
 	if #entries == 0 then
-		label.Text = "No data yet"
+		label.Text = "Play a round to\nappear here!"
 		return
 	end
 	local lines = {}

@@ -1,5 +1,5 @@
 --!nocheck
--- Scénario ÉCONOMIE : pièces, boutique, consommables, sauvegarde, échecs DataStore.
+-- Scénario ÉCONOMIE : pièces, boutique de cosmétiques, récompenses gratuites, sauvegarde, échecs DataStore.
 local H = require("./harness")
 local World, Engine = H.World, H.Engine
 local Vector3 = H.Roblox.Vector3
@@ -33,29 +33,36 @@ local purchase = function(player, cat, id)
 	Engine.Advance(0.6)
 end
 DataService.AddCoins(alice, 1000)
-local before = profile.Coins
-purchase(alice, "Upgrades", "DashCooldown")
-check(profile.Upgrades.DashCooldown == 1, "amélioration achetée (niveau 1)")
-check(profile.Coins == before - cfg.Shop.Upgrades.DashCooldown.Prices[1], "prix débité")
-check(math.abs((alice.Character:GetAttribute("DashCooldown") or 0) - cfg.Movement.DashCooldown * 0.9) < 0.01, "recharge du dash réduite de 10 %")
-purchase(alice, "Consumables", "Shield")
-purchase(alice, "Consumables", "Trap")
-check(profile.Consumables.Shield == 1 and profile.Consumables.Trap == 1, "consommables achetés")
+-- Boutique 100 % cosmétique : les anciennes catégories n'existent plus
 local coins = profile.Coins
-purchase(alice, "Upgrades", "NotAnUpgrade")
-purchase(alice, 42, {})
+purchase(alice, "Upgrades", "DashCooldown")
 purchase(alice, "Consumables", "Shield")
-check(profile.Coins == coins - cfg.Shop.Consumables.Shield.Price, "intentions invalides ignorées, achat valide accepté")
+purchase(alice, "Looks", "NotAHat")
+purchase(alice, 42, {})
+check(profile.Coins == coins, "aucune amélioration ni objet de jeu en vente (intentions ignorées)")
+check(math.abs((alice.Character:GetAttribute("DashCooldown") or cfg.Movement.DashCooldown) - cfg.Movement.DashCooldown) < 0.01, "statistiques identiques pour tous")
 profile.Coins = 10
 purchase(alice, "Looks", "Crown")
 check(not profile.OwnedLooks.Crown, "achat refusé sans assez de pièces")
 profile.Coins = 1000
 purchase(alice, "Looks", "Crown")
+check(profile.OwnedLooks.Crown and profile.Coins == 1000 - cfg.Shop.Looks.Crown.Price, "chapeau acheté au prix affiché")
+check(profile.EquippedLook == "Crown" and alice.Character:FindFirstChild("HoH_Cosmetics") ~= nil, "chapeau équipé (ajouté par-dessus l'avatar)")
+purchase(alice, "CatchEffects", "Confetti")
+check(profile.OwnedCatchEffects.Confetti and alice.Character:GetAttribute("CatchEffect") == "Confetti", "effet de capture acheté et équipé")
 Engine.Run(alice, function()
-	World.Require(World.game.ReplicatedStorage.Shared.Remotes).Get("ShopEquip"):FireServer("Looks", "Crown")
+	World.Require(World.game.ReplicatedStorage.Shared.Remotes).Get("ShopEquip"):FireServer("CatchEffects", "Lightning")
 end)
 Engine.Advance(0.3)
-check(profile.EquippedLook == "Crown" and alice.Character:FindFirstChild("HoH_Cosmetics") ~= nil, "chapeau acheté et équipé (ajouté par-dessus l'avatar)")
+check(profile.EquippedCatchEffect == "Confetti", "impossible d'équiper un cosmétique non possédé")
+
+section("Récompenses gratuites")
+local levelCoins = profile.Coins
+local lvlBefore, lvlAfter, unlocks = DataService.AddXP(alice, 400)
+check(lvlAfter > lvlBefore, "montée de niveau (" .. lvlBefore .. " -> " .. lvlAfter .. ")")
+check(profile.Coins == levelCoins + (lvlAfter - lvlBefore) * cfg.Economy.CoinsPerLevelUp, "pièces offertes à chaque niveau")
+local freeConfettiExpected = lvlAfter >= 3
+check(not freeConfettiExpected or #unlocks >= (lvlAfter - lvlBefore), "récompenses de niveau listées (" .. #unlocks .. ")")
 
 section("Pièces pendant une manche")
 check(H.advanceUntil(function()
@@ -69,38 +76,7 @@ H.teleport(A, O + Vector3.new(-100, 3, -100))
 H.teleport(B, O + Vector3.new(100, 3, -100))
 H.teleport(C, O + Vector3.new(0, 3, 110))
 Engine.Advance(3)
--- Bouclier : la première capture de Alice est bloquée
-local use = function(id)
-	Engine.Run(alice, function()
-		World.Require(World.game.ReplicatedStorage.Shared.Remotes).Get("UseConsumable"):FireServer(id)
-	end)
-	Engine.Advance(0.2)
-end
-use("Shield")
-check(alice.Character:GetAttribute("Shield") == true, "bouclier activé")
-local predator = (server.Teams.CanCatch(B.Team, A.Team) and B) or C
-local aliceTeam = A.Team
-H.teleport(predator, alice.Character.HumanoidRootPart.Position + Vector3.new(2, 0, 0))
-Engine.Advance(0.4)
-check(A.Team == aliceTeam, "le bouclier bloque la capture")
-check(alice.Character:GetAttribute("Shield") == nil, "bouclier consommé")
-Engine.Advance(1.5)
-H.teleport(predator, O + Vector3.new(60, 3, 60))
--- Piège
-H.teleport(A, O + Vector3.new(-60, 3, 0))
-Engine.Advance(0.2)
-use("Trap")
--- Alice s'éloigne, puis un ennemi marche sur le piège
-H.teleport(A, O + Vector3.new(-90, 3, -40))
-Engine.Advance(0.2)
-local enemy = (B.Team ~= A.Team and B) or C
-H.teleport(enemy, O + Vector3.new(-60, 3, 1))
-Engine.Advance(0.2)
-check(enemy.Character:GetAttribute("Frozen") == true, "le piège gèle un ennemi")
-Engine.Advance(cfg.Shop.Consumables.Trap.StunSeconds + 0.2)
-check(enemy.Character:GetAttribute("Frozen") == nil, "dégel après " .. cfg.Shop.Consumables.Trap.StunSeconds .. " s")
 -- Capture par Alice : pièces
-H.teleport(enemy, O + Vector3.new(60, 3, 60))
 local prey = (server.Teams.CanCatch(A.Team, B.Team) and B) or (server.Teams.CanCatch(A.Team, C.Team) and C)
 check(prey ~= nil, "Alice a une proie")
 if prey then

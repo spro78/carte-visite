@@ -121,7 +121,6 @@ Config.Controls = {
 	DashRight = { Enum.KeyCode.E, Enum.KeyCode.ButtonR1 },
 	Stop = { Enum.KeyCode.F, Enum.KeyCode.ButtonB },
 	Ability = { Enum.KeyCode.R, Enum.KeyCode.ButtonX },
-	Consumables = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four },
 }
 
 -- ---------------------------------------------------------------------------
@@ -204,16 +203,17 @@ Config.Lobby = {
 Config.DailySpin = {
 	CooldownHours = 4,
 	SpinSeconds = 3.5,
-	-- Récompenses : Kind = "Coins" ou "Consumable" ; Weight = probabilité relative
+	-- Récompenses : Kind = "Coins" | "XP" | "Cosmetic" (si déjà possédé : pièces
+	-- à la place) ; Weight = probabilité relative. Rien qui aide en poursuite.
 	Rewards = {
 		{ Kind = "Coins", Amount = 25, Weight = 30, Label = "25 coins" },
-		{ Kind = "Consumable", Item = "Shield", Amount = 1, Weight = 15, Label = "Shield" },
+		{ Kind = "XP", Amount = 60, Weight = 18, Label = "60 XP" },
 		{ Kind = "Coins", Amount = 75, Weight = 20, Label = "75 coins" },
-		{ Kind = "Consumable", Item = "Trap", Amount = 1, Weight = 12, Label = "Trap" },
+		{ Kind = "Cosmetic", Category = "Looks", Item = "PartyHat", Fallback = 120, Weight = 8, Label = "Party Hat" },
 		{ Kind = "Coins", Amount = 150, Weight = 10, Label = "150 coins" },
-		{ Kind = "Consumable", Item = "SpeedBoost", Amount = 2, Weight = 8, Label = "2 Boosts" },
+		{ Kind = "XP", Amount = 150, Weight = 8, Label = "150 XP" },
 		{ Kind = "Coins", Amount = 500, Weight = 3, Label = "500 coins" },
-		{ Kind = "Consumable", Item = "Decoy", Amount = 2, Weight = 2, Label = "2 Decoys" },
+		{ Kind = "Cosmetic", Category = "Trails", Item = "Rainbow", Fallback = 500, Weight = 2, Label = "Rainbow Trail" },
 	},
 }
 
@@ -297,68 +297,26 @@ Config.Economy = {
 	CoinsForParticipation = 5,
 	StartingCoins = 50,
 	XPPerRound = 20, -- expérience de base par manche (+ 1 XP par pièce gagnée)
+	CoinsPerLevelUp = 40, -- cadeau à chaque niveau
+	-- Cosmétiques offerts à certains niveaux (gratuits, pour tout le monde)
+	LevelRewards = {
+		[3] = { Category = "CatchEffects", Item = "Confetti" },
+		[5] = { Category = "Trails", Item = "Sparkle" },
+		[8] = { Category = "Looks", Item = "TopHat" },
+		[12] = { Category = "CatchEffects", Item = "Stars" },
+		[20] = { Category = "Looks", Item = "Crown" },
+	},
 }
 
 -- ---------------------------------------------------------------------------
--- Boutique
--- Upgrades : améliorations permanentes à niveaux. Consumables : usage unique.
--- Looks : apparences (cosmétique).
+-- Boutique : UNIQUEMENT des cosmétiques, à prix affiché en pièces.
+-- Aucun achat ne change la vitesse, le dash, la portée ou la survie : en
+-- poursuite, seule l'adresse compte. Les pièces se gagnent en jouant.
+--   Looks       : chapeaux (par-dessus l'avatar)
+--   Trails      : traînée derrière le joueur
+--   CatchEffects: effet visuel quand TU attrapes quelqu'un
 -- ---------------------------------------------------------------------------
 Config.Shop = {
-	Upgrades = {
-		DashCooldown = {
-			Name = "Quick Dash",
-			Description = "Dash cooldown -10% per level",
-			Prices = { 150, 350, 700 },
-			PerLevel = 0.10,
-		},
-		CaptureRange = {
-			Name = "Long Reach",
-			Description = "Catch range +0.4 studs per level",
-			Prices = { 200, 450, 900 },
-			PerLevel = 0.4,
-		},
-		Speed = {
-			Name = "Swift Paws",
-			Description = "Top speed +3% per level",
-			Prices = { 250, 550, 1100 },
-			PerLevel = 0.03,
-		},
-	},
-	UpgradeOrder = { "DashCooldown", "CaptureRange", "Speed" },
-	Consumables = {
-		Shield = {
-			Name = "Shield",
-			Description = "Blocks the next catch",
-			Price = 60,
-			Duration = 20, -- le bouclier disparaît après X secondes s'il n'a pas servi
-		},
-		Decoy = {
-			Name = "Decoy",
-			Description = "Drops a fake you that runs away",
-			Price = 40,
-			Duration = 6,
-			Speed = 18,
-		},
-		SpeedBoost = {
-			Name = "Speed Boost",
-			Description = "+30% speed for 5 seconds",
-			Price = 35,
-			Duration = 5,
-			Multiplier = 1.3,
-		},
-		Trap = {
-			Name = "Trap",
-			Description = "A hidden trap that freezes an enemy",
-			Price = 50,
-			StunSeconds = 2,
-			LifetimeSeconds = 60,
-			Radius = 3.5,
-			MaxActivePerActor = 2,
-		},
-	},
-	ConsumableOrder = { "Shield", "Decoy", "SpeedBoost", "Trap" },
-	MaxConsumableStack = 9,
 	Looks = {
 		None = { Name = "No Hat", Price = 0 },
 		Crown = { Name = "Crown", Price = 300 },
@@ -374,6 +332,14 @@ Config.Shop = {
 		Rainbow = { Name = "Rainbow Trail", Price = 500, Colors = { Color3.fromRGB(255, 80, 80), Color3.fromRGB(255, 220, 80), Color3.fromRGB(80, 220, 120), Color3.fromRGB(80, 160, 255), Color3.fromRGB(190, 100, 255) } },
 	},
 	TrailOrder = { "None", "Sparkle", "Fire", "Rainbow" },
+	CatchEffects = {
+		None = { Name = "Classic Pop", Price = 0, Colors = { Color3.fromRGB(255, 255, 255) } },
+		Confetti = { Name = "Confetti", Price = 150, Colors = { Color3.fromRGB(255, 90, 110), Color3.fromRGB(255, 220, 80), Color3.fromRGB(90, 200, 255), Color3.fromRGB(140, 230, 120) } },
+		Stars = { Name = "Star Burst", Price = 250, Colors = { Color3.fromRGB(255, 230, 120), Color3.fromRGB(255, 255, 255) } },
+		Hearts = { Name = "Hearts", Price = 300, Colors = { Color3.fromRGB(255, 110, 160), Color3.fromRGB(255, 180, 210) } },
+		Lightning = { Name = "Lightning", Price = 450, Colors = { Color3.fromRGB(150, 220, 255), Color3.fromRGB(255, 255, 255) } },
+	},
+	CatchEffectOrder = { "None", "Confetti", "Stars", "Hearts", "Lightning" },
 	PurchaseCooldown = 0.5, -- anti-spam des achats
 }
 
@@ -383,8 +349,7 @@ Config.Shop = {
 -- ---------------------------------------------------------------------------
 Config.Monetization = {
 	GamePasses = {
-		VIP = { Id = 0, Name = "VIP", Description = "x2 coins every round" },
-		ExtraConsumableSlot = { Id = 0, Name = "Big Pockets", Description = "Carry 2 more of each item" },
+		VIP = { Id = 0, Name = "VIP", Description = "x2 coins every round (cosmetics only)" },
 	},
 	Products = {
 		Coins500 = { Id = 0, Coins = 500 },

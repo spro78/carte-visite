@@ -29,7 +29,6 @@ Remotes.Names = {
 	CaptureAttempt = "CaptureAttempt", -- (target: Model)
 	ShopPurchase = "ShopPurchase", -- (category: string, itemId: string)
 	ShopEquip = "ShopEquip", -- (category: string, itemId: string)
-	UseConsumable = "UseConsumable", -- (itemId: string)
 	RequestData = "RequestData", -- () : redemande l'état de son profil
 	RequestSpin = "RequestSpin", -- () : tourner la roue de récompense
 }

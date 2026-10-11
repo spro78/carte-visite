@@ -182,19 +182,21 @@ end
 -- Camps d'équipe
 -- ---------------------------------------------------------------------------
 
--- Position d'une base (angle en degrés autour du centre)
-function MapBase.BasePosition(origin: Vector3, teamId: string, radius: number): Vector3
-	return MapBase.Polar(origin, MapBase.BaseAngles[teamId], radius)
+-- Position d'une base (angle en degrés autour du centre ; angles propres à la
+-- map si fournis, sinon MapBase.BaseAngles)
+function MapBase.BasePosition(origin: Vector3, teamId: string, radius: number, angles: { [string]: number }?): Vector3
+	local list = angles or MapBase.BaseAngles
+	return MapBase.Polar(origin, list[teamId] or MapBase.BaseAngles[teamId], radius)
 end
 
 -- Trois camps disposés en triangle. Retourne bases[teamId].
-function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, padSize: number, camp: CampTheme?): { [string]: Base }
+function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, padSize: number, camp: CampTheme?, angles: { [string]: number }?): { [string]: Base }
 	local bases = {}
 	local style: CampTheme = camp or {}
 	for _, teamId in Teams.Order do
 		local def = Teams.Get(teamId)
 		assert(def)
-		local center = MapBase.BasePosition(origin, teamId, radius)
+		local center = MapBase.BasePosition(origin, teamId, radius, angles)
 		local facing = CFrame.lookAt(center, Vector3.new(origin.X, center.Y, origin.Z))
 		local rotation = facing - facing.Position
 		local model = Instance.new("Model")
@@ -343,10 +345,13 @@ end
 -- ---------------------------------------------------------------------------
 -- Arène complète
 -- ---------------------------------------------------------------------------
+-- Disposition d'une map (Config.Maps.<Id>) : limites et bases
 export type ArenaConfig = {
-	GroundSize: number,
-	BaseRadius: number,
-	BasePadSize: number,
+	GroundSize: number, -- côté de la zone de jeu carrée (limites invisibles)
+	BaseRadius: number, -- distance des camps au centre
+	BasePadSize: number, -- côté de la plateforme d'un camp
+	BaseAngles: { [string]: number }?, -- angle (degrés) de chaque camp ; défaut : 90 / 210 / 330
+	BoundaryHeight: number?, -- hauteur des murs invisibles (défaut 90)
 }
 
 function MapBase.BuildArena(folder: Instance, origin: Vector3, cfg: ArenaConfig, theme: ArenaTheme): { [string]: Base }
@@ -371,9 +376,9 @@ function MapBase.BuildArena(folder: Instance, origin: Vector3, cfg: ArenaConfig,
 			TerrainKit.PaintDisc(p, random:NextNumber(8, 18), origin.Y, material)
 		end
 	end
-	MapBase.BuildBoundary(folder, origin, size, 90)
+	MapBase.BuildBoundary(folder, origin, size, cfg.BoundaryHeight or 90)
 	MapBase.BuildPerimeter(folder, origin, size, theme.Perimeter, theme.PerimeterColor)
-	local bases = MapBase.BuildBases(folder, origin, cfg.BaseRadius, cfg.BasePadSize, theme.Camp)
+	local bases = MapBase.BuildBases(folder, origin, cfg.BaseRadius, cfg.BasePadSize, theme.Camp, cfg.BaseAngles)
 	MapBase.BuildPaths(origin, bases, theme)
 	local trees = Instance.new("Folder")
 	trees.Name = "Surroundings"
