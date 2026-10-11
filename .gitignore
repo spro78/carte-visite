@@ -1,0 +1,9 @@
+# Fichiers de place Roblox générés localement
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+
+# Système
+.DS_Store
+Thumbs.db

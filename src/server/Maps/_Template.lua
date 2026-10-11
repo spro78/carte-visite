@@ -1,0 +1,73 @@
+--[[
+	_Template.lua  (ignoré par MapRegistry : son nom commence par "_")
+
+	COMMENT AJOUTER UNE MAP
+	1. Copier ce fichier dans src/server/Maps/<MonId>.lua
+	2. Ajouter une entrée <MonId> dans src/shared/MapInfo.lua (nom, mode, phrase)
+	3. Ajouter ses valeurs d'équilibrage dans Config.Maps.<MonId>
+	C'est tout : la map entre automatiquement dans le vote.
+
+	FORMAT COMMUN
+	Map.Id                       -> string, identique à la clé MapInfo
+	Map.Build(origin, context)   -> construit toute la géométrie dans un dossier
+	Map.GetSpawns(teamId)        -> liste de CFrame pour l'équipe
+	Map.StartMode(context)       -> lance la logique du mode (objectif, mécanisme)
+	Map.StopMode()               -> arrête la logique (fin de manche)
+	Map.Cleanup()                -> détruit toute la géométrie
+
+	Le "context" (voir Shared/Types.lua) donne accès à :
+	  context.GetParticipants()      liste des joueurs de la manche
+	  context.GetTeam(player)        équipe d'un joueur
+	  context.AddScore(teamId, n)    ajoute des points au mode
+	  context.GetScore(teamId)
+	  context.Announce(text, color)  annonce courte à tous
+	  context.EndRound(teamId, reason)  termine la manche (objectif atteint)
+	  context.IsRoundActive()
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local MapBase = require(script.Parent.MapBase)
+
+local Map = {}
+Map.Id = "MyNewMap"
+
+local folder: Folder? = nil
+local bases = nil
+local running = false
+
+function Map.Build(origin: Vector3, context)
+	local cfg = Config.Maps[Map.Id]
+	folder = MapBase.NewFolder("Map_" .. Map.Id)
+	MapBase.BuildGround(folder, origin, cfg.GroundSize, Color3.fromRGB(120, 180, 90))
+	MapBase.BuildBoundary(folder, origin, cfg.GroundSize, 60)
+	bases = MapBase.BuildBases(folder, origin, cfg.BaseRadius, cfg.BasePadSize)
+	MapBase.BuildCentralPad(folder, origin, 20, Color3.fromRGB(200, 200, 200))
+	folder.Parent = workspace
+end
+
+function Map.GetSpawns(teamId: string): { CFrame }
+	assert(bases, "Map non construite")
+	return bases[teamId].Spawns
+end
+
+function Map.StartMode(context)
+	running = true
+	-- Boucle du mode ici, en vérifiant "running" et context.IsRoundActive()
+end
+
+function Map.StopMode()
+	running = false
+end
+
+function Map.Cleanup()
+	running = false
+	if folder then
+		folder:Destroy()
+		folder = nil
+	end
+	bases = nil
+end
+
+return Map
