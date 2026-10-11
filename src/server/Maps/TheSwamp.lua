@@ -15,15 +15,15 @@ Map.Id = "TheSwamp"
 
 local folder: Folder? = nil
 local bases = nil
-local running = false
+local _running = false
 
 function Map.Build(origin: Vector3, context)
 	local cfg = Config.Maps[Map.Id]
-	folder = MapBase.NewFolder("Map_" .. Map.Id)
-	MapBase.BuildGround(folder, origin, cfg.GroundSize, Color3.fromRGB(70, 110, 85), Enum.Material.Mud)
-	MapBase.BuildBoundary(folder, origin, cfg.GroundSize, 60)
-	bases = MapBase.BuildBases(folder, origin, cfg.BaseRadius, cfg.BasePadSize)
-	MapBase.BuildCentralPad(folder, origin, 22, Color3.fromRGB(50, 80, 70))
+	local f = MapBase.NewFolder("Map_" .. Map.Id)
+	MapBase.BuildGround(f, origin, cfg.GroundSize, Color3.fromRGB(70, 110, 85), Enum.Material.Mud)
+	MapBase.BuildBoundary(f, origin, cfg.GroundSize, 60)
+	bases = MapBase.BuildBases(f, origin, cfg.BaseRadius, cfg.BasePadSize)
+	MapBase.BuildCentralPad(f, origin, 22, Color3.fromRGB(50, 80, 70))
 
 	-- Mares décoratives
 	for i = 1, 5 do
@@ -34,9 +34,10 @@ function Map.Build(origin: Vector3, context)
 			Material = Enum.Material.Glass,
 			Transparency = 0.3,
 			CanCollide = false,
-		}, folder)
+		}, f)
 	end
-	folder.Parent = workspace
+	f.Parent = workspace
+	folder = f
 end
 
 function Map.GetSpawns(teamId: string): { CFrame }
@@ -45,16 +46,16 @@ function Map.GetSpawns(teamId: string): { CFrame }
 end
 
 function Map.StartMode(context)
-	running = true
+	_running = true
 	-- Phase 5 : logique du mode
 end
 
 function Map.StopMode()
-	running = false
+	_running = false
 end
 
 function Map.Cleanup()
-	running = false
+	_running = false
 	if folder then
 		folder:Destroy()
 		folder = nil

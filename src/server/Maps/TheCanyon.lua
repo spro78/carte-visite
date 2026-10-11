@@ -15,15 +15,15 @@ Map.Id = "TheCanyon"
 
 local folder: Folder? = nil
 local bases = nil
-local running = false
+local _running = false
 
 function Map.Build(origin: Vector3, context)
 	local cfg = Config.Maps[Map.Id]
-	folder = MapBase.NewFolder("Map_" .. Map.Id)
-	MapBase.BuildGround(folder, origin, cfg.GroundSize, Color3.fromRGB(205, 150, 95), Enum.Material.Sandstone)
-	MapBase.BuildBoundary(folder, origin, cfg.GroundSize, 60)
-	bases = MapBase.BuildBases(folder, origin, cfg.BaseRadius, cfg.BasePadSize)
-	MapBase.BuildCentralPad(folder, origin, 22, Color3.fromRGB(160, 110, 70))
+	local f = MapBase.NewFolder("Map_" .. Map.Id)
+	MapBase.BuildGround(f, origin, cfg.GroundSize, Color3.fromRGB(205, 150, 95), Enum.Material.Sandstone)
+	MapBase.BuildBoundary(f, origin, cfg.GroundSize, 60)
+	bases = MapBase.BuildBases(f, origin, cfg.BaseRadius, cfg.BasePadSize)
+	MapBase.BuildCentralPad(f, origin, 22, Color3.fromRGB(160, 110, 70))
 
 	-- Rochers décoratifs
 	for i = 1, 6 do
@@ -34,9 +34,10 @@ function Map.Build(origin: Vector3, context)
 			CFrame = CFrame.new(origin + Vector3.new(math.cos(a) * 70, 5, math.sin(a) * 70)) * CFrame.Angles(0, a, 0),
 			Color = Color3.fromRGB(150, 105, 70),
 			Material = Enum.Material.Slate,
-		}, folder)
+		}, f)
 	end
-	folder.Parent = workspace
+	f.Parent = workspace
+	folder = f
 end
 
 function Map.GetSpawns(teamId: string): { CFrame }
@@ -45,16 +46,16 @@ function Map.GetSpawns(teamId: string): { CFrame }
 end
 
 function Map.StartMode(context)
-	running = true
+	_running = true
 	-- Phase 5 : logique du mode
 end
 
 function Map.StopMode()
-	running = false
+	_running = false
 end
 
 function Map.Cleanup()
-	running = false
+	_running = false
 	if folder then
 		folder:Destroy()
 		folder = nil

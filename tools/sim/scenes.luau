@@ -148,6 +148,35 @@ if group == "all" or group == "round" then
 	addScene("round_overview", "A simulated round in progress", O, 300, { position = { O.X + 160, 140, O.Z + 200 }, target = { O.X, 0, O.Z }, fov = 50 })
 	addScene("hud_round_pc", "In-round HUD (PC 1280x720)", O, 300, playerCamera(hero, 14, 6), { hud = Export.PlayerGui(hero) })
 	addScene("hud_round_phone", "In-round HUD (phone 844x390)", O, 300, playerCamera(hero, 14, 6), { hud = Export.PlayerGui(hero), width = 844, height = 390 })
+
+	-- Gros plan sur les animaux : on aligne un acteur de chaque équipe
+	local byTeam = {}
+	for _, p in World.game.Players:GetPlayers() do
+		local team = p:GetAttribute("Team")
+		if team and not byTeam[team] and p ~= hero then
+			byTeam[team] = p
+		end
+	end
+	local x = -7
+	local spot = O + Vector3.new(0, 3, 40)
+	for _, team in { "FOX", "CHICKEN", "SNAKE" } do
+		local p = byTeam[team]
+		if p and p.Character then
+			Engine.Run("server", function()
+				p.Character:PivotTo(roblox.CFrame.lookAt(spot + Vector3.new(x, 0, 0), spot + Vector3.new(x, 0, -10)) * roblox.CFrame.Angles(0, math.rad(25), 0))
+			end)
+		end
+		x += 7
+	end
+	Engine.Run("server", function()
+		hero.Character:PivotTo(roblox.CFrame.lookAt(spot + Vector3.new(0, 0, -12), spot))
+	end)
+	Engine.Advance(0.5)
+	addScene("animals_closeup", "Animal looks + outlines seen by " .. tostring(hero:GetAttribute("Team")) .. " (green = prey, red = hunter)", O, 120, {
+		position = { spot.X + 2, spot.Y + 4, spot.Z - 14 },
+		target = { spot.X, spot.Y + 0.5, spot.Z },
+		fov = 50,
+	}, { hud = Export.PlayerGui(hero) })
 end
 
 fs.writeFile(outPath, serde.encode("json", scenes))

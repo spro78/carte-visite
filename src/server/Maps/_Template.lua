@@ -16,8 +16,8 @@
 	Map.Cleanup()                -> détruit toute la géométrie
 
 	Le "context" (voir Shared/Types.lua) donne accès à :
-	  context.GetParticipants()      liste des joueurs de la manche
-	  context.GetTeam(player)        équipe d'un joueur
+	  context.GetActors()            participants de la manche (joueurs + bots)
+	  context.GetTeam(actor)         équipe d'un acteur
 	  context.AddScore(teamId, n)    ajoute des points au mode
 	  context.GetScore(teamId)
 	  context.Announce(text, color)  annonce courte à tous
@@ -35,16 +35,17 @@ Map.Id = "MyNewMap"
 
 local folder: Folder? = nil
 local bases = nil
-local running = false
+local _running = false
 
 function Map.Build(origin: Vector3, context)
 	local cfg = Config.Maps[Map.Id]
-	folder = MapBase.NewFolder("Map_" .. Map.Id)
-	MapBase.BuildGround(folder, origin, cfg.GroundSize, Color3.fromRGB(120, 180, 90))
-	MapBase.BuildBoundary(folder, origin, cfg.GroundSize, 60)
-	bases = MapBase.BuildBases(folder, origin, cfg.BaseRadius, cfg.BasePadSize)
-	MapBase.BuildCentralPad(folder, origin, 20, Color3.fromRGB(200, 200, 200))
-	folder.Parent = workspace
+	local f = MapBase.NewFolder("Map_" .. Map.Id)
+	MapBase.BuildGround(f, origin, cfg.GroundSize, Color3.fromRGB(120, 180, 90))
+	MapBase.BuildBoundary(f, origin, cfg.GroundSize, 60)
+	bases = MapBase.BuildBases(f, origin, cfg.BaseRadius, cfg.BasePadSize)
+	MapBase.BuildCentralPad(f, origin, 20, Color3.fromRGB(200, 200, 200))
+	f.Parent = workspace
+	folder = f
 end
 
 function Map.GetSpawns(teamId: string): { CFrame }
@@ -53,16 +54,16 @@ function Map.GetSpawns(teamId: string): { CFrame }
 end
 
 function Map.StartMode(context)
-	running = true
+	_running = true
 	-- Boucle du mode ici, en vérifiant "running" et context.IsRoundActive()
 end
 
 function Map.StopMode()
-	running = false
+	_running = false
 end
 
 function Map.Cleanup()
-	running = false
+	_running = false
 	if folder then
 		folder:Destroy()
 		folder = nil

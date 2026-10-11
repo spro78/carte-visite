@@ -1,20 +1,24 @@
 --[[
 	TeamService.lua
-	Attribution et suivi des équipes. L'équipe d'un joueur est stockée dans
-	l'attribut "Team" du Player (répliqué automatiquement au client) et
-	reflétée dans le service Teams de Roblox (couleur dans la liste des joueurs).
+	Attribution et suivi des équipes des acteurs (joueurs et bots).
+	L'équipe est stockée :
+	  - dans actor.Team (source de vérité serveur),
+	  - dans l'attribut "Team" du personnage (lu par les clients pour les contours),
+	  - dans l'attribut "Team" du Player (bandeau de rôle) et dans le service Teams
+	    de Roblox (couleur dans la liste des joueurs).
 ]]
 
-local Players = game:GetService("Players")
 local RobloxTeams = game:GetService("Teams")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Teams = require(Shared.Teams)
+local Types = require(Shared.Types)
 local AnimalAppearance = require(script.Parent.AnimalAppearance)
+local ActorService = require(script.Parent.ActorService)
+
+type Actor = Types.Actor
 
 local TeamService = {}
-
-TeamService.Attribute = "Team"
 
 local robloxTeamObjects: { [string]: Team } = {}
 
@@ -30,74 +34,91 @@ function TeamService.Init()
 		robloxTeamObjects[id] = team
 	end
 
-	local function onPlayerAdded(player: Player)
-		player.Neutral = true
-	end
-	Players.PlayerAdded:Connect(onPlayerAdded)
-	for _, player in Players:GetPlayers() do
-		onPlayerAdded(player)
-	end
+	-- Un personnage qui (ré)apparaît reprend l'apparence de son équipe
+	ActorService.CharacterAdded:Connect(function(actor: Actor, character: Model)
+		character:SetAttribute("Team", actor.Team)
+		AnimalAppearance.Apply(character, actor.Team)
+	end)
 end
 
--- Définit l'équipe d'un joueur (nil = aucune équipe, lobby/spectateur).
-function TeamService.SetTeam(player: Player, teamId: string?)
+-- Définit l'équipe d'un acteur (nil = aucune équipe, lobby/spectateur).
+function TeamService.SetTeam(actor: Actor, teamId: string?)
 	if teamId ~= nil then
 		assert(Teams.IsValid(teamId), "Équipe invalide : " .. tostring(teamId))
 	end
-	player:SetAttribute(TeamService.Attribute, teamId)
-	if teamId then
-		player.Team = robloxTeamObjects[teamId]
-		player.Neutral = false
-	else
-		player.Neutral = true
-		player.Team = nil
+	actor.Team = teamId
+	local player = actor.Player
+	if player then
+		player:SetAttribute("Team", teamId)
+		if teamId then
+			player.Neutral = false
+			player.Team = robloxTeamObjects[teamId]
+		else
+			player.Team = nil
+			player.Neutral = true
+		end
 	end
-	if player.Character then
-		AnimalAppearance.Apply(player.Character, teamId)
+	local character = actor.Character
+	if character then
+		character:SetAttribute("Team", teamId)
+		AnimalAppearance.Apply(character, teamId)
 	end
 end
 
-function TeamService.GetTeam(player: Player): string?
-	local value = player:GetAttribute(TeamService.Attribute)
-	if Teams.IsValid(value) then
-		return value :: string
-	end
-	return nil
+function TeamService.GetTeam(actor: Actor): string?
+	return actor.Team
 end
 
--- Répartition équilibrée : mélange aléatoire puis tour de rôle
--- en partant d'une équipe tirée au hasard.
-function TeamService.AssignBalanced(players: { Player })
-	local shuffled = table.clone(players)
-	for i = #shuffled, 2, -1 do
+-- Mélange de Fisher-Yates
+local function shuffle<T>(list: { T }): { T }
+	local copy = table.clone(list)
+	for i = #copy, 2, -1 do
 		local j = math.random(i)
-		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+		copy[i], copy[j] = copy[j], copy[i]
 	end
+	return copy
+end
+
+-- Répartition équilibrée : mélange puis tour de rôle à partir d'une équipe au hasard.
+function TeamService.AssignBalanced(actorList: { Actor })
 	local offset = math.random(#Teams.Order) - 1
-	for index, player in shuffled do
+	for index, actor in shuffle(actorList) do
 		local teamIndex = ((index - 1 + offset) % #Teams.Order) + 1
-		TeamService.SetTeam(player, Teams.Order[teamIndex])
+		TeamService.SetTeam(actor, Teams.Order[teamIndex])
 	end
 end
 
--- Nombre de joueurs par équipe parmi une liste donnée.
-function TeamService.GetCounts(players: { Player }): { [string]: number }
+-- Équipe la moins nombreuse (égalité tranchée au hasard).
+function TeamService.GetSmallestTeam(actorList: { Actor }): string
+	local counts = TeamService.GetCounts(actorList)
+	local best, bestCount = {}, math.huge
+	for _, id in Teams.Order do
+		if counts[id] < bestCount then
+			best, bestCount = { id }, counts[id]
+		elseif counts[id] == bestCount then
+			table.insert(best, id)
+		end
+	end
+	return best[math.random(#best)]
+end
+
+-- Nombre d'acteurs par équipe.
+function TeamService.GetCounts(actorList: { Actor }): { [string]: number }
 	local counts = {}
 	for _, id in Teams.Order do
 		counts[id] = 0
 	end
-	for _, player in players do
-		local team = TeamService.GetTeam(player)
-		if team then
-			counts[team] += 1
+	for _, actor in actorList do
+		if actor.Team and counts[actor.Team] then
+			counts[actor.Team] += 1
 		end
 	end
 	return counts
 end
 
--- Liste des équipes ayant au moins un membre parmi les joueurs donnés.
-function TeamService.GetNonEmptyTeams(players: { Player }): { string }
-	local counts = TeamService.GetCounts(players)
+-- Équipes ayant au moins un membre.
+function TeamService.GetNonEmptyTeams(actorList: { Actor }): { string }
+	local counts = TeamService.GetCounts(actorList)
 	local result = {}
 	for _, id in Teams.Order do
 		if counts[id] > 0 then
@@ -107,9 +128,9 @@ function TeamService.GetNonEmptyTeams(players: { Player }): { string }
 	return result
 end
 
--- Équipe la plus nombreuse ; retourne nil en cas d'égalité.
-function TeamService.GetLargestTeam(players: { Player }): string?
-	local counts = TeamService.GetCounts(players)
+-- Équipe la plus nombreuse ; nil en cas d'égalité.
+function TeamService.GetLargestTeam(actorList: { Actor }): string?
+	local counts = TeamService.GetCounts(actorList)
 	local best, bestCount, tie = nil, -1, false
 	for _, id in Teams.Order do
 		if counts[id] > bestCount then
@@ -124,10 +145,10 @@ function TeamService.GetLargestTeam(players: { Player }): string?
 	return best
 end
 
--- Retire tout le monde de toutes les équipes.
+-- Retire tous les acteurs de leur équipe.
 function TeamService.ClearAll()
-	for _, player in Players:GetPlayers() do
-		TeamService.SetTeam(player, nil)
+	for _, actor in ActorService.GetAll() do
+		TeamService.SetTeam(actor, nil)
 	end
 end
 

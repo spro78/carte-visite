@@ -2,10 +2,15 @@
 	RoundService.lua
 	Machine à états de la partie :
 	  Waiting -> Intermission (vote) -> Countdown -> Round -> Results -> Waiting...
-	Le serveur décide de tout : il envoie l'état complet aux clients chaque seconde.
+	Le serveur décide de tout : il envoie l'état aux clients chaque seconde.
+
+	Points d'extension (branchés par Main.server.lua) :
+	  RoundService.SetBotProvider(provider)   -- phase 4 : bots
+	  RoundService.SetRewardHandler(handler)  -- phase 6 : pièces et statistiques
 ]]
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -14,15 +19,20 @@ local MapInfo = require(Shared.MapInfo)
 local Remotes = require(Shared.Remotes)
 local Types = require(Shared.Types)
 
+local ActorService = require(script.Parent.ActorService)
 local TeamService = require(script.Parent.TeamService)
 local VoteService = require(script.Parent.VoteService)
 local MapRegistry = require(script.Parent.MapRegistry)
 local LobbyBuilder = require(script.Parent.LobbyBuilder)
-local AnimalAppearance = require(script.Parent.AnimalAppearance)
+local RoundState = require(script.Parent.RoundState)
+local CaptureService = require(script.Parent.CaptureService)
+local AbilityService = require(script.Parent.AbilityService)
+local LaunchService = require(script.Parent.LaunchService)
+
+type Actor = Types.Actor
+type GameState = Types.GameState
 
 local RoundService = {}
-
-type GameState = Types.GameState
 
 -- ---------------------------------------------------------------------------
 -- État interne
@@ -35,22 +45,23 @@ local state: GameState = {
 	Votes = {},
 	TeamCounts = {},
 	Scores = {},
+	ScoreGoal = nil,
+	ScoreLabel = nil,
 	Winner = nil,
 	WinReason = nil,
 	BestHunter = nil,
 	BestHunterCaptures = nil,
 }
 
-local participants: { [Player]: boolean } = {} -- joueurs engagés dans la manche en cours
-local captures: { [Player]: number } = {} -- captures par joueur (alimenté en phase 2)
 local initialTeamCount = 0
-local currentMap = nil
 local roundEndRequest: { Winner: string?, Reason: string }? = nil
+local roundStartedAt = 0
+local objectivesFolder: Folder
+local botProvider: any = nil
+local rewardHandler: any = nil
 
 local StateUpdate: RemoteEvent
 local Announce: RemoteEvent
-
-local PROTECTED_UNTIL_ATTR = "ProtectedUntil"
 
 -- ---------------------------------------------------------------------------
 -- Utilitaires
@@ -66,26 +77,17 @@ local function formatTime(seconds: number): string
 	return string.format("%d:%02d", seconds // 60, seconds % 60)
 end
 
-local function getParticipantList(): { Player }
-	local list = {}
-	for player in participants do
-		if player.Parent == Players then
-			table.insert(list, player)
-		end
-	end
-	return list
+local function setPhase(phase: string)
+	state.Phase = phase
+	RoundState.Phase = phase
 end
 
 local function announce(text: string, color: Color3?)
 	Announce:FireAllClients(text, color)
 end
 
-local function announceTo(player: Player, text: string, color: Color3?)
-	Announce:FireClient(player, text, color)
-end
-
-local function isRoundPhase(): boolean
-	return state.Phase == "Countdown" or state.Phase == "Round"
+local function announceTo(actor: Actor, text: string, color: Color3?)
+	ActorService.FireClient(actor, Announce, text, color)
 end
 
 -- Texte du panneau géant du lobby selon la phase
@@ -93,8 +95,7 @@ local function updateLobbyBoard()
 	local mapDef = MapInfo.Get(state.MapId)
 	local mapText = mapDef and (mapDef.DisplayName .. " - " .. mapDef.ModeName) or ""
 	if state.Phase == "Waiting" then
-		local missing = Config.Round.MinPlayersToStart - #Players:GetPlayers()
-		LobbyBuilder.SetBoard("Waiting for players...", "--:--", missing > 0 and string.format("Need %d more", missing) or "")
+		LobbyBuilder.SetBoard("Waiting for players...", "--:--", "")
 	elseif state.Phase == "Intermission" then
 		local leader = MapInfo.Get(VoteService.GetLeader())
 		LobbyBuilder.SetBoard("Next round in", formatTime(state.TimeLeft), leader and ("Leading: " .. leader.DisplayName) or "Vote for a map!")
@@ -104,13 +105,12 @@ local function updateLobbyBoard()
 		LobbyBuilder.SetBoard("Round in progress", formatTime(state.TimeLeft), mapText)
 	elseif state.Phase == "Results" then
 		local winnerDef = Teams.Get(state.Winner)
-		local title = winnerDef and (winnerDef.Plural .. " WIN!") or "DRAW!"
-		LobbyBuilder.SetBoard(title, formatTime(state.TimeLeft), mapText)
+		LobbyBuilder.SetBoard(winnerDef and (winnerDef.Plural .. " WIN!") or "DRAW!", formatTime(state.TimeLeft), mapText)
 	end
 end
 
 local function broadcastState()
-	state.TeamCounts = TeamService.GetCounts(getParticipantList())
+	state.TeamCounts = TeamService.GetCounts(RoundState.GetParticipants())
 	state.Candidates = VoteService.GetCandidates()
 	state.Votes = VoteService.GetCounts()
 	StateUpdate:FireAllClients(state)
@@ -118,7 +118,6 @@ local function broadcastState()
 end
 
 -- Chronomètre d'une phase : envoie l'état chaque seconde.
--- shouldBreak() permet d'interrompre la phase plus tôt.
 local function runTimer(seconds: number, shouldBreak: (() -> boolean)?)
 	local endTime = os.clock() + seconds
 	while true do
@@ -136,58 +135,51 @@ local function runTimer(seconds: number, shouldBreak: (() -> boolean)?)
 end
 
 -- ---------------------------------------------------------------------------
--- Personnages : téléportation et protection
+-- Personnages : téléportation, protection, gel
 -- ---------------------------------------------------------------------------
-local function teleportCharacter(player: Player, cframe: CFrame)
-	local character = player.Character
-	if not character then
-		return
-	end
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if not root then
-		return
-	end
-	character:PivotTo(cframe)
-end
-
-local function teleportToBase(player: Player)
-	local team = TeamService.GetTeam(player)
-	if not team or not currentMap then
-		return
-	end
-	local spawns = currentMap.GetSpawns(team)
-	teleportCharacter(player, spawns[math.random(#spawns)])
-end
-
-local function teleportToLobby(player: Player)
-	teleportCharacter(player, LobbyBuilder.GetSpawnCFrame())
-end
-
--- Protection (ForceField visible + attribut lu par la capture en phase 2)
-local function giveProtection(character: Model, seconds: number)
-	local until_ = os.clock() + seconds
-	character:SetAttribute(PROTECTED_UNTIL_ATTR, until_)
-	local existing = character:FindFirstChildOfClass("ForceField")
-	if existing then
-		existing:Destroy()
-	end
-	local field = Instance.new("ForceField")
-	field.Visible = true
-	field.Parent = character
-	task.delay(seconds, function()
-		if field.Parent == character and (character:GetAttribute(PROTECTED_UNTIL_ATTR) or 0) <= until_ then
-			field:Destroy()
+local function teleport(actor: Actor, cframe: CFrame)
+	local character = actor.Character
+	if character and character:FindFirstChild("HumanoidRootPart") then
+		character:PivotTo(cframe)
+		local root = ActorService.GetRoot(actor)
+		if root then
+			root.AssemblyLinearVelocity = Vector3.zero
 		end
-	end)
+	end
 end
 
-function RoundService.IsProtected(character: Model): boolean
-	local until_ = character:GetAttribute(PROTECTED_UNTIL_ATTR)
-	return type(until_) == "number" and until_ > os.clock()
+local function getBaseSpawn(teamId: string): CFrame?
+	local map = RoundState.Map
+	if not map then
+		return nil
+	end
+	local spawns = map.GetSpawns(teamId)
+	if not spawns or #spawns == 0 then
+		return nil
+	end
+	return spawns[math.random(#spawns)]
 end
 
-local function onCharacterAdded(player: Player, character: Model)
-	-- Attendre que le personnage soit placé dans le monde avant de le déplacer
+local function teleportToBase(actor: Actor)
+	if not actor.Team then
+		return
+	end
+	local cframe = getBaseSpawn(actor.Team)
+	if cframe then
+		teleport(actor, cframe)
+	end
+end
+
+local function teleportToLobby(actor: Actor)
+	teleport(actor, LobbyBuilder.GetSpawnCFrame())
+end
+
+local function setFrozen(actor: Actor, frozen: boolean)
+	ActorService.SetCharacterAttribute(actor, "Frozen", frozen or nil)
+end
+
+-- Un personnage (ré)apparaît
+local function onCharacterAdded(actor: Actor, character: Model)
 	local root = character:WaitForChild("HumanoidRootPart", 10)
 	if not root then
 		return
@@ -197,41 +189,40 @@ local function onCharacterAdded(player: Player, character: Model)
 		task.wait()
 	end
 	task.wait()
-	if player.Character ~= character then
+	if actor.Character ~= character then
 		return
 	end
-
-	if participants[player] and isRoundPhase() then
-		AnimalAppearance.Apply(character, TeamService.GetTeam(player))
-		teleportToBase(player)
-		giveProtection(character, Config.Capture.InvincibilitySeconds)
-	else
-		AnimalAppearance.Apply(character, nil)
-		teleportToLobby(player)
+	character:SetAttribute("Carrier", nil)
+	if RoundState.IsParticipant(actor) and RoundState.IsInRound() then
+		teleportToBase(actor)
+		CaptureService.Protect(character, Config.Capture.InvincibilitySeconds)
+		if state.Phase == "Countdown" and Config.Round.FreezeDuringCountdown then
+			setFrozen(actor, true)
+		end
+		if RoundState.Map and RoundState.Map.OnActorRemoved then
+			-- Une réapparition fait perdre ce que l'acteur portait
+			RoundState.Map.OnActorRemoved(actor)
+		end
+	elseif not actor.IsBot then
+		teleportToLobby(actor)
 	end
 end
 
-local function onPlayerAdded(player: Player)
-	captures[player] = captures[player] or 0
-	player.CharacterAdded:Connect(function(character)
-		onCharacterAdded(player, character)
-	end)
-	if player.Character then
-		task.spawn(onCharacterAdded, player, player.Character)
-	end
-	if isRoundPhase() then
-		-- Arrivée en cours de manche : spectateur dans le lobby
-		task.delay(2, function()
-			if player.Parent == Players and isRoundPhase() and not participants[player] then
-				announceTo(player, "A round is in progress. You'll join the next one!")
-			end
-		end)
-	end
+-- ---------------------------------------------------------------------------
+-- Objectifs (flèche) : répliqués via des attributs
+-- ---------------------------------------------------------------------------
+local function setTeamObjective(teamId: string, position: Vector3?)
+	objectivesFolder:SetAttribute(teamId, position)
 end
 
-local function onPlayerRemoving(player: Player)
-	participants[player] = nil
-	captures[player] = nil
+local function clearObjectives()
+	for _, id in Teams.Order do
+		objectivesFolder:SetAttribute(id, nil)
+	end
+	for _, actor in ActorService.GetAll() do
+		ActorService.SetCharacterAttribute(actor, "ObjectiveTarget", nil)
+		ActorService.SetCharacterAttribute(actor, "Carrier", nil)
+	end
 end
 
 -- ---------------------------------------------------------------------------
@@ -239,20 +230,57 @@ end
 -- ---------------------------------------------------------------------------
 local context: Types.MapContext = {
 	Origin = Config.World.MapOrigin,
-	GetParticipants = getParticipantList,
-	GetTeam = TeamService.GetTeam,
-	AddScore = function(teamId, amount)
+	GetActors = RoundState.GetParticipants,
+	GetTeam = function(actor: Actor)
+		return actor.Team
+	end,
+	GetRoot = ActorService.GetRoot,
+	AddScore = function(teamId: string, amount: number)
 		if not Teams.IsValid(teamId) then
 			return
 		end
 		state.Scores[teamId] = (state.Scores[teamId] or 0) + amount
 		broadcastState()
 	end,
-	GetScore = function(teamId)
+	SetScore = function(teamId: string, value: number)
+		if not Teams.IsValid(teamId) then
+			return
+		end
+		state.Scores[teamId] = value
+		broadcastState()
+	end,
+	GetScore = function(teamId: string)
 		return state.Scores[teamId] or 0
 	end,
+	SetScoreInfo = function(goal: number?, label: string?)
+		state.ScoreGoal = goal
+		state.ScoreLabel = label
+	end,
 	Announce = announce,
-	EndRound = function(winnerTeam, reason)
+	AnnounceTo = announceTo,
+	RewardObjective = function(actor: Actor, reason: string)
+		actor.RoundObjectives += 1
+		if rewardHandler and rewardHandler.OnObjective then
+			rewardHandler.OnObjective(actor, reason)
+		end
+	end,
+	Launch = function(actor: Actor, velocity: Vector3, ragdoll: number?)
+		LaunchService.Launch(actor, velocity, ragdoll)
+	end,
+	SetSpeedModifier = function(actor: Actor, key: string, multiplier: number?)
+		AbilityService.SetSpeedModifier(actor, key, multiplier)
+	end,
+	SetObjective = setTeamObjective,
+	SetActorObjective = function(actor: Actor, position: Vector3?)
+		ActorService.SetCharacterAttribute(actor, "ObjectiveTarget", position)
+	end,
+	SetCarrier = function(actor: Actor, carrying: boolean)
+		ActorService.SetCharacterAttribute(actor, "Carrier", carrying or nil)
+		if carrying then
+			ActorService.SetCharacterAttribute(actor, "Hidden", nil)
+		end
+	end,
+	EndRound = function(winnerTeam: string?, reason: string)
 		if state.Phase ~= "Round" or roundEndRequest then
 			return
 		end
@@ -266,14 +294,20 @@ local context: Types.MapContext = {
 -- ---------------------------------------------------------------------------
 -- Phases
 -- ---------------------------------------------------------------------------
-local function waitForPlayers()
-	state.Phase = "Waiting"
+local function resetResults()
 	state.MapId = nil
 	state.Winner = nil
 	state.WinReason = nil
 	state.BestHunter = nil
 	state.BestHunterCaptures = nil
 	state.Scores = {}
+	state.ScoreGoal = nil
+	state.ScoreLabel = nil
+end
+
+local function waitForPlayers()
+	setPhase("Waiting")
+	resetResults()
 	while #Players:GetPlayers() < Config.Round.MinPlayersToStart do
 		state.TimeLeft = 0
 		broadcastState()
@@ -283,7 +317,7 @@ end
 
 -- Retourne false si l'intermission a été annulée (plus assez de joueurs).
 local function intermission(): boolean
-	state.Phase = "Intermission"
+	setPhase("Intermission")
 	VoteService.StartVote(MapRegistry.PickRandom(Config.Round.VoteCandidates))
 	log("Intermission, candidates:", table.concat(VoteService.GetCandidates(), ", "))
 
@@ -301,44 +335,79 @@ local function intermission(): boolean
 end
 
 local function setupRound()
-	currentMap = MapRegistry.Get(state.MapId)
-	assert(currentMap, "Map introuvable : " .. tostring(state.MapId))
-	log("Building map", state.MapId)
-	currentMap.Build(Config.World.MapOrigin, context)
+	local mapId = state.MapId :: string
+	local map = MapRegistry.Get(mapId)
+	assert(map, "Map introuvable : " .. tostring(mapId))
+	log("Building map", mapId)
+	RoundState.MapId = mapId
+	RoundState.Map = map
+	map.Build(Config.World.MapOrigin, context)
 
-	participants = {}
-	captures = {}
+	CaptureService.ResetRound()
+	table.clear(RoundState.Participants)
 	state.Scores = {}
 	for _, id in Teams.Order do
 		state.Scores[id] = 0
 	end
+	state.ScoreGoal = nil
+	state.ScoreLabel = nil
 	roundEndRequest = nil
+	clearObjectives()
 
-	local players = Players:GetPlayers()
-	for _, player in players do
-		participants[player] = true
-		captures[player] = 0
+	-- Participants : tous les vrais joueurs présents
+	local humans: { Actor } = {}
+	for _, player in Players:GetPlayers() do
+		local actor = ActorService.FromPlayer(player)
+		if actor then
+			table.insert(humans, actor)
+		end
 	end
-	TeamService.AssignBalanced(players)
-	initialTeamCount = #TeamService.GetNonEmptyTeams(players)
+	for _, actor in humans do
+		RoundState.Participants[actor.Id] = true
+		actor.RoundCaptures = 0
+		actor.RoundObjectives = 0
+		actor.LastCaughtAt = os.clock()
+	end
+	TeamService.AssignBalanced(humans)
+
+	-- Bots : complètent chaque équipe (phase 4)
+	if botProvider then
+		local bots = botProvider.SpawnForRound(humans, context)
+		for _, bot in bots do
+			RoundState.Participants[bot.Id] = true
+			bot.RoundCaptures = 0
+			bot.RoundObjectives = 0
+			bot.LastCaughtAt = os.clock()
+		end
+	end
+
+	local participants = RoundState.GetParticipants()
+	initialTeamCount = #TeamService.GetNonEmptyTeams(participants)
 
 	local protection = Config.Round.CountdownSeconds + Config.Round.BaseProtectionSeconds
-	for _, player in players do
-		teleportToBase(player)
-		if player.Character then
-			giveProtection(player.Character, protection)
+	for _, actor in participants do
+		teleportToBase(actor)
+		AbilityService.ResetCooldowns(actor)
+		AbilityService.ClearModifiers(actor)
+		if actor.Character then
+			CaptureService.Protect(actor.Character, protection)
 		end
-		local team = TeamService.GetTeam(player)
-		local def = Teams.Get(team)
+		if Config.Round.FreezeDuringCountdown then
+			setFrozen(actor, true)
+		end
+		local def = Teams.Get(actor.Team)
 		if def then
-			announceTo(player, "You are a " .. def.Display .. "!", def.Color)
+			announceTo(actor, "You are a " .. def.Display .. "!", def.Color)
 		end
 	end
 end
 
 local function countdown()
-	state.Phase = "Countdown"
+	setPhase("Countdown")
 	runTimer(Config.Round.CountdownSeconds)
+	for _, actor in RoundState.GetParticipants() do
+		setFrozen(actor, false)
+	end
 	announce("GO!")
 end
 
@@ -347,7 +416,7 @@ local function checkLastTeamStanding(): boolean
 	if initialTeamCount < Config.Round.MinTeamsForLastStanding then
 		return false
 	end
-	local list = getParticipantList()
+	local list = RoundState.GetParticipants()
 	if #list == 0 then
 		roundEndRequest = { Winner = nil, Reason = "Draw" }
 		return true
@@ -363,11 +432,21 @@ end
 local function determineWinner()
 	if roundEndRequest then
 		state.Winner = roundEndRequest.Winner or "DRAW"
-		state.WinReason = roundEndRequest.Reason
+		state.WinReason = roundEndRequest.Winner and roundEndRequest.Reason or "Draw"
 		return
 	end
-	-- Fin du chrono : équipe la plus nombreuse, puis meilleur score, sinon égalité
-	local list = getParticipantList()
+	-- Fin du chrono : la map peut avoir sa propre règle (ex : Raid = plus d'œufs)
+	local map = RoundState.Map
+	if map and map.ResolveTimeUp then
+		local winner = map.ResolveTimeUp()
+		if winner then
+			state.Winner = winner
+			state.WinReason = "TimeUp"
+			return
+		end
+	end
+	-- Sinon : équipe la plus nombreuse, puis meilleur score, sinon égalité
+	local list = RoundState.GetParticipants()
 	local largest = TeamService.GetLargestTeam(list)
 	if largest then
 		state.Winner = largest
@@ -394,62 +473,156 @@ end
 
 local function computeBestHunter()
 	local best, bestCount = nil, 0
-	for player, count in captures do
-		if count > bestCount and player.Parent == Players then
-			best, bestCount = player, count
+	for _, actor in RoundState.GetParticipants() do
+		if actor.RoundCaptures > bestCount then
+			best, bestCount = actor, actor.RoundCaptures
 		end
 	end
-	if best then
-		state.BestHunter = best.DisplayName
-		state.BestHunterCaptures = bestCount
-	else
-		state.BestHunter = nil
-		state.BestHunterCaptures = nil
-	end
+	state.BestHunter = best and best.Name or nil
+	state.BestHunterCaptures = best and bestCount or nil
 end
 
 local function playRound()
-	state.Phase = "Round"
+	setPhase("Round")
+	roundStartedAt = os.clock()
 	log("Round started on", state.MapId)
-	currentMap.StartMode(context)
+	local map = RoundState.Map
+	map.StartMode(context)
 	runTimer(Config.GetRoundSeconds(), function()
 		return roundEndRequest ~= nil or checkLastTeamStanding()
 	end)
-	currentMap.StopMode()
+	map.StopMode()
 	determineWinner()
 	computeBestHunter()
-	log("Round over. Winner:", state.Winner, "Reason:", state.WinReason)
+	log("Round over. Winner:", state.Winner, "Reason:", state.WinReason, "Scores:", state.Scores.FOX, state.Scores.CHICKEN, state.Scores.SNAKE)
 end
 
 local function results()
-	state.Phase = "Results"
+	setPhase("Results")
 	local winnerDef = Teams.Get(state.Winner)
 	if winnerDef then
 		announce(winnerDef.Plural .. " WIN!", winnerDef.Color)
 	else
 		announce("It's a draw!")
 	end
+	if rewardHandler and rewardHandler.OnRoundEnd then
+		local ok, err = pcall(rewardHandler.OnRoundEnd, RoundState.GetParticipants(), state.Winner, os.clock() - roundStartedAt)
+		if not ok then
+			warn("[RoundService] Erreur de récompense : " .. tostring(err))
+		end
+	end
 	runTimer(Config.GetResultsSeconds())
 end
 
 local function cleanup()
-	if currentMap then
-		currentMap.Cleanup()
-		currentMap = nil
+	local map = RoundState.Map
+	if map then
+		local ok, err = pcall(map.Cleanup)
+		if not ok then
+			warn("[RoundService] Erreur de nettoyage de la map : " .. tostring(err))
+		end
 	end
-	participants = {}
+	RoundState.Map = nil
+	RoundState.MapId = nil
+	clearObjectives()
+	if botProvider then
+		botProvider.Cleanup()
+	end
+	table.clear(RoundState.Participants)
 	TeamService.ClearAll()
+	for _, actor in ActorService.GetAll() do
+		AbilityService.ClearModifiers(actor)
+		AbilityService.ResetCooldowns(actor)
+		setFrozen(actor, false)
+	end
 	for _, player in Players:GetPlayers() do
 		-- Rechargement du personnage : retour propre au lobby
 		player:LoadCharacter()
 	end
-	state.MapId = nil
-	state.Scores = {}
+	resetResults()
 	log("Cleanup done")
 end
 
 -- ---------------------------------------------------------------------------
--- API publique (utilisée par les phases suivantes)
+-- Arrivées et départs en cours de manche
+-- ---------------------------------------------------------------------------
+local function onActorAdded(actor: Actor)
+	if actor.IsBot or not RoundState.IsInRound() then
+		return
+	end
+	-- Un joueur arrive en cours de manche : il prend la place d'un bot si possible,
+	-- sinon il attend dans le lobby en spectateur.
+	task.delay(1, function()
+		if not RoundState.IsInRound() or RoundState.IsParticipant(actor) or ActorService.Get(actor.Id) == nil then
+			return
+		end
+		if botProvider and Config.Bots.JoinerReplacesBot then
+			local team, cframe = botProvider.TakeSeat(actor)
+			if team then
+				RoundState.Participants[actor.Id] = true
+				actor.RoundCaptures = 0
+				actor.RoundObjectives = 0
+				actor.LastCaughtAt = os.clock()
+				TeamService.SetTeam(actor, team)
+				if cframe then
+					teleport(actor, cframe)
+				else
+					teleportToBase(actor)
+				end
+				if actor.Character then
+					CaptureService.Protect(actor.Character, Config.Capture.InvincibilitySeconds + 1)
+				end
+				local def = Teams.Get(team)
+				if def then
+					announceTo(actor, "You joined as a " .. def.Display .. "!", def.Color)
+				end
+				broadcastState()
+				return
+			end
+		end
+		announceTo(actor, "A round is in progress. You'll join the next one!")
+	end)
+end
+
+local function onActorRemoving(actor: Actor)
+	if RoundState.Participants[actor.Id] then
+		if RoundState.Map and RoundState.Map.OnActorRemoved then
+			RoundState.Map.OnActorRemoved(actor)
+		end
+		RoundState.Participants[actor.Id] = nil
+	end
+	LaunchService.Forget(actor)
+end
+
+-- Réapparition si chute hors de la map (ou du lobby)
+local fallAccumulator = 0
+local function checkFalls(dt: number)
+	fallAccumulator += dt
+	if fallAccumulator < 0.5 then
+		return
+	end
+	fallAccumulator = 0
+	local mapFloor = Config.World.MapOrigin.Y + Config.World.KillHeight
+	local lobbyFloor = Config.World.LobbyOrigin.Y + Config.World.KillHeight
+	for _, actor in ActorService.GetAll() do
+		local position = ActorService.GetPosition(actor)
+		if position then
+			if RoundState.IsParticipant(actor) and RoundState.IsInRound() then
+				if position.Y < mapFloor then
+					teleportToBase(actor)
+					if actor.Character then
+						CaptureService.Protect(actor.Character, 1)
+					end
+				end
+			elseif position.Y < lobbyFloor and not actor.IsBot then
+				teleportToLobby(actor)
+			end
+		end
+	end
+end
+
+-- ---------------------------------------------------------------------------
+-- API publique
 -- ---------------------------------------------------------------------------
 function RoundService.GetPhase(): string
 	return state.Phase
@@ -459,35 +632,20 @@ function RoundService.GetState(): GameState
 	return state
 end
 
-function RoundService.IsParticipant(player: Player): boolean
-	return participants[player] == true
-end
-
-function RoundService.GetParticipants(): { Player }
-	return getParticipantList()
-end
-
 function RoundService.GetContext(): Types.MapContext
 	return context
 end
 
--- Enregistre une capture (phase 2) et met à jour l'état.
-function RoundService.RecordCapture(hunter: Player)
-	if captures[hunter] ~= nil then
-		captures[hunter] += 1
-	end
+function RoundService.SetBotProvider(provider: any)
+	botProvider = provider
 end
 
-function RoundService.GiveProtection(character: Model, seconds: number)
-	giveProtection(character, seconds)
+function RoundService.SetRewardHandler(handler: any)
+	rewardHandler = handler
 end
 
-function RoundService.Announce(text: string, color: Color3?)
-	announce(text, color)
-end
-
-function RoundService.AnnounceTo(player: Player, text: string, color: Color3?)
-	announceTo(player, text, color)
+function RoundService.Broadcast()
+	broadcastState()
 end
 
 -- ---------------------------------------------------------------------------
@@ -497,11 +655,32 @@ function RoundService.Init()
 	StateUpdate = Remotes.Get("StateUpdate")
 	Announce = Remotes.Get("Announce")
 
-	Players.PlayerAdded:Connect(onPlayerAdded)
-	Players.PlayerRemoving:Connect(onPlayerRemoving)
-	for _, player in Players:GetPlayers() do
-		onPlayerAdded(player)
+	local folder = Instance.new("Folder")
+	folder.Name = "HoH_Objectives"
+	folder.Parent = ReplicatedStorage
+	objectivesFolder = folder
+
+	ActorService.CharacterAdded:Connect(onCharacterAdded)
+	ActorService.ActorAdded:Connect(onActorAdded)
+	ActorService.ActorRemoving:Connect(onActorRemoving)
+	for _, actor in ActorService.GetAll() do
+		if actor.Character then
+			task.spawn(onCharacterAdded, actor, actor.Character)
+		end
 	end
+
+	CaptureService.Captured:Connect(function(hunter: Actor, victim: Actor)
+		local map = RoundState.Map
+		if map and map.OnCapture then
+			map.OnCapture(hunter, victim)
+		end
+		if rewardHandler and rewardHandler.OnCapture then
+			rewardHandler.OnCapture(hunter, victim)
+		end
+		broadcastState()
+	end)
+
+	RunService.Heartbeat:Connect(checkFalls)
 end
 
 function RoundService.Start()

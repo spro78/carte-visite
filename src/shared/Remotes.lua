@@ -14,27 +14,31 @@ local FOLDER_NAME = "Remotes"
 
 Remotes.Names = {
 	-- Serveur -> Client
-	StateUpdate = "StateUpdate", -- état complet de la partie (phase, chrono, scores...)
+	StateUpdate = "StateUpdate", -- état de la partie (phase, chrono, scores...)
 	Announce = "Announce", -- annonce courte au centre de l'écran
-	-- Client -> Serveur
-	VoteMap = "VoteMap", -- intention de voter pour une map (string mapId)
-	-- Phase 2 (déclarés maintenant pour éviter de modifier ce fichier plus tard)
-	RequestDash = "RequestDash", -- intention de dash (direction -1 / 1)
-	RequestStop = "RequestStop", -- intention d'arrêt instantané
-	RequestAbility = "RequestAbility", -- intention d'utiliser sa capacité
-	CaptureAttempt = "CaptureAttempt", -- intention de capture (cible)
-	-- Phase 6
-	ShopPurchase = "ShopPurchase",
-	UseConsumable = "UseConsumable",
+	Effect = "Effect", -- effet visuel/sonore (capture, éjection, capacité...)
+	Launch = "Launch", -- éjection du personnage du joueur (vitesse, ragdoll)
+	DataUpdate = "DataUpdate", -- pièces, inventaire, améliorations du joueur
+	RoundReward = "RoundReward", -- pièces gagnées à la fin de la manche
+	-- Client -> Serveur (intentions)
+	VoteMap = "VoteMap", -- (mapId: string)
+	RequestDash = "RequestDash", -- (side: -1 | 1)
+	RequestAbility = "RequestAbility", -- ()
+	CaptureAttempt = "CaptureAttempt", -- (target: Model)
+	ShopPurchase = "ShopPurchase", -- (category: string, itemId: string)
+	ShopEquip = "ShopEquip", -- (category: string, itemId: string)
+	UseConsumable = "UseConsumable", -- (itemId: string)
+	RequestData = "RequestData", -- () : redemande l'état de son profil
 }
 
-local folder: Folder? = nil
+local folder: Instance? = nil
 
 -- À appeler une seule fois, côté serveur, au démarrage.
 function Remotes.Init()
 	assert(RunService:IsServer(), "Remotes.Init doit être appelé côté serveur")
-	if ReplicatedStorage:FindFirstChild(FOLDER_NAME) then
-		folder = ReplicatedStorage:FindFirstChild(FOLDER_NAME) :: Folder
+	local existing = ReplicatedStorage:FindFirstChild(FOLDER_NAME)
+	if existing then
+		folder = existing
 		return
 	end
 	local newFolder = Instance.new("Folder")
@@ -53,10 +57,10 @@ function Remotes.Get(name: string): RemoteEvent
 	assert(Remotes.Names[name] ~= nil, "RemoteEvent inconnu : " .. tostring(name))
 	local f = folder or ReplicatedStorage:WaitForChild(FOLDER_NAME, 30)
 	assert(f, "Dossier Remotes introuvable dans ReplicatedStorage")
-	folder = f :: Folder
+	folder = f
 	local event = f:WaitForChild(name, 30)
-	assert(event, "RemoteEvent introuvable : " .. name)
-	return event :: RemoteEvent
+	assert(event and event:IsA("RemoteEvent"), "RemoteEvent introuvable : " .. name)
+	return event
 end
 
 return Remotes
