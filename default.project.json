@@ -1,23 +1,22 @@
 {
   "name": "HuntOrHide",
-  "globIgnorePaths": ["**/*.md"],
+  "globIgnorePaths": [
+    "**/*.md"
+  ],
   "tree": {
     "$className": "DataModel",
-
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "Shared": {
         "$path": "src/shared"
       }
     },
-
     "ServerScriptService": {
       "$className": "ServerScriptService",
       "Server": {
         "$path": "src/server"
       }
     },
-
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "$properties": {
@@ -31,27 +30,26 @@
         }
       }
     },
-
     "StarterGui": {
       "$className": "StarterGui",
       "$properties": {
         "ResetPlayerGuiOnSpawn": false
       }
     },
-
     "Lighting": {
       "$className": "Lighting",
       "$properties": {
-        "ClockTime": 14,
-        "Brightness": 2,
-        "GlobalShadows": true,
-        "Ambient": [0.45, 0.45, 0.5],
-        "OutdoorAmbient": [0.55, 0.55, 0.6]
+        "Technology": "Future",
+        "ClockTime": 15.6,
+        "Brightness": 2.6,
+        "GlobalShadows": true
       }
     },
-
     "Workspace": {
-      "$className": "Workspace"
+      "$className": "Workspace",
+      "$properties": {
+        "Gravity": 196.2
+      }
     }
   }
 }

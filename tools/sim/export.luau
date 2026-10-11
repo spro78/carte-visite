@@ -53,6 +53,7 @@ local function exportGui(node)
 		out.xAlign = p.TextXAlignment and p.TextXAlignment.Name
 		out.yAlign = p.TextYAlignment and p.TextYAlignment.Name
 		out.rotation = p.Rotation
+		out.font = p.Font and p.Font.Name or "FredokaOne"
 	end
 	if p.Image and p.Image ~= "" then
 		out.image = p.Image
@@ -138,6 +139,19 @@ function Export.Parts(center, radius)
 							end
 						end
 						table.insert(guis, g)
+					elseif rawget(child, "_class") == "BillboardGui" and props(child).Enabled ~= false then
+						local bp = props(child)
+						local b = { offset = { bp.StudsOffset.X, bp.StudsOffset.Y, bp.StudsOffset.Z }, size = udim2(bp.Size), children = {} }
+						for _, gc in child:GetChildren() do
+							if gc:IsA("GuiObject") then
+								local e = exportGui(gc)
+								if e then
+									table.insert(b.children, e)
+								end
+							end
+						end
+						entry.billboards = entry.billboards or {}
+						table.insert(entry.billboards, b)
 					elseif rawget(child, "_class") == "Decal" then
 						-- ignoré
 					end

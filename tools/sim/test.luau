@@ -98,7 +98,8 @@ end
 check(alice:GetAttribute("Team") ~= nil, "l'attribut Team du joueur est répliqué")
 local aliceChar = alice.Character
 check(aliceChar:GetAttribute("Frozen") == true, "joueurs gelés pendant le décompte")
-check(aliceChar:FindFirstChild("AnimalParts") ~= nil and #aliceChar.AnimalParts:GetChildren() >= 3, "apparence d'animal appliquée")
+check(aliceChar:GetAttribute("Animal") == alice:GetAttribute("Team"), "animal attribué au personnage")
+check(aliceChar:FindFirstChild("AnimalParts") == nil and aliceChar.Head.Color ~= nil, "l'avatar Roblox reste intact (aucune pièce ajoutée)")
 check(aliceChar.HumanoidRootPart.Position.Z > 1500, "Alice est téléportée sur la map")
 
 check(advanceUntil(function()

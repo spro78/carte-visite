@@ -4,19 +4,30 @@
 	Utilisé par le lobby et par les maps.
 ]]
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Style = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Style"))
+
 local Build = {}
 
-Build.Font = Enum.Font.FredokaOne
+Build.Font = Enum.Font.GothamBold
 
 -- Crée une Part ancrée avec les propriétés données.
+-- Clé spéciale : Accent = true garde la couleur telle quelle (gameplay) ;
+-- sinon la couleur passe par le filtre de la direction artistique (Style).
 function Build.Part(props: { [string]: any }, parent: Instance?): Part
 	local part = Instance.new("Part")
 	part.Anchored = true
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.Material = Enum.Material.SmoothPlastic
+	local accent = props.Accent == true
 	for key, value in props do
-		(part :: any)[key] = value
+		if key ~= "Accent" then
+			(part :: any)[key] = value
+		end
+	end
+	if not accent and part.Material ~= Enum.Material.Neon then
+		part.Color = Style.Environment(part.Color)
 	end
 	if parent then
 		part.Parent = parent

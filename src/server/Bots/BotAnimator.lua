@@ -24,7 +24,8 @@ function BotAnimator.new(humanoid: Humanoid): BotAnimator
 		animator.Parent = humanoid
 	end
 	local tracks = {}
-	for key, id in Config.Bots.Animations do
+	local set = Config.Bots.Animations[humanoid.RigType == Enum.HumanoidRigType.R6 and "R6" or "R15"]
+	for key, id in set do
 		local animation = Instance.new("Animation")
 		animation.Name = key
 		animation.AnimationId = id

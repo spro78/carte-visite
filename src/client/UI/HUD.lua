@@ -65,6 +65,7 @@ local banner: Frame = New("Frame", {
 	Position = UDim2.new(0.5, 0, 0, 6),
 	Size = UDim2.new(0.52, 0, 0.07, 0),
 	BackgroundColor3 = Theme.Dark,
+	BackgroundTransparency = 0.15,
 }, screen)
 Theme.CornerScale(banner, 0.5)
 local bannerStroke = Theme.Stroke(banner, 3, Theme.White)
@@ -83,6 +84,7 @@ local timerFrame: Frame = New("Frame", {
 	Position = UDim2.new(0.5, 0, 0.085, 6),
 	Size = UDim2.new(0.15, 0, 0.1, 0),
 	BackgroundColor3 = Theme.Panel,
+	BackgroundTransparency = 0.2,
 }, screen)
 Theme.Corner(timerFrame, 14)
 Theme.Stroke(timerFrame, 2.5)
@@ -96,6 +98,7 @@ local phaseText = Label(timerFrame, {
 })
 local timerText = Label(timerFrame, {
 	Name = "Time",
+	Font = Theme.FontBlack,
 	Size = UDim2.fromScale(0.9, 0.58),
 	Position = UDim2.fromScale(0.05, 0.36),
 	Text = "--:--",
@@ -314,6 +317,7 @@ local resultsFrame: Frame = New("Frame", {
 	Position = UDim2.new(0.5, 0, 0.55, 0),
 	Size = UDim2.new(0.5, 0, 0.46, 0),
 	BackgroundColor3 = Theme.Panel,
+	BackgroundTransparency = 0.08,
 	Visible = false,
 	ZIndex = 3,
 }, screen)
@@ -321,6 +325,7 @@ Theme.Corner(resultsFrame, 20)
 local resultsStroke = Theme.Stroke(resultsFrame, 4, Theme.Accent)
 New("UISizeConstraint", { MaxSize = Vector2.new(620, 330), MinSize = Vector2.new(300, 170) }, resultsFrame)
 local resultsTitle = Label(resultsFrame, {
+	Font = Theme.FontBlack,
 	Size = UDim2.fromScale(0.9, 0.26),
 	Position = UDim2.fromScale(0.05, 0.04),
 	Text = "",

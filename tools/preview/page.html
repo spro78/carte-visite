@@ -5,6 +5,8 @@
 <title>Hunt or Hide preview</title>
 <style>
   @font-face { font-family: "Fredoka One"; src: url("node_modules/@fontsource/fredoka-one/files/fredoka-one-latin-400-normal.woff2") format("woff2"); }
+  @font-face { font-family: "GothamLike"; font-weight: 700; src: url("node_modules/@fontsource/montserrat/files/montserrat-latin-700-normal.woff2") format("woff2"); }
+  @font-face { font-family: "GothamLike"; font-weight: 900; src: url("node_modules/@fontsource/montserrat/files/montserrat-latin-900-normal.woff2") format("woff2"); }
   html, body { margin: 0; padding: 0; overflow: hidden; background: #8ec5ff; font-family: "Fredoka One", sans-serif; }
   #wrap { position: relative; }
   canvas#gl { display: block; }
@@ -29,6 +31,11 @@ hud.style.width = W + "px"; hud.style.height = H + "px";
 if (data.caption) document.getElementById("caption").textContent = data.caption;
 
 await document.fonts.load('40px "Fredoka One"');
+await document.fonts.load('700 40px "GothamLike"');
+await document.fonts.load('900 40px "GothamLike"');
+// Police Roblox -> police CSS de substitution
+const FONTS = { FredokaOne: '"Fredoka One"', GothamBold: '700 X "GothamLike"', GothamBlack: '900 X "GothamLike"', BuilderSansBold: '700 X "GothamLike"', BuilderSansExtraBold: '900 X "GothamLike"' };
+const fontCss = (el, size) => { const f = FONTS[el.font] || '"Fredoka One"'; return f.includes(" X ") ? f.replace("X", size + "px") : `${size}px ${f}`; };
 
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("gl"), antialias: true, preserveDrawingBuffer: true });
 renderer.setSize(W, H);
@@ -40,11 +47,11 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(data.sky || "#8ec5ff");
-scene.fog = new THREE.Fog(data.sky || "#8ec5ff", data.fogNear || 400, data.fogFar || 1400);
+scene.background = new THREE.Color(data.sky || "#aab6c4");
+scene.fog = new THREE.Fog(data.fog || data.sky || "#aab6c4", data.fogNear || 250, data.fogFar || 1300);
 
-scene.add(new THREE.HemisphereLight(0xdfefff, 0x6b5a40, 1.2));
-const sun = new THREE.DirectionalLight(0xfff3dd, 2.2);
+scene.add(new THREE.HemisphereLight(0xd5e0ee, 0x6a6e78, 1.7));
+const sun = new THREE.DirectionalLight(0xfff0e0, 2.0);
 const c = data.center || [0, 0, 0];
 sun.position.set(c[0] + 120, 260, c[2] + 90);
 sun.target.position.set(c[0], 0, c[2]);
@@ -116,11 +123,11 @@ function layoutChildren(el, rect, k) {
   return out;
 }
 
-function fitFont(ctx, text, w, h, max) {
+function fitFont(ctx, el, text, w, h, max) {
   const lines = String(text).split("\n");
   let size = Math.min(h / lines.length, max || 1000);
   while (size > 4) {
-    ctx.font = `${size}px "Fredoka One"`;
+    ctx.font = fontCss(el, size);
     const widest = Math.max(...lines.map(l => ctx.measureText(l).width));
     if (widest <= w && size * lines.length <= h) break;
     size -= 1;
@@ -151,8 +158,8 @@ function drawGui(ctx, el, rect, k) {
     ctx.save();
     const cx = x + w / 2, cy = y + h / 2;
     if (el.rotation) { ctx.translate(cx, cy); ctx.rotate(el.rotation * Math.PI / 180); ctx.translate(-cx, -cy); }
-    const size = el.scaled ? fitFont(ctx, el.text, w, h, el.maxText ? el.maxText * k : null) : (el.textSize || 14) * k;
-    ctx.font = `${size}px "Fredoka One"`;
+    const size = el.scaled ? fitFont(ctx, el, el.text, w, h, el.maxText ? el.maxText * k : null) : (el.textSize || 14) * k;
+    ctx.font = fontCss(el, size);
     ctx.textBaseline = "middle";
     const lines = String(el.text).split("\n");
     const lh = size * 1.0;
@@ -256,6 +263,29 @@ camera.position.set(...cam.position);
 camera.up.set(...(cam.up || [0, 1, 0]));
 camera.lookAt(...cam.target);
 renderer.render(scene, camera);
+
+// ---------- BillboardGui (badges au-dessus des têtes) ----------
+const billboards = [];
+for (const p of arr(data.parts)) {
+  for (const b of arr(p.billboards)) {
+    const m = p.cf;
+    const v = new THREE.Vector3(m[0] + b.offset[0], m[1] + b.offset[1], m[2] + b.offset[2]);
+    const dist = v.distanceTo(camera.position);
+    v.project(camera);
+    if (v.z < 1 && v.z > -1 && dist < 140) billboards.push({ b, x: (v.x + 1) / 2 * W, y: (1 - v.y) / 2 * H, dist });
+  }
+}
+if (billboards.length) {
+  const bc = document.createElement("canvas"); bc.width = W; bc.height = H;
+  bc.style.position = "absolute"; bc.style.left = "0"; bc.style.top = "0";
+  hud.appendChild(bc);
+  const ctx = bc.getContext("2d");
+  billboards.sort((a, b) => b.dist - a.dist);
+  for (const { b, x, y } of billboards) {
+    const w = b.size[1], h = b.size[3];
+    for (const [kid, r] of layoutChildren({ children: arr(b.children) }, [x - w / 2, y - h / 2, w, h], 1)) drawGui(ctx, kid, r, 1);
+  }
+}
 
 // ---------- HUD (ScreenGui) ----------
 if (arr(data.hud).length) {

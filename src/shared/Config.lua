@@ -23,6 +23,18 @@ Config.Round = {
 }
 
 -- ---------------------------------------------------------------------------
+-- Apparence des joueurs
+--   "Avatar" : chacun garde son avatar Roblox intact ; l'animal se lit par le
+--              contour (vert/rouge), le badge au-dessus de la tête et le bandeau.
+--   "Animal" : teinte d'équipe + oreilles/crête/capuche (module AnimalAppearance).
+-- ---------------------------------------------------------------------------
+Config.Appearance = {
+	Mode = "Avatar",
+	ShowTeamBadge = true, -- badge "FOX / CHICKEN / SNAKE" au-dessus de la tête
+	BadgeMaxDistance = 140,
+}
+
+-- ---------------------------------------------------------------------------
 -- Équipes et bots
 -- ---------------------------------------------------------------------------
 Config.Teams = {
@@ -48,13 +60,24 @@ Config.Bots = {
 	HideChance = 0.35, -- probabilité de filer vers une cachette quand on fuit
 	LeadSeconds = 0.3, -- anticipation de la position de la proie
 	StuckSeconds = 1.5,
-	-- Animations R15 par défaut de Roblox (modifiables)
+	-- Gabarit des bots : R6 (classique, comme Huss Valley) ou R15
+	RigType = "R6",
+	-- Animations par défaut de Roblox (modifiables)
 	Animations = {
-		Idle = "rbxassetid://507766666",
-		Walk = "rbxassetid://507777826",
-		Run = "rbxassetid://507767714",
-		Jump = "rbxassetid://507765000",
-		Fall = "rbxassetid://507767968",
+		R6 = {
+			Idle = "rbxassetid://180435571",
+			Walk = "rbxassetid://180426354",
+			Run = "rbxassetid://180426354",
+			Jump = "rbxassetid://125750702",
+			Fall = "rbxassetid://180436148",
+		},
+		R15 = {
+			Idle = "rbxassetid://507766666",
+			Walk = "rbxassetid://507777826",
+			Run = "rbxassetid://507767714",
+			Jump = "rbxassetid://507765000",
+			Fall = "rbxassetid://507767968",
+		},
 	},
 }
 
@@ -159,7 +182,7 @@ Config.World = {
 -- ---------------------------------------------------------------------------
 Config.Lobby = {
 	Size = 150, -- côté du carré (studs)
-	WallHeight = 26,
+	WallHeight = 36,
 	WallThickness = 3,
 	FloorColor = Color3.fromRGB(120, 190, 95),
 	PathColor = Color3.fromRGB(222, 205, 165),

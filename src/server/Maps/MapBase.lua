@@ -91,6 +91,7 @@ function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, p
 			CFrame = CFrame.new(center + Vector3.new(0, 0.5, 0)) * rotation,
 			Color = def.Color,
 			Material = Enum.Material.SmoothPlastic,
+			Accent = true,
 		}, folder)
 		pad:SetAttribute("Team", teamId)
 		pad:SetAttribute("BasePad", true)
@@ -99,6 +100,7 @@ function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, p
 			Size = Vector3.new(padSize + 3, 0.6, padSize + 3),
 			CFrame = CFrame.new(center + Vector3.new(0, 0.3, 0)) * rotation,
 			Color = def.DarkColor,
+			Accent = true,
 		}, folder)
 		-- Emblème au sol
 		local emblem = Build.Part({
@@ -121,6 +123,7 @@ function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, p
 					Size = Vector3.new(2, 10, 2),
 					CFrame = CFrame.new(center) * rotation * CFrame.new(localPos),
 					Color = def.Color:Lerp(Color3.new(1, 1, 1), 0.3),
+					Accent = true,
 				}, folder)
 				Build.Part({
 					Name = teamId .. "_PillarTop",

@@ -110,6 +110,7 @@ local function buildArm(parent: Instance): Model
 			CFrame = CFrame.new(origin + Vector3.new(x0 + segment / 2, 0.3 + ARM_HEIGHT / 2, 0)),
 			Color = i % 2 == 0 and Color3.fromRGB(225, 50, 45) or Color3.fromRGB(245, 240, 230),
 			Material = Enum.Material.SmoothPlastic,
+			Accent = true,
 			CanCollide = false,
 			CanQuery = false,
 		}, spinner)
@@ -118,6 +119,7 @@ local function buildArm(parent: Instance): Model
 	Build.VerticalCylinder(origin + Vector3.new(length, 2.2, 0), 2.6, 4.4, {
 		Name = "ArmBumper",
 		Color = Color3.fromRGB(255, 200, 40),
+		Accent = true,
 		CanCollide = false,
 		CanQuery = false,
 	}, spinner)

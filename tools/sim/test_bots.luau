@@ -38,11 +38,11 @@ end)(), ", ") .. "...")
 local okLooks = true
 for _, bot in bots do
 	local c = bot.Character
-	if not c or not c:FindFirstChild("AnimalParts") or c.Humanoid.DisplayName ~= bot.Name then
+	if not c or c:GetAttribute("Animal") == nil or c.Humanoid.DisplayName ~= bot.Name then
 		okLooks = false
 	end
 end
-check(okLooks, "chaque bot a un personnage, une apparence d'animal et son pseudo affiché")
+check(okLooks, "chaque bot a un personnage, un animal et son pseudo affiché")
 check(bots[1].Character.HumanoidRootPart:GetNetworkOwner() == nil, "physique des bots gérée par le serveur")
 
 section("Les bots jouent")

@@ -99,6 +99,21 @@ Alternative sans serveur : `rojo build -o HuntOrHide.rbxl` puis ouvrir le fichie
 Les logs serveur (`[RoundService] ...`, `[MapRegistry] ...`) s'affichent
 dans la fenêtre *Output* de Studio.
 
+## Direction artistique et avatars
+
+- **Chacun garde son avatar Roblox.** Rien n'est ajouté ni teinté sur le personnage.
+  L'animal se lit par le contour (vert = ta proie, rouge = ton prédateur),
+  par un petit badge au-dessus de la tête et par le bandeau en haut de l'écran.
+  Pour revenir aux oreilles/crêtes/capuches : `Config.Appearance.Mode = "Animal"`.
+- **Ambiance inspirée de Huss Valley** : géométrie simple « gray-box », palette
+  industrielle froide et désaturée, brume bleu-gris, lampes chaudes, accents jaunes
+  « sécurité » ; les couleurs vives sont réservées au gameplay (équipes, objectifs,
+  dangers). Tout est réglable dans `src/shared/Style.lua`.
+- **Avatars R6** (comme Huss Valley) : dans Studio, *Home > Game Settings > Avatar >
+  Avatar Type = R6*, puis *Save*. Ce réglage ne peut pas être fait par script.
+  Les bots sont déjà en R6 (`Config.Bots.RigType`).
+- **Éclairage Future** : réglé dans `default.project.json` (Lighting.Technology).
+
 ## Ajouter une map
 
 1. Copier `src/server/Maps/_Template.lua` vers `src/server/Maps/<MonId>.lua`

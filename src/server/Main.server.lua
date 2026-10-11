@@ -13,6 +13,7 @@ Remotes.Init()
 
 local Services = script.Parent:WaitForChild("Services")
 local LobbyBuilder = require(Services.LobbyBuilder)
+local LightingSetup = require(Services.LightingSetup)
 local MapRegistry = require(Services.MapRegistry)
 local ActorService = require(Services.ActorService)
 local TeamService = require(Services.TeamService)
@@ -23,6 +24,7 @@ local RoundService = require(Services.RoundService)
 local HideService = require(Services.HideService)
 local BotService = require(script.Parent:WaitForChild("Bots"):WaitForChild("BotService"))
 
+LightingSetup.Apply()
 LobbyBuilder.Build()
 MapRegistry.Init(script.Parent:WaitForChild("Maps"))
 

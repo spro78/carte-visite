@@ -715,6 +715,7 @@ Engine.AddMethods(Players, {
 		assert(desc and desc:IsA("HumanoidDescription"), "CreateHumanoidModelFromDescription expects a HumanoidDescription")
 		local model, humanoid = buildRig("NPC", Vector3.new(0, 3, 0))
 		humanoid:ApplyDescription(desc)
+		props(humanoid).RigType = rigType or Enum.HumanoidRigType.R15
 		return model
 	end,
 	GetHumanoidDescriptionFromUserId = function()

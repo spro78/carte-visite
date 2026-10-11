@@ -106,6 +106,7 @@ local function buildWheel(parent: Instance): Model
 		local p = origin + Vector3.new(math.cos(a) * radius * 0.55, top + 0.02, -math.sin(a) * radius * 0.55)
 		Build.Part({
 			Name = "WheelSlice",
+			Accent = true,
 			Size = Vector3.new(radius * 0.8, 0.05, radius * 0.22),
 			CFrame = CFrame.new(p) * CFrame.Angles(0, a, 0),
 			Color = STRIPES[(i % #STRIPES) + 1],

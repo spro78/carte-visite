@@ -90,6 +90,7 @@ local function newEgg(teamId: string): Part
 	local def = Teams.Get(teamId)
 	local part = Build.Part({
 		Name = "RaidEgg",
+		Accent = true,
 		Size = Vector3.new(1.8, 2.3, 1.8),
 		Color = def and def.Color:Lerp(Color3.new(1, 1, 1), 0.45) or Color3.new(1, 1, 1),
 		Material = Enum.Material.SmoothPlastic,

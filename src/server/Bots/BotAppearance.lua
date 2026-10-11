@@ -105,7 +105,10 @@ end
 
 -- Crée un personnage de bot complet (sans le placer dans le monde)
 function BotAppearance.CreateCharacter(name: string): Model
-	local model = Players:CreateHumanoidModelFromDescription(BotAppearance.CreateDescription(), Enum.HumanoidRigType.R15)
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+	local rig = Config.Bots.RigType == "R15" and Enum.HumanoidRigType.R15 or Enum.HumanoidRigType.R6
+	local model = Players:CreateHumanoidModelFromDescription(BotAppearance.CreateDescription(), rig)
 	model.Name = name
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	if humanoid then

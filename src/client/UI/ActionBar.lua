@@ -204,8 +204,8 @@ function ActionBar.Init(screen: ScreenGui, handlers: Handlers, provider: Provide
 
 	keyContainer = New("Frame", {
 		Name = "KeyActions",
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -10),
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -12, 1, -12),
 		Size = UDim2.fromScale(0.3, 0.1),
 		BackgroundTransparency = 1,
 		Visible = false,
@@ -214,8 +214,8 @@ function ActionBar.Init(screen: ScreenGui, handlers: Handlers, provider: Provide
 	New("UIListLayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
 		Padding = UDim.new(0.025, 0),
-		HorizontalAlignment = Enum.HorizontalAlignment.Center,
-		VerticalAlignment = Enum.VerticalAlignment.Center,
+		HorizontalAlignment = Enum.HorizontalAlignment.Right,
+		VerticalAlignment = Enum.VerticalAlignment.Bottom,
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}, keyContainer)
 

@@ -1,6 +1,7 @@
 --[[
 	AnimalAppearance.lua
-	Apparence d'animal construite par-dessus l'avatar avec des Parts soudées :
+	Par défaut (Config.Appearance.Mode = "Avatar"), l'avatar Roblox reste intact.
+	En mode "Animal", apparence d'animal construite par-dessus l'avatar avec des Parts soudées :
 	  FOX     : oreilles pointues + grosse queue à bout blanc
 	  CHICKEN : crête rouge + bec + plumes de queue
 	  SNAKE   : capuche (cobra) + longue queue en anneaux
@@ -14,6 +15,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Teams = require(Shared.Teams)
+local Config = require(Shared.Config)
 local Build = require(script.Parent.Parent.Util.Build)
 
 local AnimalAppearance = {}
@@ -190,6 +192,11 @@ function AnimalAppearance.Apply(character: Model, teamId: string?)
 	AnimalAppearance.Clear(character)
 	local def = Teams.Get(teamId)
 	if not def then
+		return
+	end
+	-- Mode "Avatar" : on ne touche pas à l'avatar Roblox du joueur
+	if Config.Appearance.Mode ~= "Animal" then
+		character:SetAttribute("Animal", def.Id)
 		return
 	end
 
