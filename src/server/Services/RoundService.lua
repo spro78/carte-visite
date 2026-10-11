@@ -60,6 +60,7 @@ local objectivesFolder: Folder
 local botProvider: any = nil
 local rewardHandler: any = nil
 local savedLighting: { [string]: any }? = nil
+local cleanupCallbacks: { () -> () } = {}
 
 local StateUpdate: RemoteEvent
 local Announce: RemoteEvent
@@ -575,6 +576,12 @@ local function cleanup()
 	if botProvider then
 		botProvider.Cleanup()
 	end
+	for _, callback in cleanupCallbacks do
+		local ok, err = pcall(callback)
+		if not ok then
+			warn("[RoundService] Erreur de nettoyage : " .. tostring(err))
+		end
+	end
 	table.clear(RoundState.Participants)
 	TeamService.ClearAll()
 	for _, actor in ActorService.GetAll() do
@@ -690,6 +697,11 @@ end
 
 function RoundService.SetRewardHandler(handler: any)
 	rewardHandler = handler
+end
+
+-- Fonction appelée au nettoyage de chaque fin de manche
+function RoundService.OnCleanup(callback: () -> ())
+	table.insert(cleanupCallbacks, callback)
 end
 
 function RoundService.Broadcast()

@@ -214,6 +214,22 @@ local announceLabel = Label(screen, {
 })
 Theme.MaxText(announceLabel, 60)
 
+-- Notification courte (achats, erreurs)
+local toast: TextLabel = Label(screen, {
+	Name = "Toast",
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 0.74, 0),
+	Size = UDim2.new(0.5, 0, 0.05, 0),
+	BackgroundColor3 = Theme.Dark,
+	BackgroundTransparency = 0.2,
+	Text = "",
+	Visible = false,
+	ZIndex = 30,
+})
+Theme.Corner(toast, 10)
+Theme.MaxText(toast, 24)
+New("UIPadding", { PaddingTop = UDim.new(0.15, 0), PaddingBottom = UDim.new(0.15, 0) }, toast)
+
 -- Message spectateur
 local spectatorLabel = Label(screen, {
 	Name = "Spectator",
@@ -417,6 +433,20 @@ function HUD.Announce(text: string, color: Color3?)
 				announceLabel.Visible = false
 			end
 		end)
+	end)
+end
+
+local toastToken = 0
+function HUD.Notify(text: string, color: Color3?)
+	toastToken += 1
+	local token = toastToken
+	toast.Text = text
+	toast.TextColor3 = color or Theme.White
+	toast.Visible = true
+	task.delay(2.5, function()
+		if token == toastToken then
+			toast.Visible = false
+		end
 	end)
 end
 

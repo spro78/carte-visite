@@ -20,6 +20,8 @@ Remotes.Names = {
 	Launch = "Launch", -- éjection du personnage du joueur (vitesse, ragdoll)
 	DataUpdate = "DataUpdate", -- pièces, inventaire, améliorations du joueur
 	RoundReward = "RoundReward", -- pièces gagnées à la fin de la manche
+	OpenShop = "OpenShop", -- ouvre la boutique (comptoir du lobby)
+	Notify = "Notify", -- petit message au joueur (achat, erreur de sauvegarde...)
 	-- Client -> Serveur (intentions)
 	VoteMap = "VoteMap", -- (mapId: string)
 	RequestDash = "RequestDash", -- (side: -1 | 1)
