@@ -1,0 +1,275 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Hunt or Hide preview</title>
+<style>
+  @font-face { font-family: "Fredoka One"; src: url("node_modules/@fontsource/fredoka-one/files/fredoka-one-latin-400-normal.woff2") format("woff2"); }
+  html, body { margin: 0; padding: 0; overflow: hidden; background: #8ec5ff; font-family: "Fredoka One", sans-serif; }
+  #wrap { position: relative; }
+  canvas#gl { display: block; }
+  #hud { position: absolute; left: 0; top: 0; pointer-events: none; overflow: hidden; }
+  .g { position: absolute; box-sizing: border-box; display: flex; overflow: visible; }
+  .t { width: 100%; height: 100%; display: flex; white-space: pre-line; line-height: 1; }
+  #caption { position: absolute; left: 12px; bottom: 10px; color: #fff; font-size: 15px; text-shadow: 0 1px 3px #000a; }
+</style>
+<script type="importmap">{ "imports": { "three": "./node_modules/three/build/three.module.js" } }</script>
+</head>
+<body>
+<div id="wrap"><canvas id="gl"></canvas><div id="hud"></div><div id="caption"></div></div>
+<script type="module">
+import * as THREE from "three";
+
+const data = window.__SCENE__;
+const W = data.width, H = data.height;
+document.getElementById("wrap").style.width = W + "px";
+document.getElementById("wrap").style.height = H + "px";
+const hud = document.getElementById("hud");
+hud.style.width = W + "px"; hud.style.height = H + "px";
+if (data.caption) document.getElementById("caption").textContent = data.caption;
+
+await document.fonts.load('40px "Fredoka One"');
+
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("gl"), antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(1);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(data.sky || "#8ec5ff");
+scene.fog = new THREE.Fog(data.sky || "#8ec5ff", data.fogNear || 400, data.fogFar || 1400);
+
+scene.add(new THREE.HemisphereLight(0xdfefff, 0x6b5a40, 1.2));
+const sun = new THREE.DirectionalLight(0xfff3dd, 2.2);
+const c = data.center || [0, 0, 0];
+sun.position.set(c[0] + 120, 260, c[2] + 90);
+sun.target.position.set(c[0], 0, c[2]);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+const S = data.shadowExtent || 260;
+Object.assign(sun.shadow.camera, { left: -S, right: S, top: S, bottom: -S, near: 10, far: 900 });
+sun.shadow.bias = -0.0005;
+scene.add(sun, sun.target);
+
+const arr = x => Array.isArray(x) ? x : [];
+const toCss = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+
+// ---------- GUI (SurfaceGui et HUD) ----------
+function resolveRect(el, px, py, pw, ph, k) {
+  const s = el.size || [0, 100, 0, 100], p = el.position || [0, 0, 0, 0], a = el.anchor || [0, 0];
+  let w = s[0] * pw + s[1] * k, h = s[2] * ph + s[3] * k;
+  if (el.aspect) { const r = el.aspect; if (w / h > r) w = h * r; else h = w / r; }
+  const x = px + p[0] * pw + p[1] * k - a[0] * w;
+  const y = py + p[2] * ph + p[3] * k - a[1] * h;
+  return [x, y, w, h];
+}
+
+function layoutChildren(el, rect, k) {
+  const [x, y, w, h] = rect;
+  let inner = [x, y, w, h];
+  if (el.padding) {
+    const [t, r, b, l] = el.padding;
+    const pt = t[0] * h + t[1] * k, pr = r[0] * w + r[1] * k, pb = b[0] * h + b[1] * k, pl = l[0] * w + l[1] * k;
+    inner = [x + pl, y + pt, w - pl - pr, h - pt - pb];
+  }
+  const kids = [...arr(el.children)];
+  const out = [];
+  if (el.list || el.grid) {
+    kids.sort((a, b) => (a.layoutOrder || 0) - (b.layoutOrder || 0));
+    if (el.grid) {
+      const cw = el.grid.cell[0] * inner[2] + el.grid.cell[1] * k, ch = el.grid.cell[2] * inner[3] + el.grid.cell[3] * k;
+      const gx = el.grid.padding[0] * inner[2] + el.grid.padding[1] * k, gy = el.grid.padding[2] * inner[3] + el.grid.padding[3] * k;
+      const perRow = Math.max(1, Math.floor((inner[2] + gx) / (cw + gx)));
+      kids.forEach((kid, i) => out.push([kid, [inner[0] + (i % perRow) * (cw + gx), inner[1] + Math.floor(i / perRow) * (ch + gy), cw, ch]]));
+      return out;
+    }
+    const vertical = el.list.dir === "Vertical";
+    const pad = vertical ? el.list.padding[0] * inner[3] + el.list.padding[1] * k : el.list.padding[0] * inner[2] + el.list.padding[1] * k;
+    const sizes = kids.map(kid => { const r = resolveRect({ ...kid, position: [0, 0, 0, 0], anchor: [0, 0] }, 0, 0, inner[2], inner[3], k); return [r[2], r[3]]; });
+    const total = sizes.reduce((s, z) => s + (vertical ? z[1] : z[0]), 0) + pad * Math.max(0, kids.length - 1);
+    let cursor;
+    const align = vertical ? el.list.v : el.list.h;
+    const span = vertical ? inner[3] : inner[2];
+    if (align === "Center") cursor = (span - total) / 2; else if (align === "Bottom" || align === "Right") cursor = span - total; else cursor = 0;
+    kids.forEach((kid, i) => {
+      const [kw, kh] = sizes[i];
+      let kx, ky;
+      if (vertical) {
+        ky = inner[1] + cursor;
+        kx = el.list.h === "Center" ? inner[0] + (inner[2] - kw) / 2 : el.list.h === "Right" ? inner[0] + inner[2] - kw : inner[0];
+        cursor += kh + pad;
+      } else {
+        kx = inner[0] + cursor;
+        ky = el.list.v === "Center" ? inner[1] + (inner[3] - kh) / 2 : el.list.v === "Bottom" ? inner[1] + inner[3] - kh : inner[1];
+        cursor += kw + pad;
+      }
+      out.push([kid, [kx, ky, kw, kh]]);
+    });
+    return out;
+  }
+  kids.sort((a, b) => (a.zindex || 1) - (b.zindex || 1));
+  for (const kid of kids) out.push([kid, resolveRect(kid, inner[0], inner[1], inner[2], inner[3], k)]);
+  return out;
+}
+
+function fitFont(ctx, text, w, h, max) {
+  const lines = String(text).split("\n");
+  let size = Math.min(h / lines.length, max || 1000);
+  while (size > 4) {
+    ctx.font = `${size}px "Fredoka One"`;
+    const widest = Math.max(...lines.map(l => ctx.measureText(l).width));
+    if (widest <= w && size * lines.length <= h) break;
+    size -= 1;
+  }
+  return size;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+function drawGui(ctx, el, rect, k) {
+  const [x, y, w, h] = rect;
+  const radius = el.corner ? el.corner[0] * Math.min(w, h) + el.corner[1] * k : 0;
+  if (el.bg && el.bgT < 1 && el.class !== "TextLabel" || (el.bg && el.bgT < 1 && el.class === "TextLabel")) {
+    ctx.fillStyle = toCss(el.bg, 1 - el.bgT);
+    roundRect(ctx, x, y, w, h, radius); ctx.fill();
+  }
+  if (el.uiStroke && el.uiStroke.transparency < 1 && !el.text) {
+    ctx.strokeStyle = toCss(el.uiStroke.color, 1 - el.uiStroke.transparency);
+    ctx.lineWidth = el.uiStroke.thickness * k;
+    roundRect(ctx, x, y, w, h, radius); ctx.stroke();
+  }
+  if (el.text && el.textT < 1) {
+    ctx.save();
+    const cx = x + w / 2, cy = y + h / 2;
+    if (el.rotation) { ctx.translate(cx, cy); ctx.rotate(el.rotation * Math.PI / 180); ctx.translate(-cx, -cy); }
+    const size = el.scaled ? fitFont(ctx, el.text, w, h, el.maxText ? el.maxText * k : null) : (el.textSize || 14) * k;
+    ctx.font = `${size}px "Fredoka One"`;
+    ctx.textBaseline = "middle";
+    const lines = String(el.text).split("\n");
+    const lh = size * 1.0;
+    const totalH = lh * lines.length;
+    let ty = el.yAlign === "Top" ? y + lh / 2 : el.yAlign === "Bottom" ? y + h - totalH + lh / 2 : cy - totalH / 2 + lh / 2;
+    for (const line of lines) {
+      let tx; ctx.textAlign = el.xAlign === "Left" ? "left" : el.xAlign === "Right" ? "right" : "center";
+      tx = el.xAlign === "Left" ? x : el.xAlign === "Right" ? x + w : cx;
+      if (el.stroke) { ctx.strokeStyle = toCss(el.stroke, 0.9); ctx.lineWidth = Math.max(2, size * 0.12); ctx.lineJoin = "round"; ctx.strokeText(line, tx, ty); }
+      if (el.uiStroke) { ctx.strokeStyle = toCss(el.uiStroke.color, 1 - el.uiStroke.transparency); ctx.lineWidth = el.uiStroke.thickness * k * 2; ctx.lineJoin = "round"; ctx.strokeText(line, tx, ty); }
+      ctx.fillStyle = toCss(el.textColor, 1 - el.textT);
+      ctx.fillText(line, tx, ty);
+      ty += lh;
+    }
+    ctx.restore();
+  }
+  for (const [kid, r] of layoutChildren(el, rect, k)) drawGui(ctx, kid, r, k);
+}
+
+// ---------- Parts ----------
+const FACE = {
+  Front: { dims: s => [s[0], s[1]], pos: s => [0, 0, -s[2] / 2], rot: [0, Math.PI, 0] },
+  Back: { dims: s => [s[0], s[1]], pos: s => [0, 0, s[2] / 2], rot: [0, 0, 0] },
+  Right: { dims: s => [s[2], s[1]], pos: s => [s[0] / 2, 0, 0], rot: [0, Math.PI / 2, 0] },
+  Left: { dims: s => [s[2], s[1]], pos: s => [-s[0] / 2, 0, 0], rot: [0, -Math.PI / 2, 0] },
+  Top: { dims: s => [s[0], s[2]], pos: s => [0, s[1] / 2, 0], rot: [-Math.PI / 2, 0, 0] },
+  Bottom: { dims: s => [s[0], s[2]], pos: s => [0, -s[1] / 2, 0], rot: [Math.PI / 2, 0, 0] },
+};
+
+const highlightByModel = new Map();
+for (const h of arr(data.highlights)) highlightByModel.set(h.model, h);
+
+const geoCache = new Map();
+function geometry(shape, size) {
+  const key = shape + size.join(",");
+  if (geoCache.has(key)) return geoCache.get(key);
+  let g;
+  if (shape === "Ball") g = new THREE.SphereGeometry(Math.min(...size) / 2, 28, 18);
+  else if (shape === "Cylinder") { g = new THREE.CylinderGeometry(Math.min(size[1], size[2]) / 2, Math.min(size[1], size[2]) / 2, size[0], 40); g.rotateZ(Math.PI / 2); }
+  else g = new THREE.BoxGeometry(size[0], size[1], size[2]);
+  geoCache.set(key, g);
+  return g;
+}
+
+const ROUGH = { Neon: 0.3, Glass: 0.05, SmoothPlastic: 0.55, Plastic: 0.6, Grass: 0.95, Mud: 1, Sand: 1, Sandstone: 0.95, Slate: 0.9, Brick: 0.9, Cobblestone: 0.95, Wood: 0.8, WoodPlanks: 0.8, Metal: 0.4, CorrodedMetal: 0.7, DiamondPlate: 0.35, Fabric: 1, Rock: 0.95, Concrete: 0.95, Ice: 0.15 };
+
+for (const p of arr(data.parts)) {
+  const col = new THREE.Color(`rgb(${p.color[0]},${p.color[1]},${p.color[2]})`);
+  const mat = new THREE.MeshStandardMaterial({
+    color: col, roughness: ROUGH[p.material] ?? 0.6, metalness: p.material === "Metal" || p.material === "DiamondPlate" ? 0.4 : 0,
+    transparent: p.t > 0, opacity: 1 - p.t,
+    emissive: p.neon ? col : new THREE.Color(0), emissiveIntensity: p.neon ? 0.9 : 0,
+    flatShading: p.material === "Grass" || p.material === "Rock" || p.material === "Slate",
+  });
+  const mesh = new THREE.Mesh(geometry(p.shape, p.size), mat);
+  const m = p.cf;
+  mesh.matrixAutoUpdate = false;
+  mesh.matrix.set(m[3], m[4], m[5], m[0], m[6], m[7], m[8], m[1], m[9], m[10], m[11], m[2], 0, 0, 0, 1);
+  mesh.castShadow = p.t < 0.5 && Math.max(...p.size) < 300;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+
+  const hl = p.model && highlightByModel.get(p.model);
+  if (hl && p.name !== "HumanoidRootPart") {
+    const outline = new THREE.Mesh(geometry(p.shape, p.size), new THREE.MeshBasicMaterial({ color: new THREE.Color(`rgb(${hl.outline.join(",")})`), side: THREE.BackSide }));
+    outline.matrixAutoUpdate = false;
+    outline.matrix.copy(mesh.matrix).multiply(new THREE.Matrix4().makeScale(...p.size.map(s => (s + 0.35) / s)));
+    scene.add(outline);
+  }
+
+  for (const g of arr(p.guis)) {
+    const f = FACE[g.face]; if (!f) continue;
+    const [fw, fh] = f.dims(p.size);
+    const K = 40; // pixels GUI par stud (PixelsPerStud du jeu)
+    const scale = Math.min(1, 2048 / Math.max(fw * K, fh * K));
+    const cw = Math.max(2, Math.round(fw * K * scale)), ch = Math.max(2, Math.round(fh * K * scale));
+    const canvas = document.createElement("canvas"); canvas.width = cw; canvas.height = ch;
+    const ctx = canvas.getContext("2d");
+    for (const [kid, r] of layoutChildren({ children: arr(g.children) }, [0, 0, cw, ch], scale)) drawGui(ctx, kid, r, scale);
+    const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(fw, fh), new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false }));
+    const pos = f.pos(p.size); const n = new THREE.Vector3(...pos).normalize().multiplyScalar(0.03);
+    plane.position.set(pos[0] + n.x, pos[1] + n.y, pos[2] + n.z);
+    plane.rotation.set(...f.rot);
+    plane.updateMatrix();
+    const holder = new THREE.Object3D(); holder.matrixAutoUpdate = false; holder.matrix.copy(mesh.matrix);
+    holder.add(plane); scene.add(holder);
+  }
+}
+
+// ---------- Caméra ----------
+const cam = data.camera;
+let camera;
+if (cam.ortho) {
+  const half = cam.ortho / 2, aspect = W / H;
+  camera = new THREE.OrthographicCamera(-half * aspect, half * aspect, half, -half, 1, 3000);
+} else {
+  camera = new THREE.PerspectiveCamera(cam.fov || 60, W / H, 0.5, 4000);
+}
+camera.position.set(...cam.position);
+camera.up.set(...(cam.up || [0, 1, 0]));
+camera.lookAt(...cam.target);
+renderer.render(scene, camera);
+
+// ---------- HUD (ScreenGui) ----------
+if (arr(data.hud).length) {
+  const hc = document.createElement("canvas"); hc.width = W; hc.height = H;
+  hc.style.position = "absolute"; hc.style.left = "0"; hc.style.top = "0";
+  hud.appendChild(hc);
+  const ctx = hc.getContext("2d");
+  const k = data.hudScale || 1;
+  for (const screen of arr(data.hud)) {
+    const inset = screen.inset ? 0 : 36 * k;
+    for (const [kid, r] of layoutChildren({ children: arr(screen.children) }, [0, inset, W, H - inset], k)) drawGui(ctx, kid, r, k);
+  }
+}
+window.__DONE__ = true;
+</script>
+</body>
+</html>

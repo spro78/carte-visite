@@ -7,3 +7,9 @@
 # Système
 .DS_Store
 Thumbs.db
+
+# Outils de prévisualisation
+tools/preview/node_modules/
+tools/preview/out/
+tools/bin/
+sourcemap.json
