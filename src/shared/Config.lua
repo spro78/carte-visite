@@ -215,6 +215,8 @@ Config.Maps = {
 		-- Mode Raid
 		EggsPerBase = 5,
 		EggPickupRange = 5,
+		CarrierSpeedMultiplier = 0.9, -- un voleur d'œuf est un peu plus lent
+		CarrierVisible = true, -- un voleur d'œuf est entouré en or pour tout le monde
 		-- Mécanisme : catapulte tournante
 		CatapultRotationSeconds = 9,
 		CatapultArmLength = 16,

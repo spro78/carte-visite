@@ -73,6 +73,8 @@ export type MapModule = {
 	OnActorRemoved: ((actor: Actor) -> ())?,
 	ResolveTimeUp: (() -> string?)?, -- vainqueur à la fin du chrono (sinon : équipe la plus nombreuse)
 	GetBotGoal: ((actor: Actor) -> Vector3?)?, -- où un bot doit aller quand il ne chasse/fuit pas
+	IsCarrier: ((actor: Actor) -> boolean)?, -- l'acteur porte-t-il un objectif ?
+	Lighting: { [string]: any }?, -- propriétés de Lighting appliquées pendant la manche
 }
 
 return Types

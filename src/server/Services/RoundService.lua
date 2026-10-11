@@ -59,6 +59,7 @@ local roundStartedAt = 0
 local objectivesFolder: Folder
 local botProvider: any = nil
 local rewardHandler: any = nil
+local savedLighting: { [string]: any }? = nil
 
 local StateUpdate: RemoteEvent
 local Announce: RemoteEvent
@@ -75,6 +76,32 @@ end
 local function formatTime(seconds: number): string
 	seconds = math.max(0, math.floor(seconds + 0.5))
 	return string.format("%d:%02d", seconds // 60, seconds % 60)
+end
+
+-- Ambiance lumineuse propre à la map (Map.Lighting), restaurée au nettoyage
+local function applyLighting(preset: { [string]: any }?)
+	local Lighting = game:GetService("Lighting")
+	if preset then
+		savedLighting = {}
+		for key, value in preset do
+			local ok, current = pcall(function()
+				return (Lighting :: any)[key]
+			end)
+			if ok then
+				(savedLighting :: any)[key] = current
+				pcall(function()
+					(Lighting :: any)[key] = value
+				end)
+			end
+		end
+	elseif savedLighting then
+		for key, value in savedLighting do
+			pcall(function()
+				(Lighting :: any)[key] = value
+			end)
+		end
+		savedLighting = nil
+	end
 end
 
 local function setPhase(phase: string)
@@ -335,6 +362,10 @@ local function intermission(): boolean
 		state.MapId = forced
 	end
 	VoteService.EndVote()
+	local chosen = MapInfo.Get(state.MapId)
+	if chosen then
+		announce("Next map: " .. chosen.DisplayName .. " (" .. chosen.ModeName .. ")", chosen.Color)
+	end
 	return state.MapId ~= nil
 end
 
@@ -346,6 +377,9 @@ local function setupRound()
 	RoundState.MapId = mapId
 	RoundState.Map = map
 	map.Build(Config.World.MapOrigin, context)
+	if map.Lighting then
+		applyLighting(map.Lighting)
+	end
 
 	CaptureService.ResetRound()
 	table.clear(RoundState.Participants)
@@ -408,6 +442,14 @@ end
 
 local function countdown()
 	setPhase("Countdown")
+	local mapDef = MapInfo.Get(state.MapId)
+	if mapDef then
+		task.delay(1.5, function()
+			if state.Phase == "Countdown" then
+				announce(mapDef.Tagline, Color3.fromRGB(255, 230, 150))
+			end
+		end)
+	end
 	runTimer(Config.Round.CountdownSeconds)
 	for _, actor in RoundState.GetParticipants() do
 		setFrozen(actor, false)
@@ -528,6 +570,7 @@ local function cleanup()
 	end
 	RoundState.Map = nil
 	RoundState.MapId = nil
+	applyLighting(nil)
 	clearObjectives()
 	if botProvider then
 		botProvider.Cleanup()

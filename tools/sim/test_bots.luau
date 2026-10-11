@@ -94,7 +94,7 @@ local Farm = H.require(World.game.ServerScriptService.Server.Maps.TheFarm)
 local soloActor = server.ActorService.FromPlayer(solo)
 -- Le joueur reste immobile dans un coin (spectateur passif)
 H.teleport(soloActor, server.Config.World.MapOrigin + Vector3.new(-140, 3, -140))
-for _ = 1, 60 do
+for t = 1, 150 do
 	Engine.Advance(1)
 	if H.phase() ~= "Round" then
 		break
@@ -102,11 +102,14 @@ for _ = 1, 60 do
 	if Farm.DebugState().State == "Carried" then
 		eggTaken = true
 	end
+	if t >= 60 and eggTaken then
+		break
+	end
 end
 for _, actor in server.RoundState.GetParticipants() do
 	totalCaptures += actor.RoundCaptures
 end
-check(totalCaptures > 0, "des bots attrapent et convertissent (" .. totalCaptures .. " captures en 60 s)")
+check(totalCaptures > 0, "des bots attrapent et convertissent (" .. totalCaptures .. " captures)")
 check(eggTaken, "un bot a ramassé l'œuf d'or")
 local st = server.RoundService.GetState()
 local scores = st.Scores

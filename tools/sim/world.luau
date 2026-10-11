@@ -121,7 +121,15 @@ props(game).JobId = "sim-job"
 props(game).CreatorId = 0
 props(StarterPlayer).CharacterWalkSpeed = 16
 props(StarterPlayer).CharacterJumpPower = 50
+-- Valeurs par défaut de Lighting (comme dans Roblox)
 props(Lighting).ClockTime = 14
+props(Lighting).Brightness = 2
+props(Lighting).FogEnd = 100000
+props(Lighting).FogStart = 0
+props(Lighting).FogColor = Color3.fromRGB(192, 192, 192)
+props(Lighting).Ambient = Color3.fromRGB(70, 70, 70)
+props(Lighting).OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+props(Lighting).GlobalShadows = true
 
 World.BindToClose = {}
 
