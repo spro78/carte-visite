@@ -187,7 +187,33 @@ function Export.Parts(center, radius)
 			end
 		end
 	end
-	return { parts = parts, highlights = highlights }
+	-- Terrain : opérations de remplissage proches du centre
+	local terrain = {}
+	for _, op in World.TerrainOps do
+		local x, z, reach
+		if op.center then
+			x, z, reach = op.center[1], op.center[3], op.radius
+		else
+			x, z = op.cf[1], op.cf[3]
+			reach = op.size and math.max(op.size[1], op.size[3]) or math.max(op.radius or 0, op.height or 0)
+		end
+		local dx, dz = x - center.X, z - center.Z
+		if math.sqrt(dx * dx + dz * dz) <= radius + reach then
+			table.insert(terrain, op)
+		end
+	end
+	local colors = {}
+	for name, color in World.TerrainColors do
+		colors[name] = c3(color)
+	end
+	local tp = props(World.workspace.Terrain)
+	return {
+		parts = parts,
+		highlights = highlights,
+		terrain = terrain,
+		terrainColors = colors,
+		water = { color = c3(tp.WaterColor), transparency = tp.WaterTransparency },
+	}
 end
 
 -- Exporte le PlayerGui d'un joueur

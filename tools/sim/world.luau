@@ -47,6 +47,59 @@ camera.Name = "Camera"
 camera.Parent = workspace
 props(workspace).CurrentCamera = camera
 
+-- Terrain : les opérations de remplissage sont enregistrées (pour le rendu)
+-- La physique simulée ignore le terrain (sol plat à Engine.GroundY).
+local terrain = Instance.new("Terrain")
+terrain.Name = "Terrain"
+terrain.Parent = workspace
+props(terrain).WaterColor = Color3.fromRGB(12, 84, 92)
+props(terrain).WaterTransparency = 0.3
+props(terrain).WaterWaveSize = 0.15
+props(terrain).WaterWaveSpeed = 10
+props(terrain).WaterReflectance = 1
+props(terrain).Decoration = false
+World.TerrainOps = {}
+World.TerrainColors = {}
+local function terrainOp(op)
+	table.insert(World.TerrainOps, op)
+end
+local function checkMaterial(m)
+	assert(typeof(m) == "EnumItem" and m.EnumType == Enum.Material, "Terrain: material must be an Enum.Material")
+	return m.Name
+end
+Engine.AddMethods(terrain, {
+	FillBlock = function(_, cf, size, material)
+		assert(typeof(cf) == "CFrame" and typeof(size) == "Vector3", "FillBlock(CFrame, Vector3, Material)")
+		terrainOp({ op = "Block", cf = { cf:GetComponents() }, size = { size.X, size.Y, size.Z }, material = checkMaterial(material) })
+	end,
+	FillBall = function(_, center, radius, material)
+		assert(typeof(center) == "Vector3" and type(radius) == "number", "FillBall(Vector3, number, Material)")
+		terrainOp({ op = "Ball", center = { center.X, center.Y, center.Z }, radius = radius, material = checkMaterial(material) })
+	end,
+	FillCylinder = function(_, cf, height, radius, material)
+		assert(typeof(cf) == "CFrame" and type(height) == "number" and type(radius) == "number", "FillCylinder(CFrame, number, number, Material)")
+		terrainOp({ op = "Cylinder", cf = { cf:GetComponents() }, height = height, radius = radius, material = checkMaterial(material) })
+	end,
+	FillWedge = function(_, cf, size, material)
+		assert(typeof(cf) == "CFrame" and typeof(size) == "Vector3", "FillWedge(CFrame, Vector3, Material)")
+		terrainOp({ op = "Wedge", cf = { cf:GetComponents() }, size = { size.X, size.Y, size.Z }, material = checkMaterial(material) })
+	end,
+	FillRegion = function(_, region, resolution, material)
+		local cf, size = region.CFrame, region.Size
+		terrainOp({ op = "Block", cf = { cf:GetComponents() }, size = { size.X, size.Y, size.Z }, material = checkMaterial(material) })
+	end,
+	ReplaceMaterial = function() end,
+	Clear = function()
+		table.clear(World.TerrainOps)
+	end,
+	SetMaterialColor = function(_, material, color)
+		World.TerrainColors[checkMaterial(material)] = color
+	end,
+	GetMaterialColor = function(_, material)
+		return World.TerrainColors[checkMaterial(material)] or Color3.new(0.5, 0.5, 0.5)
+	end,
+})
+
 -- Projection perspective simple (sténopé) pour la caméra factice
 local function project(cam, point)
 	local cf = props(cam).CFrame

@@ -357,6 +357,7 @@ local DEFAULTS = {
 		return d
 	end,
 	WedgePart = partDefaults,
+	CornerWedgePart = partDefaults,
 	MeshPart = partDefaults,
 	TrussPart = partDefaults,
 	Humanoid = function()
