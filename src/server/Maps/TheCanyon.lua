@@ -39,6 +39,19 @@ local BUCKET_HEIGHT = 2.5
 local SAND = Color3.fromRGB(214, 150, 95)
 local ROCK = Color3.fromRGB(176, 98, 60)
 
+local THEME: MapBase.ArenaTheme = {
+	Seed = 3307,
+	Floor = Enum.Material.Sandstone,
+	Patches = { Enum.Material.Sand, Enum.Material.Ground },
+	Path = Enum.Material.Sand,
+	CenterRadius = 24,
+	Valley = { Ground = Enum.Material.Sand, Hill = Enum.Material.Sandstone, Rock = Enum.Material.Sandstone, Height = 110, Gap = 20, RockChance = 0.8 },
+	Perimeter = "None",
+	Trees = { "Round" },
+	TreeCount = 0,
+	Camp = { Wall = Enum.Material.WoodPlanks, Ground = Enum.Material.Ground },
+}
+
 local folder: Folder? = nil
 local bases: { [string]: MapBase.Base }? = nil
 local origin = Vector3.zero
@@ -217,9 +230,7 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	origin = mapOrigin
 	local f = MapBase.NewFolder("Map_" .. Map.Id)
 	folder = f
-	MapBase.BuildGround(f, origin, cfg.GroundSize, SAND, Enum.Material.Sandstone)
-	MapBase.BuildBoundary(f, origin, cfg.GroundSize, 80)
-	bases = MapBase.BuildBases(f, origin, cfg.BaseRadius, cfg.BasePadSize)
+	bases = MapBase.BuildArena(f, origin, cfg, THEME)
 	catapult = buildCatapult(f)
 
 	-- Falaises tout autour (décor de bord)
@@ -288,14 +299,7 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	end
 
 	-- Environnement, chemins et accessoires de western
-	MapBase.BuildSurroundings(f, origin, cfg.GroundSize, {
-		Ground = Color3.fromRGB(205, 145, 90),
-		Hill = Color3.fromRGB(185, 100, 60),
-		HillTop = Color3.fromRGB(205, 125, 75),
-		Material = Enum.Material.Sandstone,
-	})
 	local builtBases = bases :: { [string]: MapBase.Base }
-	MapBase.BuildPaths(f, origin, builtBases, Color3.fromRGB(190, 130, 80), 24)
 	buildRails(f, origin + Vector3.new(-half + 20, 0, half - 60), origin + Vector3.new(-40, 0, half - 25))
 	buildWagon(f, origin + Vector3.new(half - 40, 0, 40), math.rad(30))
 	buildWagon(f, origin + Vector3.new(-55, 0, -half + 30), math.rad(-70))

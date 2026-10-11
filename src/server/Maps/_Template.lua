@@ -33,6 +33,14 @@ local MapBase = require(script.Parent.MapBase)
 local Map = {}
 Map.Id = "MyNewMap"
 
+local THEME: MapBase.ArenaTheme = {
+	Seed = 1,
+	Floor = Enum.Material.Grass,
+	Path = Enum.Material.Ground,
+	Valley = { Ground = Enum.Material.Grass, Hill = Enum.Material.Grass, Rock = Enum.Material.Rock },
+	Perimeter = "Fence",
+}
+
 local folder: Folder? = nil
 local bases = nil
 local _running = false
@@ -40,9 +48,7 @@ local _running = false
 function Map.Build(origin: Vector3, context)
 	local cfg = Config.Maps[Map.Id]
 	local f = MapBase.NewFolder("Map_" .. Map.Id)
-	MapBase.BuildGround(f, origin, cfg.GroundSize, Color3.fromRGB(120, 180, 90))
-	MapBase.BuildBoundary(f, origin, cfg.GroundSize, 60)
-	bases = MapBase.BuildBases(f, origin, cfg.BaseRadius, cfg.BasePadSize)
+	bases = MapBase.BuildArena(f, origin, cfg, THEME)
 	MapBase.BuildCentralPad(f, origin, 20, Color3.fromRGB(200, 200, 200))
 	f.Parent = workspace
 	folder = f

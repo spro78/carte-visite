@@ -24,12 +24,15 @@ Config.Round = {
 
 -- ---------------------------------------------------------------------------
 -- Apparence des joueurs
---   "Avatar" : chacun garde son avatar Roblox intact ; l'animal se lit par le
---              contour (vert/rouge), le badge au-dessus de la tête et le bandeau.
---   "Animal" : teinte d'équipe + oreilles/crête/capuche (module AnimalAppearance).
+--   "Accessories" : chacun garde son avatar Roblox ; on ajoute les attributs de
+--              l'animal (oreilles + queue de renard, crête + plumes de poule,
+--              capuche + queue de vipère) et un foulard aux couleurs de l'équipe.
+--   "Avatar" : avatar strictement intact ; l'animal se lit par le contour
+--              (vert/rouge) et le badge au-dessus de la tête.
+--   "Animal" : teinte d'équipe complète + museau/bec (module AnimalAppearance).
 -- ---------------------------------------------------------------------------
 Config.Appearance = {
-	Mode = "Avatar",
+	Mode = "Accessories",
 	ShowTeamBadge = true, -- badge "FOX / CHICKEN / SNAKE" au-dessus de la tête
 	BadgeMaxDistance = 140,
 }

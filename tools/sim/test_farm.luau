@@ -136,7 +136,13 @@ check((Engine.RemoteCalls["Launch:FireClient"] or 0) == before2, "sauter par-des
 section("Cachettes")
 park()
 Engine.Advance(1.5)
-local grassPos = O + Vector3.new(math.cos(math.rad(30)), 0, math.sin(math.rad(30))) * 92
+local grassPos
+for _, d in World.workspace:GetDescendants() do
+	if d.Name == "HidingZone_Grass" then
+		grassPos = Vector3.new(d.Position.X, O.Y, d.Position.Z)
+		break
+	end
+end
 H.teleport(B, grassPos + Vector3.new(0, 3, 0))
 Engine.Advance(0.5)
 check(bob.Character:GetAttribute("Hidden") == true, "Bob est caché dans les hautes herbes")

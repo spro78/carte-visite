@@ -1,7 +1,9 @@
 --[[
 	AnimalAppearance.lua
-	Par défaut (Config.Appearance.Mode = "Avatar"), l'avatar Roblox reste intact.
-	En mode "Animal", apparence d'animal construite par-dessus l'avatar avec des Parts soudées :
+	Par défaut (Config.Appearance.Mode = "Accessories"), l'avatar Roblox reste
+	intact et reçoit les attributs de son animal + un foulard d'équipe.
+	En mode "Animal", la teinte d'équipe et le museau/bec s'ajoutent.
+	Pièces soudées par animal :
 	  FOX     : oreilles pointues + grosse queue à bout blanc
 	  CHICKEN : crête rouge + bec + plumes de queue
 	  SNAKE   : capuche (cobra) + longue queue en anneaux
@@ -60,7 +62,7 @@ end
 -- ---------------------------------------------------------------------------
 -- Pièces par animal
 -- ---------------------------------------------------------------------------
-local function buildFox(character: Model, color: Color3, dark: Color3)
+local function buildFox(character: Model, color: Color3, dark: Color3, full: boolean)
 	local head = getPart(character, "Head")
 	local torso = getPart(character, "LowerTorso", "Torso")
 	if head then
@@ -76,15 +78,17 @@ local function buildFox(character: Model, color: Color3, dark: Color3)
 				Color = dark,
 			}, CFrame.new(side * s.X * 0.29, s.Y * 0.57, -0.05) * CFrame.Angles(0, 0, math.rad(-side * 18)))
 		end
-		AnimalAppearance.Attach(character, head, "Snout", {
-			Size = Vector3.new(s.X * 0.4, s.Y * 0.3, s.Z * 0.35),
-			Color = WHITE,
-		}, CFrame.new(0, -s.Y * 0.18, -s.Z * 0.6))
-		AnimalAppearance.Attach(character, head, "Nose", {
-			Shape = Enum.PartType.Ball,
-			Size = Vector3.new(0.3, 0.3, 0.3),
-			Color = Color3.fromRGB(30, 25, 25),
-		}, CFrame.new(0, -s.Y * 0.1, -s.Z * 0.78))
+		if full then
+			AnimalAppearance.Attach(character, head, "Snout", {
+				Size = Vector3.new(s.X * 0.4, s.Y * 0.3, s.Z * 0.35),
+				Color = WHITE,
+			}, CFrame.new(0, -s.Y * 0.18, -s.Z * 0.6))
+			AnimalAppearance.Attach(character, head, "Nose", {
+				Shape = Enum.PartType.Ball,
+				Size = Vector3.new(0.3, 0.3, 0.3),
+				Color = Color3.fromRGB(30, 25, 25),
+			}, CFrame.new(0, -s.Y * 0.1, -s.Z * 0.78))
+		end
 	end
 	if torso then
 		local s = torso.Size
@@ -102,7 +106,7 @@ local function buildFox(character: Model, color: Color3, dark: Color3)
 	end
 end
 
-local function buildChicken(character: Model, color: Color3, dark: Color3)
+local function buildChicken(character: Model, color: Color3, dark: Color3, full: boolean)
 	local head = getPart(character, "Head")
 	local torso = getPart(character, "LowerTorso", "Torso")
 	local red = Color3.fromRGB(225, 40, 40)
@@ -115,15 +119,17 @@ local function buildChicken(character: Model, color: Color3, dark: Color3)
 				Color = red,
 			}, CFrame.new(0, s.Y * 0.6 + (i == 0 and 0.12 or 0), i * 0.3))
 		end
-		AnimalAppearance.Attach(character, head, "Beak", {
-			Size = Vector3.new(s.X * 0.35, s.Y * 0.2, s.Z * 0.45),
-			Color = Color3.fromRGB(255, 170, 30),
-		}, CFrame.new(0, -s.Y * 0.08, -s.Z * 0.62))
-		AnimalAppearance.Attach(character, head, "Wattle", {
-			Shape = Enum.PartType.Ball,
-			Size = Vector3.new(0.3, 0.45, 0.3),
-			Color = red,
-		}, CFrame.new(0, -s.Y * 0.38, -s.Z * 0.5))
+		if full then
+			AnimalAppearance.Attach(character, head, "Beak", {
+				Size = Vector3.new(s.X * 0.35, s.Y * 0.2, s.Z * 0.45),
+				Color = Color3.fromRGB(255, 170, 30),
+			}, CFrame.new(0, -s.Y * 0.08, -s.Z * 0.62))
+			AnimalAppearance.Attach(character, head, "Wattle", {
+				Shape = Enum.PartType.Ball,
+				Size = Vector3.new(0.3, 0.45, 0.3),
+				Color = red,
+			}, CFrame.new(0, -s.Y * 0.38, -s.Z * 0.5))
+		end
 	end
 	if torso then
 		local s = torso.Size
@@ -136,7 +142,7 @@ local function buildChicken(character: Model, color: Color3, dark: Color3)
 	end
 end
 
-local function buildSnake(character: Model, color: Color3, dark: Color3)
+local function buildSnake(character: Model, color: Color3, dark: Color3, full: boolean)
 	local head = getPart(character, "Head")
 	local torso = getPart(character, "LowerTorso", "Torso")
 	if head then
@@ -149,17 +155,19 @@ local function buildSnake(character: Model, color: Color3, dark: Color3)
 			Size = Vector3.new(s.X * 0.9, s.Y * 0.7, 0.32),
 			Color = dark,
 		}, CFrame.new(0, s.Y * 0.05, s.Z * 0.56))
-		AnimalAppearance.Attach(character, head, "Tongue", {
-			Size = Vector3.new(0.12, 0.05, 0.6),
-			Color = Color3.fromRGB(230, 50, 70),
-		}, CFrame.new(0, -s.Y * 0.3, -s.Z * 0.7))
-		for _, side in { -1, 1 } do
-			AnimalAppearance.Attach(character, head, "Eye", {
-				Shape = Enum.PartType.Ball,
-				Size = Vector3.new(0.3, 0.3, 0.3),
-				Color = Color3.fromRGB(255, 230, 60),
-				Material = Enum.Material.Neon,
-			}, CFrame.new(side * s.X * 0.22, s.Y * 0.12, -s.Z * 0.5))
+		if full then
+			AnimalAppearance.Attach(character, head, "Tongue", {
+				Size = Vector3.new(0.12, 0.05, 0.6),
+				Color = Color3.fromRGB(230, 50, 70),
+			}, CFrame.new(0, -s.Y * 0.3, -s.Z * 0.7))
+			for _, side in { -1, 1 } do
+				AnimalAppearance.Attach(character, head, "Eye", {
+					Shape = Enum.PartType.Ball,
+					Size = Vector3.new(0.3, 0.3, 0.3),
+					Color = Color3.fromRGB(255, 230, 60),
+					Material = Enum.Material.Neon,
+				}, CFrame.new(side * s.X * 0.22, s.Y * 0.12, -s.Z * 0.5))
+			end
 		end
 	end
 	if torso then
@@ -194,35 +202,54 @@ function AnimalAppearance.Apply(character: Model, teamId: string?)
 	if not def then
 		return
 	end
+	local mode = Config.Appearance.Mode
 	-- Mode "Avatar" : on ne touche pas à l'avatar Roblox du joueur
-	if Config.Appearance.Mode ~= "Animal" then
+	if mode == "Avatar" then
 		character:SetAttribute("Animal", def.Id)
 		return
 	end
+	local full = mode == "Animal"
 
-	-- Teinte des membres (on mémorise la couleur d'origine)
-	for _, child in character:GetChildren() do
-		if child:IsA("BasePart") and child.Name ~= "HumanoidRootPart" then
-			if child:GetAttribute(ORIGINAL_COLOR_ATTR) == nil then
-				child:SetAttribute(ORIGINAL_COLOR_ATTR, child.Color)
+	if full then
+		-- Teinte des membres (on mémorise la couleur d'origine)
+		for _, child in character:GetChildren() do
+			if child:IsA("BasePart") and child.Name ~= "HumanoidRootPart" then
+				if child:GetAttribute(ORIGINAL_COLOR_ATTR) == nil then
+					child:SetAttribute(ORIGINAL_COLOR_ATTR, child.Color)
+				end
+				child.Color = def.Color
 			end
-			child.Color = def.Color
 		end
-	end
-
-	-- Bandeau de couleur autour du torse : lisible même avec des vêtements
-	local torso = getPart(character, "UpperTorso", "Torso")
-	if torso then
-		local s = torso.Size
-		AnimalAppearance.Attach(character, torso, "TeamBand", {
-			Size = Vector3.new(s.X + 0.25, 0.45, s.Z + 0.25),
-			Color = def.DarkColor,
-		}, CFrame.new(0, -s.Y * 0.3, 0))
+		-- Bandeau de couleur autour du torse : lisible même avec des vêtements
+		local torso = getPart(character, "UpperTorso", "Torso")
+		if torso then
+			local s = torso.Size
+			AnimalAppearance.Attach(character, torso, "TeamBand", {
+				Size = Vector3.new(s.X + 0.25, 0.45, s.Z + 0.25),
+				Color = def.DarkColor,
+			}, CFrame.new(0, -s.Y * 0.3, 0))
+		end
+	else
+		-- Mode "Accessories" : avatar intact + foulard aux couleurs de l'équipe
+		local torso = getPart(character, "UpperTorso", "Torso")
+		if torso then
+			local s = torso.Size
+			AnimalAppearance.Attach(character, torso, "Scarf", {
+				Size = Vector3.new(s.X * 0.82, 0.5, s.Z + 0.3),
+				Color = def.Color,
+				Material = Enum.Material.Fabric,
+			}, CFrame.new(0, s.Y * 0.5 - 0.15, 0))
+			AnimalAppearance.Attach(character, torso, "ScarfKnot", {
+				Size = Vector3.new(0.7, 0.9, 0.25),
+				Color = def.DarkColor,
+				Material = Enum.Material.Fabric,
+			}, CFrame.new(s.X * 0.18, s.Y * 0.32, -s.Z * 0.5 - 0.15) * CFrame.Angles(0, 0, math.rad(20)))
+		end
 	end
 
 	local builder = BUILDERS[def.Id]
 	if builder then
-		builder(character, def.Color, def.DarkColor)
+		builder(character, def.Color, def.DarkColor, full)
 	end
 	character:SetAttribute("Animal", def.Id)
 end

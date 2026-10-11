@@ -42,6 +42,18 @@ local ARM_COUNT = 4
 local ARM_HEIGHT = 3
 local SAFE_JUMP_HEIGHT = 6.5
 
+local THEME: MapBase.ArenaTheme = {
+	Seed = 4409,
+	Floor = Enum.Material.LeafyGrass,
+	Patches = { Enum.Material.Mud, Enum.Material.Grass },
+	Path = Enum.Material.Mud,
+	CenterRadius = 26,
+	Valley = { Ground = Enum.Material.LeafyGrass, Hill = Enum.Material.LeafyGrass, Rock = Enum.Material.Slate, Height = 70 },
+	Perimeter = "None",
+	Trees = { "Round", "Pine" },
+	TreeCount = 70,
+}
+
 local folder: Folder? = nil
 local bases: { [string]: MapBase.Base }? = nil
 local origin = Vector3.zero
@@ -224,10 +236,7 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	origin = mapOrigin
 	table.clear(geysers)
 	local f = MapBase.NewFolder("Map_" .. Map.Id)
-	MapBase.BuildGround(f, origin, cfg.GroundSize, Color3.fromRGB(82, 130, 75))
-	MapBase.BuildBoundary(f, origin, cfg.GroundSize, 80)
-	MapBase.BuildPerimeterFence(f, origin, cfg.GroundSize, Color3.fromRGB(95, 80, 65))
-	bases = MapBase.BuildBases(f, origin, cfg.BaseRadius, cfg.BasePadSize)
+	bases = MapBase.BuildArena(f, origin, cfg, THEME)
 	turnstile = buildTurnstile(f)
 	-- Cercle de boue autour du tourniquet
 	Build.VerticalCylinder(origin + Vector3.new(0, 0.05, 0), cfg.TurnstileRadius + 3, 0.1, { Name = "TurnstileZone", Color = Color3.fromRGB(100, 85, 60), Material = Enum.Material.Mud, CanCollide = false, CanQuery = false }, f)
@@ -279,14 +288,6 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	end
 
 	-- Environnement : collines sombres, passerelles, saules, champignons, lucioles
-	MapBase.BuildSurroundings(f, origin, cfg.GroundSize, {
-		Ground = Color3.fromRGB(70, 110, 70),
-		Hill = Color3.fromRGB(65, 115, 70),
-		HillTop = Color3.fromRGB(85, 135, 80),
-		Trees = true,
-		TreeColor = Color3.fromRGB(100, 150, 70),
-	})
-	MapBase.BuildGrassPatches(f, origin, cfg.GroundSize, Color3.fromRGB(70, 115, 65), 12)
 	local builtBases = bases :: { [string]: MapBase.Base }
 	for _, base in builtBases do
 		local toCenter = (origin - base.Center).Unit

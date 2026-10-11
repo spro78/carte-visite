@@ -1,9 +1,22 @@
 --[[
 	MapBase.lua
-	Briques communes à toutes les maps : sol, limites invisibles, trois bases en
-	triangle autour d'une zone centrale, cachettes (hautes herbes, buissons,
-	terriers), décors (clôtures, bottes de foin, arbres, rochers) et mécanismes
-	tournants. Chaque module de map appelle ces fonctions dans Build().
+	Système commun à toutes les maps. Une map décrit son THÈME (relief, sol,
+	chemins, clôture, végétation, style des camps) et MapBase construit tout ce
+	qui est partagé :
+
+	  MapBase.BuildArena(folder, origin, cfg, theme) -> bases
+	    - sol de jeu plat en Terrain + plaques de matières variées
+	    - vallée autour (talus, collines, montagnes, rochers) et arbres
+	    - limites invisibles + clôture décorative du thème
+	    - trois camps d'équipe en triangle (couleurs d'équipe, balise visible
+	      de loin, points d'apparition)
+	    - chemins des camps vers le centre et anneau de course
+	  MapBase.ClearArena(origin)   -> efface le terrain de la map (appelé par
+	                                  RoundService au nettoyage, pour toutes les maps)
+
+	La map ne construit ensuite QUE ce qui lui est propre : ses lieux, son
+	mécanisme et son mode de jeu. Les briques réutilisables (cachettes,
+	mécanismes tournants) sont aussi ici ; les décors sont dans Util/Props.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -13,6 +26,8 @@ local Teams = require(Shared.Teams)
 local Config = require(Shared.Config)
 local Mechanics = require(Shared.Mechanics)
 local Build = require(script.Parent.Parent.Util.Build)
+local Props = require(script.Parent.Parent.Util.Props)
+local TerrainKit = require(script.Parent.Parent.Util.TerrainKit)
 
 local MapBase = {}
 
@@ -27,6 +42,31 @@ export type Base = {
 	Radius: number, -- demi-côté de la plateforme
 }
 
+-- Thème d'une map (voir BuildArena)
+export type ArenaTheme = {
+	Seed: number,
+	Floor: Enum.Material, -- matière du sol de jeu
+	Patches: { Enum.Material }?, -- plaques de matière pour casser l'aplat
+	PatchCount: number?,
+	Path: Enum.Material, -- chemins
+	PathWidth: number?,
+	RingPath: number?, -- rayon de l'anneau de course autour du centre (nil = pas d'anneau)
+	CenterRadius: number?, -- les chemins s'arrêtent à ce rayon du centre
+	Valley: TerrainKit.ValleyTheme,
+	Perimeter: string?, -- "Fence" | "Picket" | "Hedge" | "StoneWall" | "Rocks" | "None"
+	PerimeterColor: Color3?,
+	Trees: { string }?, -- styles d'arbres (Props.Tree)
+	TreeCount: number?,
+	TreeScale: number?,
+	Camp: CampTheme?,
+}
+
+export type CampTheme = {
+	Wall: Enum.Material?, -- matière des murets du camp
+	WallColor: Color3?, -- sinon couleur foncée de l'équipe
+	Ground: Enum.Material?, -- terrain sous le camp
+}
+
 -- Angles (degrés) des trois bases autour du centre
 MapBase.BaseAngles = { FOX = 90, CHICKEN = 210, SNAKE = 330 }
 
@@ -38,22 +78,35 @@ function MapBase.NewFolder(name: string): Folder
 	return folder
 end
 
--- Sol carré centré sur origin, surface supérieure à origin.Y.
-function MapBase.BuildGround(folder: Instance, origin: Vector3, size: number, color: Color3, material: Enum.Material?): Part
-	local ground = Build.Part({
-		Name = "Ground",
-		Size = Vector3.new(size, 4, size),
-		Position = origin + Vector3.new(0, -2, 0),
-		Color = color,
-		Studs = material == nil or material == Enum.Material.Grass,
-	}, folder)
-	if material and material ~= Enum.Material.Grass then
-		ground.Material = material
-	end
-	return ground
+-- Graine commune (décors identiques d'une manche à l'autre)
+function MapBase.Seed(seed: number)
+	random = Random.new(seed)
+	Props.Seed(seed)
 end
 
--- Quatre murs invisibles (et un plafond bas) pour qu'on ne sorte pas de la map.
+function MapBase.Random(): Random
+	return random
+end
+
+-- Position polaire autour d'un centre (angle en degrés, sens de BaseAngles)
+function MapBase.Polar(origin: Vector3, degrees: number, radius: number): Vector3
+	local a = math.rad(degrees)
+	return origin + Vector3.new(math.cos(a) * radius, 0, math.sin(a) * radius)
+end
+
+-- ---------------------------------------------------------------------------
+-- Sol, limites, vallée
+-- ---------------------------------------------------------------------------
+
+-- Taille totale de la région de terrain d'une map (pour ClearArena)
+local ARENA_EXTENT = 1500
+local ARENA_HEIGHT = 320
+
+function MapBase.ClearArena(origin: Vector3)
+	TerrainKit.Clear(origin + Vector3.new(0, ARENA_HEIGHT / 2 - 40, 0), Vector3.new(ARENA_EXTENT, ARENA_HEIGHT, ARENA_EXTENT))
+end
+
+-- Murs invisibles (et pas de plafond) pour qu'on ne sorte pas de la map.
 function MapBase.BuildBoundary(folder: Instance, origin: Vector3, size: number, height: number)
 	local half = size / 2
 	local specs = {
@@ -73,29 +126,92 @@ function MapBase.BuildBoundary(folder: Instance, origin: Vector3, size: number, 
 	end
 end
 
--- Position d'une base (angle en degrés autour du centre)
-function MapBase.BasePosition(origin: Vector3, teamId: string, radius: number): Vector3
-	local angle = math.rad(MapBase.BaseAngles[teamId])
-	return origin + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+-- Clôture décorative tout autour, selon le style du thème
+function MapBase.BuildPerimeter(folder: Instance, origin: Vector3, size: number, style: string?, color: Color3?)
+	if style == nil or style == "None" then
+		return
+	end
+	local half = size / 2 - 2
+	local corners = {
+		origin + Vector3.new(-half, 0, -half),
+		origin + Vector3.new(half, 0, -half),
+		origin + Vector3.new(half, 0, half),
+		origin + Vector3.new(-half, 0, half),
+	}
+	for i = 1, 4 do
+		local a, b = corners[i], corners[i % 4 + 1]
+		if style == "Fence" then
+			Props.Fence(folder, a, b, color)
+		elseif style == "Picket" then
+			Props.PicketFence(folder, a, b, color)
+		elseif style == "Hedge" then
+			Props.Hedge(folder, a, b, 5, color)
+		elseif style == "StoneWall" then
+			Props.StoneWall(folder, a, b, 3, color)
+		elseif style == "Rocks" then
+			local delta = b - a
+			local n = math.floor(delta.Magnitude / 9)
+			for k = 0, n do
+				Props.Rock(folder, a + delta * (k / n), random:NextNumber(4, 7), color)
+			end
+		end
+	end
 end
 
--- Trois bases disposées en triangle. Retourne bases[teamId].
-function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, padSize: number): { [string]: Base }
+-- Arbres posés sur le relief autour de la zone de jeu
+local function plantSurroundingTrees(folder: Instance, origin: Vector3, size: number, theme: ArenaTheme)
+	local count = theme.TreeCount or 60
+	local kinds = theme.Trees or { "Block", "Round", "Pine" }
+	local ring1, ring2 = TerrainKit.ValleyRing(size, theme.Valley.Gap)
+	local half = size / 2
+	for i = 1, count do
+		local a = random:NextNumber(0, math.pi * 2)
+		-- Distance : dans la bande entre la clôture et les grandes collines
+		local edge = half / math.max(math.abs(math.cos(a)), math.abs(math.sin(a)))
+		local inner = math.min(edge + 8, ring1 - 10)
+		local d = random:NextNumber(inner, ring2 + 20)
+		local p = origin + Vector3.new(math.cos(a) * d, 0, math.sin(a) * d)
+		local ground = TerrainKit.Ground(p)
+		Props.Tree(folder, ground - Vector3.new(0, 0.6, 0), (theme.TreeScale or 1) * random:NextNumber(0.85, 1.35), kinds)
+	end
+end
+
+-- ---------------------------------------------------------------------------
+-- Camps d'équipe
+-- ---------------------------------------------------------------------------
+
+-- Position d'une base (angle en degrés autour du centre)
+function MapBase.BasePosition(origin: Vector3, teamId: string, radius: number): Vector3
+	return MapBase.Polar(origin, MapBase.BaseAngles[teamId], radius)
+end
+
+-- Trois camps disposés en triangle. Retourne bases[teamId].
+function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, padSize: number, camp: CampTheme?): { [string]: Base }
 	local bases = {}
+	local style: CampTheme = camp or {}
 	for _, teamId in Teams.Order do
 		local def = Teams.Get(teamId)
 		assert(def)
 		local center = MapBase.BasePosition(origin, teamId, radius)
 		local facing = CFrame.lookAt(center, Vector3.new(origin.X, center.Y, origin.Z))
 		local rotation = facing - facing.Position
+		local model = Instance.new("Model")
+		model.Name = teamId .. "_Camp"
 
 		local halfPad = padSize / 2
 		local function at(x: number, y: number, z: number): CFrame
 			return CFrame.new(center) * rotation * CFrame.new(x, y, z)
 		end
-		local light = def.Color:Lerp(Color3.new(1, 1, 1), 0.35)
+		local light = def.Color:Lerp(Color3.new(1, 1, 1), 0.4)
+		local wallColor = style.WallColor or def.DarkColor
+		local wallMaterial = style.Wall or Enum.Material.WoodPlanks
 
-		-- Plateforme du camp (couleur d'équipe, à tenons) et bordure
+		-- Terrain du camp (sous la plateforme)
+		if style.Ground then
+			TerrainKit.Paint(facing, padSize + 16, padSize + 16, origin.Y, style.Ground)
+		end
+
+		-- Plateforme (couleur d'équipe) et bordure
 		local pad = Build.Part({
 			Name = teamId .. "_BasePad",
 			Size = Vector3.new(padSize, 1, padSize),
@@ -103,49 +219,64 @@ function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, p
 			Color = def.Color,
 			Studs = true,
 			Accent = true,
-		}, folder)
+		}, model)
 		pad:SetAttribute("Team", teamId)
 		pad:SetAttribute("BasePad", true)
-		Build.Part({ Name = teamId .. "_BaseBorder", Size = Vector3.new(padSize + 3, 0.7, padSize + 3), CFrame = at(0, 0.35, 0), Color = def.DarkColor, Studs = true, Accent = true }, folder)
-		-- Damier clair au centre (lisibilité)
-		for i = -1, 1 do
-			for j = -1, 1 do
-				if (i + j) % 2 == 0 then
-					Build.Part({ Name = "Tile", Size = Vector3.new(5, 0.12, 5), CFrame = at(i * 5, 1.06, j * 5), Color = light, Accent = true, CanCollide = false, CanQuery = false }, folder)
-				end
-			end
-		end
+		Build.Part({ Name = "BaseBorder", Size = Vector3.new(padSize + 3, 0.7, padSize + 3), CFrame = at(0, 0.35, 0), Color = def.DarkColor, Accent = true }, model)
+		-- Emblème au sol : disque clair avec le nom de l'équipe (lisible d'en haut)
+		Build.Part({ Name = "Emblem", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.12, 16, 16), CFrame = at(0, 1.02, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = light, Accent = true, CanCollide = false, CanQuery = false }, model)
+		local label = Build.Part({ Name = "EmblemText", Size = Vector3.new(14, 0.05, 5), CFrame = at(0, 1.1, 0) * CFrame.Angles(0, math.pi, 0), Transparency = 1, CanCollide = false, CanQuery = false }, model)
+		Build.SurfaceLabel(label, Enum.NormalId.Top, def.Display, { TextColor3 = def.DarkColor, TextStrokeTransparency = 1, Font = Enum.Font.GothamBlack })
 
-		-- Arche d'entrée tournée vers le centre, avec la bannière du camp
+		-- Arche d'entrée tournée vers le centre, bannière du camp
 		local front = -halfPad + 1.5
 		for _, side in { -1, 1 } do
-			Build.Part({ Name = "ArchPillar", Size = Vector3.new(3, 13, 3), CFrame = at(side * 9, 7, front), Color = light, Studs = true, Accent = true }, folder)
-			Build.Part({ Name = "ArchCap", Size = Vector3.new(4, 1.2, 4), CFrame = at(side * 9, 14, front), Color = def.DarkColor, Studs = true, Accent = true }, folder)
+			Build.Part({ Name = "ArchPillar", Size = Vector3.new(3, 12, 3), CFrame = at(side * 9.5, 6.5, front), Color = wallColor, Material = wallMaterial, Accent = style.WallColor == nil }, model)
+			Build.Part({ Name = "ArchBase", Size = Vector3.new(4, 1.2, 4), CFrame = at(side * 9.5, 1.1, front), Color = def.DarkColor, Accent = true }, model)
+			Build.Part({ Name = "ArchCap", Size = Vector3.new(4.2, 1.2, 4.2), CFrame = at(side * 9.5, 13.1, front), Color = def.Color, Accent = true }, model)
+			local lamp = Build.Part({ Name = "ArchLamp", Shape = Enum.PartType.Ball, Size = Vector3.new(2, 2, 2), CFrame = at(side * 9.5, 14.6, front), Color = light, Material = Enum.Material.Neon, Accent = true, CanCollide = false }, model)
+			local glow = Instance.new("PointLight")
+			glow.Color = def.Color
+			glow.Range = 14
+			glow.Brightness = 0.8
+			glow.Parent = lamp
 		end
-		local beam = Build.Part({ Name = teamId .. "_ArchBeam", Size = Vector3.new(22, 4, 1.6), CFrame = at(0, 12, front), Color = def.DarkColor, Accent = true }, folder)
-		Build.SurfaceLabel(beam, Enum.NormalId.Front, def.Display .. " CAMP", { TextColor3 = Color3.new(1, 1, 1), TextStrokeTransparency = 0.2, Font = Enum.Font.GothamBlack })
-		Build.SurfaceLabel(beam, Enum.NormalId.Back, def.Display .. " CAMP", { TextColor3 = Color3.new(1, 1, 1), TextStrokeTransparency = 0.2, Font = Enum.Font.GothamBlack })
-		-- Fanions sous l'arche
-		for k = -4, 4 do
-			Build.Part({ Name = "Pennant", Size = Vector3.new(1.2, 1.4, 0.15), CFrame = at(k * 2, 9.4 + math.abs(k) * 0.12, front) * CFrame.Angles(0, 0, math.rad(45)), Color = k % 2 == 0 and def.Color or Color3.new(1, 1, 1), Accent = true, CanCollide = false, CanQuery = false }, folder)
+		local beam = Build.Part({ Name = teamId .. "_ArchBeam", Size = Vector3.new(23, 3.6, 1.6), CFrame = at(0, 11.2, front), Color = def.DarkColor, Accent = true }, model)
+		for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+			Build.SurfaceLabel(beam, face, def.Display .. " CAMP", { TextColor3 = Color3.new(1, 1, 1), TextStrokeTransparency = 0.3, Font = Enum.Font.GothamBlack })
 		end
+		Props.Bunting(model, (at(-9.5, 9.4, front - 0.4)).Position, (at(9.5, 9.4, front - 0.4)).Position, { def.Color, Color3.new(1, 1, 1) }, 1.4)
 
 		-- Murets : arrière complet, côtés partiels (on entre par l'avant et les côtés)
-		Build.Part({ Name = "CampWall", Size = Vector3.new(padSize + 3, 3.5, 2), CFrame = at(0, 1.75, halfPad + 1.5), Color = def.DarkColor, Studs = true, Accent = true }, folder)
-		for _, side in { -1, 1 } do
-			Build.Part({ Name = "CampWall", Size = Vector3.new(2, 3.5, padSize * 0.45), CFrame = at(side * (halfPad + 1.5), 1.75, halfPad * 0.55), Color = def.DarkColor, Studs = true, Accent = true }, folder)
-			-- Drapeaux aux coins arrière
-			Build.Part({ Name = "FlagPole", Size = Vector3.new(0.6, 16, 0.6), CFrame = at(side * (halfPad - 1), 8, halfPad - 1), Color = Color3.fromRGB(235, 235, 235) }, folder)
-			Build.Part({ Name = "Flag", Size = Vector3.new(0.2, 3.4, 5), CFrame = at(side * (halfPad - 1), 14.2, halfPad - 3.5), Color = def.Color, Accent = true, CanCollide = false }, folder)
+		local function wall(cf: CFrame, size: Vector3)
+			Build.Part({ Name = "CampWall", Size = size, CFrame = cf, Color = wallColor, Material = wallMaterial, Accent = style.WallColor == nil }, model)
+			Build.Part({ Name = "CampWallCap", Size = size + Vector3.new(0.5, -size.Y + 0.5, 0.5), CFrame = cf * CFrame.new(0, size.Y / 2 + 0.25, 0), Color = def.Color, Accent = true }, model)
 		end
-		-- Tente du camp
-		local tentCf = at(-halfPad * 0.45, 0, halfPad * 0.55)
+		wall(at(0, 1.75, halfPad + 1.5), Vector3.new(padSize + 3, 3.5, 2))
 		for _, side in { -1, 1 } do
-			Build.Part({ Name = "Tent", Size = Vector3.new(0.4, 6.5, 8), CFrame = tentCf * CFrame.new(side * 2.1, 3, 0) * CFrame.Angles(0, 0, math.rad(side * 33)), Color = def.Color, Material = Enum.Material.Fabric, Accent = true }, folder)
+			wall(at(side * (halfPad + 1.5), 1.75, halfPad * 0.55), Vector3.new(2, 3.5, padSize * 0.45))
 		end
-		-- Caisses
-		Build.Part({ Name = "Crate", Size = Vector3.new(3, 3, 3), CFrame = at(halfPad * 0.55, 2.5, halfPad * 0.6) * CFrame.Angles(0, 0.3, 0), Color = Color3.fromRGB(170, 120, 70), Material = Enum.Material.WoodPlanks }, folder)
-		Build.Part({ Name = "Crate", Size = Vector3.new(2.4, 2.4, 2.4), CFrame = at(halfPad * 0.55 - 3, 2.2, halfPad * 0.6 + 0.5) * CFrame.Angles(0, -0.2, 0), Color = Color3.fromRGB(160, 110, 65), Material = Enum.Material.WoodPlanks }, folder)
+
+		-- Balise visible de loin : grand mât, drapeau, anneau lumineux
+		local beaconCf = at(0, 0, halfPad + 4)
+		Build.Part({ Name = "BeaconBase", Size = Vector3.new(4, 2, 4), CFrame = beaconCf * CFrame.new(0, 1, 0), Color = def.DarkColor, Accent = true }, model)
+		Build.Part({ Name = "BeaconPole", Size = Vector3.new(0.9, 30, 0.9), CFrame = beaconCf * CFrame.new(0, 16, 0), Color = Color3.fromRGB(240, 240, 240), Material = Enum.Material.Metal }, model)
+		Build.Part({ Name = "BeaconFlag", Size = Vector3.new(10, 6, 0.3), CFrame = beaconCf * CFrame.new(5.4, 27.5, 0), Color = def.Color, Material = Enum.Material.Fabric, Accent = true, CanCollide = false }, model)
+		Build.Part({ Name = "BeaconFlagStripe", Size = Vector3.new(10, 1.2, 0.34), CFrame = beaconCf * CFrame.new(5.4, 25.4, 0), Color = Color3.new(1, 1, 1), Accent = true, CanCollide = false }, model)
+		local orb = Build.Part({ Name = "BeaconOrb", Shape = Enum.PartType.Ball, Size = Vector3.new(2.4, 2.4, 2.4), CFrame = beaconCf * CFrame.new(0, 31.6, 0), Color = light, Material = Enum.Material.Neon, Accent = true, CanCollide = false }, model)
+		local orbLight = Instance.new("PointLight")
+		orbLight.Color = def.Color
+		orbLight.Range = 20
+		orbLight.Brightness = 1
+		orbLight.Parent = orb
+
+		-- Tente du camp (toit en pente) et matériel
+		local tentCf = at(-halfPad * 0.5, 1, halfPad * 0.55) * CFrame.Angles(0, math.rad(90), 0)
+		Props.Roof(model, tentCf, { Width = 8, Depth = 7, Rise = 5.5, Color = def.Color, Gable = light, Overhang = 0.4, Thickness = 0.35 })
+		Build.Part({ Name = "TentFloor", Size = Vector3.new(8, 0.2, 7), CFrame = tentCf * CFrame.new(0, 0.1, 0), Color = def.DarkColor, Accent = true, CanCollide = false }, model)
+		Props.Crate(model, at(halfPad * 0.55, 1, halfPad * 0.62) * CFrame.Angles(0, 0.3, 0), 3)
+		Props.Crate(model, at(halfPad * 0.55 - 3.2, 1, halfPad * 0.66) * CFrame.Angles(0, -0.2, 0), 2.4)
+		Props.Barrel(model, (at(halfPad * 0.62, 1, halfPad * 0.2)).Position)
 
 		-- Points d'apparition : cercle au centre de la base, tournés vers le centre de la map
 		local spawns = {}
@@ -157,6 +288,7 @@ function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, p
 			table.insert(spawns, CFrame.lookAt(position, Vector3.new(origin.X, position.Y, origin.Z)))
 		end
 
+		model.Parent = folder
 		bases[teamId] = {
 			Team = teamId,
 			Center = center,
@@ -176,7 +308,74 @@ function MapBase.IsInBase(base: Base, position: Vector3, margin: number?): boole
 	return math.abs(localPos.X) <= limit and math.abs(localPos.Z) <= limit and localPos.Y < 12
 end
 
--- Zone centrale ronde
+-- Chemins de terrain des camps vers le centre (+ anneau de course)
+function MapBase.BuildPaths(origin: Vector3, bases: { [string]: Base }, theme: ArenaTheme)
+	local width = theme.PathWidth or 12
+	local inner = theme.CenterRadius or 10
+	for _, base in bases do
+		local dir = Vector3.new(origin.X - base.Center.X, 0, origin.Z - base.Center.Z)
+		local length = dir.Magnitude - inner
+		if length > 2 then
+			local unit = dir.Unit
+			local side = Vector3.new(-unit.Z, 0, unit.X)
+			-- Léger S pour un tracé naturel
+			local points = {}
+			for k = 0, 4 do
+				local t = k / 4
+				local wobble = math.sin(t * math.pi * 2) * 5 * (1 - t)
+				table.insert(points, base.Center + unit * (length * t) + side * wobble)
+			end
+			TerrainKit.Path(points, width, origin.Y, theme.Path)
+		end
+	end
+	if theme.RingPath then
+		local points = {}
+		for k = 0, 36 do
+			local a = k / 36 * math.pi * 2
+			table.insert(points, origin + Vector3.new(math.cos(a), 0, math.sin(a)) * theme.RingPath)
+		end
+		TerrainKit.Path(points, width * 0.8, origin.Y, theme.Path)
+	end
+end
+
+-- ---------------------------------------------------------------------------
+-- Arène complète
+-- ---------------------------------------------------------------------------
+export type ArenaConfig = {
+	GroundSize: number,
+	BaseRadius: number,
+	BasePadSize: number,
+}
+
+function MapBase.BuildArena(folder: Instance, origin: Vector3, cfg: ArenaConfig, theme: ArenaTheme): { [string]: Base }
+	MapBase.Seed(theme.Seed)
+	TerrainKit.ResetRelief(origin.Y)
+	local size = cfg.GroundSize
+	MapBase.ClearArena(origin)
+	-- Vallée + sol de jeu plat
+	TerrainKit.Valley(origin, size, theme.Valley, random)
+	TerrainKit.Slab(origin, size + 8, size + 8, origin.Y, 16, theme.Floor)
+	-- Plaques de matières (variations du sol)
+	if theme.Patches and #theme.Patches > 0 then
+		local half = size / 2 - 16
+		for i = 1, theme.PatchCount or 18 do
+			local p = origin + Vector3.new(random:NextNumber(-half, half), 0, random:NextNumber(-half, half))
+			local material = theme.Patches[(i - 1) % #theme.Patches + 1]
+			TerrainKit.PaintDisc(p, random:NextNumber(8, 18), origin.Y, material)
+		end
+	end
+	MapBase.BuildBoundary(folder, origin, size, 90)
+	MapBase.BuildPerimeter(folder, origin, size, theme.Perimeter, theme.PerimeterColor)
+	local bases = MapBase.BuildBases(folder, origin, cfg.BaseRadius, cfg.BasePadSize, theme.Camp)
+	MapBase.BuildPaths(origin, bases, theme)
+	local trees = Instance.new("Folder")
+	trees.Name = "Surroundings"
+	trees.Parent = folder
+	plantSurroundingTrees(trees, origin, size, theme)
+	return bases
+end
+
+-- Zone centrale ronde (Part)
 function MapBase.BuildCentralPad(folder: Instance, origin: Vector3, radius: number, color: Color3, material: Enum.Material?): Part
 	return Build.VerticalCylinder(origin + Vector3.new(0, 0.25, 0), radius, 0.5, {
 		Name = "CentralPad",
@@ -203,338 +402,99 @@ local function hidingZone(folder: Instance, cframe: CFrame, size: Vector3, kind:
 	return zone
 end
 
--- Hautes herbes : un massif de brins + une zone de cachette
+-- Hautes herbes : massif dense de brins effilés (on peut s'y cacher)
 function MapBase.BuildTallGrass(folder: Instance, position: Vector3, radius: number, color: Color3?)
-	local base = color or Color3.fromRGB(95, 165, 70)
+	local base = color or Color3.fromRGB(104, 178, 70)
+	local tip = base:Lerp(Color3.fromRGB(226, 220, 110), 0.45)
 	local model = Instance.new("Model")
 	model.Name = "TallGrass"
-	local blades = math.floor(radius * 3.2)
-	for i = 1, blades do
+	local blades = math.floor(radius * radius * 1.6)
+	for _ = 1, blades do
 		local a = random:NextNumber(0, math.pi * 2)
 		local r = math.sqrt(random:NextNumber()) * radius
-		local height = random:NextNumber(5.5, 7.5)
+		local height = random:NextNumber(5.5, 8) * (1 - r / radius * 0.3)
 		local p = position + Vector3.new(math.cos(a) * r, height / 2, math.sin(a) * r)
-		Build.Part({
+		Build.Wedge({
 			Name = "Blade",
-			Size = Vector3.new(random:NextNumber(0.9, 1.5), height, 0.3),
-			CFrame = CFrame.new(p) * CFrame.Angles(random:NextNumber(-0.15, 0.15), random:NextNumber(0, math.pi), random:NextNumber(-0.2, 0.2)),
-			Color = base:Lerp(Color3.fromRGB(200, 210, 90), random:NextNumber(0, 0.35)),
-			Material = Enum.Material.Grass,
+			Size = Vector3.new(0.35, height, random:NextNumber(0.9, 1.4)),
+			CFrame = CFrame.new(p) * CFrame.Angles(0, random:NextNumber(0, math.pi * 2), 0) * CFrame.Angles(random:NextNumber(-0.12, 0.12), 0, random:NextNumber(-0.18, 0.18)),
+			Color = base:Lerp(tip, random:NextNumber(0, 0.6)),
 			CanCollide = false,
 			CanQuery = false,
+			CanTouch = false,
 			CastShadow = false,
 		}, model)
 	end
-	-- Coeur dense pour cacher complètement le joueur
-	Build.VerticalCylinder(position + Vector3.new(0, 2.6, 0), radius * 0.65, 5.2, {
-		Name = "GrassCore",
-		Color = base,
-		Material = Enum.Material.Grass,
-		CanCollide = false,
-		CanQuery = false,
-		Transparency = 0.05,
-	}, model)
 	model.Parent = folder
-	hidingZone(folder, CFrame.new(position + Vector3.new(0, 3, 0)), Vector3.new(radius * 2, 6, radius * 2), "Grass")
+	TerrainKit.PaintDisc(position, radius + 2, position.Y, Enum.Material.LeafyGrass)
+	hidingZone(folder, CFrame.new(position + Vector3.new(0, 3, 0)), Vector3.new(radius * 1.8, 6, radius * 1.8), "Grass")
 	return model
 end
 
--- Buisson : grappe de cubes de feuillage, traversable (style "cubique")
+-- Buisson : grosses boules de feuillage, traversable
 function MapBase.BuildBush(folder: Instance, position: Vector3, size: number, color: Color3?)
-	local model = Instance.new("Model")
-	model.Name = "Bush"
-	local leafColor = color or Color3.fromRGB(60, 150, 60)
-	local cubes = {
-		{ Vector3.new(0, size * 0.32, 0), size * 0.72, 0.3 },
-		{ Vector3.new(size * 0.28, size * 0.22, size * 0.12), size * 0.5, 0.9 },
-		{ Vector3.new(-size * 0.25, size * 0.2, -size * 0.18), size * 0.52, -0.5 },
-		{ Vector3.new(size * 0.05, size * 0.5, -size * 0.2), size * 0.42, 1.3 },
-	}
-	for i, spec in cubes do
-		Build.Part({
-			Name = "Leaves",
-			Size = Vector3.new(spec[2], spec[2], spec[2]),
-			CFrame = CFrame.new(position + spec[1]) * CFrame.Angles(spec[3] * 0.4, spec[3], spec[3] * 0.3),
-			Color = leafColor:Lerp(Color3.new(0, 0, 0), (i - 1) * 0.05),
-			Studs = true,
-			CanCollide = false,
-			CanQuery = false,
-		}, model)
-	end
-	model.Parent = folder
+	local model = Props.Bush(folder, position, size, color, true)
 	hidingZone(folder, CFrame.new(position + Vector3.new(0, 2.5, 0)), Vector3.new(size * 0.85, 5, size * 0.85), "Bush")
 	return model
 end
 
--- Terrier : un monticule avec une entrée ; se tenir dans le trou cache le joueur
+-- Terrier : monticule de terre avec une entrée sombre ; s'y tenir cache le joueur
 function MapBase.BuildBurrow(folder: Instance, position: Vector3, color: Color3?)
 	local model = Instance.new("Model")
 	model.Name = "Burrow"
-	local dirt = color or Color3.fromRGB(120, 85, 55)
-	Build.Part({
-		Name = "Mound",
-		Shape = Enum.PartType.Ball,
-		Size = Vector3.new(14, 14, 14),
-		Position = position + Vector3.new(0, -3.5, 0),
-		Color = dirt,
-		Material = Enum.Material.Ground,
-		CanCollide = false,
-		CanQuery = false,
-	}, model)
-	Build.VerticalCylinder(position + Vector3.new(0, 3.55, 0), 3.2, 0.2, {
+	local dirt = color or Color3.fromRGB(150, 108, 70)
+	for i = 0, 5 do
+		local a = i / 6 * math.pi * 2
+		local d = 4.6
+		Build.Part({
+			Name = "Mound",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(5.5, 3.4, 5.5),
+			Position = position + Vector3.new(math.cos(a) * d, 0.6, math.sin(a) * d),
+			Color = dirt:Lerp(Color3.new(0, 0, 0), (i % 2) * 0.08),
+			Material = Enum.Material.Ground,
+			CanCollide = false,
+			CanQuery = false,
+		}, model)
+	end
+	Build.VerticalCylinder(position + Vector3.new(0, 0.12, 0), 3.4, 0.2, {
 		Name = "Hole",
-		Color = Color3.fromRGB(25, 18, 12),
+		Color = Color3.fromRGB(28, 20, 14),
 		CanCollide = false,
 		CanQuery = false,
 	}, model)
+	Props.GrassTuft(model, position + Vector3.new(5.5, 0, 2))
+	Props.GrassTuft(model, position + Vector3.new(-4.5, 0, -4))
 	model.Parent = folder
-	hidingZone(folder, CFrame.new(position + Vector3.new(0, 2.5, 0)), Vector3.new(9, 6, 9), "Burrow")
+	hidingZone(folder, CFrame.new(position + Vector3.new(0, 2.5, 0)), Vector3.new(8, 6, 8), "Burrow")
 	return model
 end
 
 -- ---------------------------------------------------------------------------
--- Décors
+-- Raccourcis vers Props (compatibilité)
 -- ---------------------------------------------------------------------------
 function MapBase.BuildFence(folder: Instance, from: Vector3, to: Vector3, color: Color3?)
-	local wood = color or Color3.fromRGB(165, 115, 70)
-	local delta = to - from
-	local length = delta.Magnitude
-	local mid = (from + to) / 2
-	local cf = CFrame.lookAt(mid, mid + delta)
-	for _, h in { 1.4, 2.8 } do
-		Build.Part({
-			Name = "FenceRail",
-			Size = Vector3.new(0.4, 0.5, length),
-			CFrame = cf + Vector3.new(0, h, 0),
-			Color = wood,
-			Material = Enum.Material.Wood,
-		}, folder)
-	end
-	local posts = math.max(2, math.floor(length / 8) + 1)
-	for i = 0, posts - 1 do
-		local p = from + delta * (i / (posts - 1))
-		Build.Part({
-			Name = "FencePost",
-			Size = Vector3.new(0.8, 3.6, 0.8),
-			Position = p + Vector3.new(0, 1.8, 0),
-			Color = wood:Lerp(Color3.new(0, 0, 0), 0.15),
-			Material = Enum.Material.Wood,
-		}, folder)
-	end
+	Props.Fence(folder, from, to, color)
 end
 
 function MapBase.BuildHayBale(folder: Instance, position: Vector3, yaw: number?)
-	Build.Part({
-		Name = "HayBale",
-		Size = Vector3.new(5, 4, 4),
-		CFrame = CFrame.new(position + Vector3.new(0, 2, 0)) * CFrame.Angles(0, yaw or 0, 0),
-		Color = Color3.fromRGB(245, 200, 45),
-		Studs = true,
-	}, folder)
+	Props.HayBale(folder, position, yaw)
 end
 
--- Arbre "en cubes" : tronc carré et feuillage de gros cubes aux couleurs d'automne
-local LEAF_COLORS = {
-	Color3.fromRGB(255, 132, 38),
-	Color3.fromRGB(232, 72, 40),
-	Color3.fromRGB(255, 190, 40),
-	Color3.fromRGB(250, 110, 50),
-}
-function MapBase.BuildTree(folder: Instance, position: Vector3, scale: number?, leafColor: Color3?)
-	local s = scale or 1
-	Build.Part({
-		Name = "Trunk",
-		Size = Vector3.new(2.2, 11, 2.2) * s,
-		CFrame = CFrame.new(position + Vector3.new(0, 5.5 * s, 0)) * CFrame.Angles(0, random:NextNumber(0, 1.5), 0),
-		Color = Color3.fromRGB(110, 75, 50),
-		Material = Enum.Material.Wood,
-	}, folder)
-	local cubes = {
-		{ Vector3.new(0, 13, 0), 8.5 },
-		{ Vector3.new(3.5, 11, 2), 6.5 },
-		{ Vector3.new(-3.2, 11.5, -1.5), 6.5 },
-		{ Vector3.new(1, 16.5, -1), 6 },
-		{ Vector3.new(-1.5, 10, 3.5), 5.5 },
-	}
-	for i, spec in cubes do
-		local size = spec[2] * s
-		Build.Part({
-			Name = "Leaves",
-			Size = Vector3.new(size, size, size),
-			CFrame = CFrame.new(position + spec[1] * s) * CFrame.Angles(random:NextNumber(-0.5, 0.5), random:NextNumber(0, 1.5), random:NextNumber(-0.5, 0.5)),
-			Color = leafColor or LEAF_COLORS[(i % #LEAF_COLORS) + 1],
-			Studs = true,
-		}, folder)
-	end
-end
-
--- Pile de blocs jaunes à tenons (obstacles cubiques)
-function MapBase.BuildBlockStack(folder: Instance, position: Vector3, count: number?, color: Color3?)
-	local n = count or 3
-	for i = 1, n do
-		local size = 4
-		local offset = Vector3.new(((i - 1) % 2) * size, math.floor((i - 1) / 2) * size + size / 2, 0)
-		if i == 3 then
-			offset = Vector3.new(size / 2, size * 1.5, 0)
-		end
-		Build.Part({
-			Name = "Block",
-			Size = Vector3.new(size, size, size),
-			CFrame = CFrame.new(position + offset),
-			Color = color or Color3.fromRGB(245, 200, 45),
-			Studs = true,
-		}, folder)
-	end
+function MapBase.BuildTree(folder: Instance, position: Vector3, scale: number?, _leafColor: Color3?)
+	Props.Tree(folder, position, scale)
 end
 
 function MapBase.BuildRock(folder: Instance, position: Vector3, size: Vector3, color: Color3?)
-	return Build.Part({
-		Name = "Rock",
-		Size = size,
-		CFrame = CFrame.new(position + Vector3.new(0, size.Y / 2 - 0.5, 0)) * CFrame.Angles(random:NextNumber(-0.15, 0.15), random:NextNumber(0, math.pi), random:NextNumber(-0.15, 0.15)),
-		Color = color or Color3.fromRGB(140, 135, 130),
-		Material = Enum.Material.Slate,
-	}, folder)
+	return Props.Rock(folder, position, math.max(size.X, size.Z), color)
 end
 
--- Bordure décorative tout autour (clôture) avec ouvertures nulles : la limite
--- invisible fait le reste.
-function MapBase.BuildPerimeterFence(folder: Instance, origin: Vector3, size: number, color: Color3?)
-	local half = size / 2 - 2
-	local corners = {
-		origin + Vector3.new(-half, 0, -half),
-		origin + Vector3.new(half, 0, -half),
-		origin + Vector3.new(half, 0, half),
-		origin + Vector3.new(-half, 0, half),
-	}
-	for i = 1, 4 do
-		MapBase.BuildFence(folder, corners[i], corners[i % 4 + 1], color)
-	end
-end
-
--- Chemins de terre des camps vers le centre
-function MapBase.BuildPaths(folder: Instance, origin: Vector3, bases: { [string]: Base }, color: Color3?, innerRadius: number?)
-	for _, base in bases do
-		local from = base.Center
-		local dir = Vector3.new(origin.X - from.X, 0, origin.Z - from.Z)
-		local length = dir.Magnitude - (innerRadius or 10) - base.Radius
-		if length <= 2 then
-			continue
-		end
-		local unit = dir.Unit
-		local start = from + unit * (base.Radius + 1)
-		local mid = start + unit * (length / 2)
-		Build.Part({
-			Name = "Path",
-			Size = Vector3.new(10, 0.16, length),
-			CFrame = CFrame.lookAt(mid + Vector3.new(0, 0.08, 0), mid + unit + Vector3.new(0, 0.08, 0)),
-			Color = color or Color3.fromRGB(205, 165, 105),
-			Studs = true,
-			CanCollide = false,
-		}, folder)
-		-- Bordures de petits pavés
-		for k = 0, math.floor(length / 6) do
-			for _, side in { -1, 1 } do
-				local p = start + unit * (k * 6 + 3) + Vector3.new(-unit.Z, 0, unit.X) * side * 5.6
-				Build.Part({ Name = "PathStone", Size = Vector3.new(1.2, 0.5, 1.2), CFrame = CFrame.new(p + Vector3.new(0, 0.25, 0)) * CFrame.Angles(0, k, 0), Color = Color3.fromRGB(165, 165, 175), CanCollide = false, CanQuery = false }, folder)
-			end
-		end
-	end
-end
-
--- Plaques d'herbe d'une teinte différente pour casser l'aplat du sol
-function MapBase.BuildGrassPatches(folder: Instance, origin: Vector3, size: number, color: Color3, count: number)
-	local half = size / 2 - 20
-	for i = 1, count do
-		local p = origin + Vector3.new(random:NextNumber(-half, half), 0.03, random:NextNumber(-half, half))
-		local w = random:NextNumber(14, 30)
-		Build.Part({
-			Name = "GrassPatch",
-			Size = Vector3.new(w, 0.05, w * random:NextNumber(0.6, 1)),
-			CFrame = CFrame.new(p) * CFrame.Angles(0, random:NextNumber(0, math.pi), 0),
-			Color = color:Lerp(Color3.new(1, 1, 1), (i % 3) * 0.04),
-			Studs = true,
-			CanCollide = false,
-			CanQuery = false,
-		}, folder)
-	end
-end
-
--- Massif de fleurs (petits cubes colorés, décoratif)
-local FLOWER_COLORS = {
-	Color3.fromRGB(255, 80, 90), Color3.fromRGB(255, 220, 70), Color3.fromRGB(255, 255, 255),
-	Color3.fromRGB(190, 110, 255), Color3.fromRGB(255, 150, 200),
-}
 function MapBase.BuildFlowers(folder: Instance, center: Vector3, count: number?, radius: number?)
-	local r = radius or 4
-	for _ = 1, count or 8 do
-		local a = random:NextNumber(0, math.pi * 2)
-		local d = math.sqrt(random:NextNumber()) * r
-		local p = center + Vector3.new(math.cos(a) * d, 0, math.sin(a) * d)
-		Build.Part({ Name = "Stem", Size = Vector3.new(0.2, 1.1, 0.2), Position = p + Vector3.new(0, 0.55, 0), Color = Color3.fromRGB(60, 140, 50), CanCollide = false, CanQuery = false, CastShadow = false }, folder)
-		Build.Part({ Name = "Flower", Size = Vector3.new(0.8, 0.8, 0.8), CFrame = CFrame.new(p + Vector3.new(0, 1.3, 0)) * CFrame.Angles(0, a, 0.4), Color = FLOWER_COLORS[random:NextInteger(1, #FLOWER_COLORS)], CanCollide = false, CanQuery = false, CastShadow = false, Accent = true }, folder)
-	end
+	Props.Flowers(folder, center, count, radius)
 end
 
--- Lampadaire (lanterne chaude)
 function MapBase.BuildLamp(folder: Instance, position: Vector3)
-	Build.Part({ Name = "LampPost", Size = Vector3.new(0.8, 11, 0.8), Position = position + Vector3.new(0, 5.5, 0), Color = Color3.fromRGB(50, 55, 65), Material = Enum.Material.Metal }, folder)
-	Build.Part({ Name = "LampArm", Size = Vector3.new(0.5, 0.5, 2.6), Position = position + Vector3.new(0, 10.8, 1.1), Color = Color3.fromRGB(50, 55, 65), Material = Enum.Material.Metal }, folder)
-	local lantern = Build.Part({ Name = "Lantern", Size = Vector3.new(1.4, 1.8, 1.4), Position = position + Vector3.new(0, 9.8, 2.2), Color = Color3.fromRGB(255, 200, 110), Material = Enum.Material.Neon, CanCollide = false }, folder)
-	local light = Instance.new("PointLight")
-	light.Color = Color3.fromRGB(255, 200, 120)
-	light.Range = 18
-	light.Brightness = 1.2
-	light.Parent = lantern
-end
-
--- Environnement autour de la zone de jeu : sol extérieur, collines en gradins et
--- arbres en couronne (la map ne flotte plus dans le ciel, l'horizon est rempli).
-export type SurroundTheme = {
-	Ground: Color3,
-	Hill: Color3,
-	HillTop: Color3?,
-	Trees: boolean?,
-	TreeColor: Color3?,
-	Material: Enum.Material?,
-}
-function MapBase.BuildSurroundings(folder: Instance, origin: Vector3, size: number, theme: SurroundTheme)
-	local outer = Build.Part({
-		Name = "OuterGround",
-		Size = Vector3.new(size * 6, 2, size * 6),
-		Position = origin + Vector3.new(0, -1.08, 0),
-		Color = theme.Ground,
-		Studs = theme.Material == nil,
-		CanQuery = false,
-	}, folder)
-	if theme.Material then
-		outer.Material = theme.Material
-	end
-	local half = size / 2
-	local count = 28
-	for i = 0, count - 1 do
-		local a = i / count * math.pi * 2 + random:NextNumber(-0.05, 0.05)
-		local dist = half * math.sqrt(2) + random:NextNumber(30, 70)
-		local base = origin + Vector3.new(math.cos(a) * dist, 0, math.sin(a) * dist)
-		local w = random:NextNumber(50, 80)
-		local h = random:NextNumber(14, 34)
-		local cf = CFrame.lookAt(base, Vector3.new(origin.X, base.Y, origin.Z))
-		-- Colline en 3 gradins
-		for step = 0, 2 do
-			local k = 1 - step * 0.28
-			Build.Part({
-				Name = "Hill",
-				Size = Vector3.new(w * k, h / 3, w * 0.7 * k),
-				CFrame = cf * CFrame.new(0, h / 6 + step * h / 3, step * 3),
-				Color = (step == 2 and theme.HillTop or theme.Hill):Lerp(Color3.new(0, 0, 0), step * 0.04),
-				Studs = theme.Material == nil,
-				CanQuery = false,
-			}, folder)
-		end
-		if theme.Trees and i % 2 == 0 then
-			MapBase.BuildTree(folder, base + cf.LookVector * (w * 0.45), random:NextNumber(0.9, 1.3), theme.TreeColor)
-		end
-	end
+	Props.Lamp(folder, position)
 end
 
 -- ---------------------------------------------------------------------------

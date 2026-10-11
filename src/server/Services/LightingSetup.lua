@@ -10,6 +10,7 @@ local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Style = require(Shared.Style)
+local TerrainKit = require(script.Parent.Parent.Util.TerrainKit)
 
 local LightingSetup = {}
 
@@ -40,6 +41,9 @@ function LightingSetup.Apply()
 	apply(ensure("Atmosphere", "HoH_Atmosphere"), Style.Atmosphere)
 	apply(ensure("ColorCorrectionEffect", "HoH_ColorCorrection"), Style.ColorCorrection)
 	apply(ensure("BloomEffect", "HoH_Bloom"), Style.Bloom)
+	apply(ensure("SunRaysEffect", "HoH_SunRays"), Style.SunRays)
+	-- Couleurs des matériaux du terrain et de l'eau
+	TerrainKit.ApplyPalette()
 	-- Nuages dynamiques (ciel bleu à nuages)
 	local terrain = workspace:FindFirstChildOfClass("Terrain")
 	if terrain then

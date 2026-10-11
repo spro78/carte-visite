@@ -28,6 +28,7 @@ local RoundState = require(script.Parent.RoundState)
 local CaptureService = require(script.Parent.CaptureService)
 local AbilityService = require(script.Parent.AbilityService)
 local LaunchService = require(script.Parent.LaunchService)
+local MapBase = require(script.Parent.Parent.Maps.MapBase)
 
 type Actor = Types.Actor
 type GameState = Types.GameState
@@ -79,27 +80,69 @@ local function formatTime(seconds: number): string
 	return string.format("%d:%02d", seconds // 60, seconds % 60)
 end
 
--- Ambiance lumineuse propre à la map (Map.Lighting), restaurée au nettoyage
+-- Ambiance lumineuse propre à la map (Map.Lighting), restaurée au nettoyage.
+-- Les clés simples sont des propriétés de Lighting ; les sous-tables
+-- Atmosphere / ColorCorrection / Bloom / SunRays / Clouds règlent les effets
+-- correspondants (créés par LightingSetup).
+local EFFECT_CLASSES = {
+	Atmosphere = "Atmosphere",
+	ColorCorrection = "ColorCorrectionEffect",
+	Bloom = "BloomEffect",
+	SunRays = "SunRaysEffect",
+}
+
+local function lightingTarget(key: string): Instance?
+	local Lighting = game:GetService("Lighting")
+	if key == "Clouds" then
+		return workspace.Terrain:FindFirstChildOfClass("Clouds")
+	end
+	local className = EFFECT_CLASSES[key]
+	if className then
+		return Lighting:FindFirstChildOfClass(className)
+	end
+	return nil
+end
+
+-- Applique des valeurs sur une instance et retourne les anciennes valeurs
+local function applyProps(target: Instance, values: { [string]: any }): { [string]: any }
+	local previous = {}
+	for key, value in values do
+		local ok, current = pcall(function()
+			return (target :: any)[key]
+		end)
+		if ok then
+			previous[key] = current
+			pcall(function()
+				(target :: any)[key] = value
+			end)
+		end
+	end
+	return previous
+end
+
 local function applyLighting(preset: { [string]: any }?)
 	local Lighting = game:GetService("Lighting")
 	if preset then
-		savedLighting = {}
+		local saved: { [string]: any } = {}
+		local plain: { [string]: any } = {}
 		for key, value in preset do
-			local ok, current = pcall(function()
-				return (Lighting :: any)[key]
-			end)
-			if ok then
-				(savedLighting :: any)[key] = current
-				pcall(function()
-					(Lighting :: any)[key] = value
-				end)
+			if type(value) == "table" then
+				local target = lightingTarget(key)
+				if target then
+					saved[key] = applyProps(target, value)
+				end
+			else
+				plain[key] = value
 			end
 		end
+		saved.__Lighting = applyProps(Lighting, plain)
+		savedLighting = saved
 	elseif savedLighting then
-		for key, value in savedLighting do
-			pcall(function()
-				(Lighting :: any)[key] = value
-			end)
+		for key, values in savedLighting do
+			local target = if key == "__Lighting" then Lighting else lightingTarget(key)
+			if target then
+				applyProps(target, values)
+			end
 		end
 		savedLighting = nil
 	end
@@ -607,6 +650,11 @@ local function cleanup()
 		if not ok then
 			warn("[RoundService] Erreur de nettoyage de la map : " .. tostring(err))
 		end
+	end
+	-- Relief en Terrain de la map (commun à toutes les maps)
+	local okTerrain, errTerrain = pcall(MapBase.ClearArena, Config.World.MapOrigin)
+	if not okTerrain then
+		warn("[RoundService] Erreur de nettoyage du terrain : " .. tostring(errTerrain))
 	end
 	RoundState.Map = nil
 	RoundState.MapId = nil

@@ -99,7 +99,9 @@ check(alice:GetAttribute("Team") ~= nil, "l'attribut Team du joueur est répliqu
 local aliceChar = alice.Character
 check(aliceChar:GetAttribute("Frozen") == true, "joueurs gelés pendant le décompte")
 check(aliceChar:GetAttribute("Animal") == alice:GetAttribute("Team"), "animal attribué au personnage")
-check(aliceChar:FindFirstChild("AnimalParts") == nil and aliceChar.Head.Color ~= nil, "l'avatar Roblox reste intact (aucune pièce ajoutée)")
+local parts = aliceChar:FindFirstChild("AnimalParts")
+check(parts ~= nil and parts:FindFirstChild("Scarf") ~= nil, "attributs d'animal et foulard d'équipe ajoutés")
+check(aliceChar.Head:GetAttribute("HoH_OriginalColor") == nil, "l'avatar Roblox garde ses couleurs (aucune teinte)")
 check(aliceChar.HumanoidRootPart.Position.Z > 1500, "Alice est téléportée sur la map")
 
 check(advanceUntil(function()

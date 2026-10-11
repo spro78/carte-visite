@@ -34,6 +34,18 @@ local STRIPES = {
 	Color3.fromRGB(250, 245, 235), Color3.fromRGB(250, 200, 60), Color3.fromRGB(250, 245, 235),
 }
 
+local THEME: MapBase.ArenaTheme = {
+	Seed = 2203,
+	Floor = Enum.Material.Grass,
+	Patches = { Enum.Material.LeafyGrass },
+	Path = Enum.Material.Pavement,
+	CenterRadius = 40,
+	Valley = { Ground = Enum.Material.Grass, Hill = Enum.Material.Grass, Rock = Enum.Material.Rock, Height = 80 },
+	Perimeter = "Picket",
+	Trees = { "Round", "Green" },
+	TreeCount = 60,
+}
+
 local folder: Folder? = nil
 local bases: { [string]: MapBase.Base }? = nil
 local origin = Vector3.zero
@@ -232,10 +244,7 @@ end
 function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	origin = mapOrigin
 	local f = MapBase.NewFolder("Map_" .. Map.Id)
-	MapBase.BuildGround(f, origin, cfg.GroundSize, Color3.fromRGB(110, 190, 85))
-	MapBase.BuildBoundary(f, origin, cfg.GroundSize, 80)
-	MapBase.BuildPerimeterFence(f, origin, cfg.GroundSize, Color3.fromRGB(240, 240, 240))
-	bases = MapBase.BuildBases(f, origin, cfg.BaseRadius, cfg.BasePadSize)
+	bases = MapBase.BuildArena(f, origin, cfg, THEME)
 	-- Allées vers la roue
 	for _, teamId in Teams.Order do
 		local basePos = MapBase.BasePosition(origin, teamId, cfg.BaseRadius)
@@ -252,13 +261,6 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	wheel = buildWheel(f)
 
 	local half = cfg.GroundSize / 2
-	MapBase.BuildSurroundings(f, origin, cfg.GroundSize, {
-		Ground = Color3.fromRGB(90, 165, 70),
-		Hill = Color3.fromRGB(95, 175, 80),
-		HillTop = Color3.fromRGB(125, 195, 95),
-		Trees = true,
-	})
-	MapBase.BuildGrassPatches(f, origin, cfg.GroundSize, Color3.fromRGB(110, 175, 85), 12)
 	buildFerrisWheel(f, origin + Vector3.new(0, 0, -half + 22), 0)
 	for _, spec in { { 0.35, 120 }, { 2.45, 200 }, { 4.55, 300 } } do
 		local a = spec[1]

@@ -16,8 +16,8 @@ Build.Font = Enum.Font.GothamBold
 --   Accent = true : garde la couleur telle quelle (gameplay) ; sinon la couleur
 --                   passe par le filtre de la direction artistique (Style) ;
 --   Studs = true  : dessus à tenons (look Roblox classique).
-function Build.Part(props: { [string]: any }, parent: Instance?): Part
-	local part = Instance.new("Part")
+local function make(className: string, props: { [string]: any }, parent: Instance?): BasePart
+	local part = Instance.new(className) :: BasePart
 	part.Anchored = true
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
@@ -40,6 +40,20 @@ function Build.Part(props: { [string]: any }, parent: Instance?): Part
 		part.Parent = parent
 	end
 	return part
+end
+
+function Build.Part(props: { [string]: any }, parent: Instance?): Part
+	return make("Part", props, parent) :: Part
+end
+
+-- Coin (WedgePart) : face verticale à l'arrière (+Z local), pente qui
+-- descend vers l'avant (-Z local).
+function Build.Wedge(props: { [string]: any }, parent: Instance?): WedgePart
+	return make("WedgePart", props, parent) :: WedgePart
+end
+
+function Build.CornerWedge(props: { [string]: any }, parent: Instance?): CornerWedgePart
+	return make("CornerWedgePart", props, parent) :: CornerWedgePart
 end
 
 -- Cylindre debout (axe vertical) : Roblox oriente les cylindres sur l'axe X,

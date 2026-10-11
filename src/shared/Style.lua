@@ -48,6 +48,33 @@ Style.Palette = {
 	Gold = Color3.fromRGB(255, 205, 50),
 }
 
+-- Couleurs des matériaux du Terrain (relief des maps et du lobby)
+Style.TerrainColors = {
+	Grass = Color3.fromRGB(92, 182, 70),
+	LeafyGrass = Color3.fromRGB(72, 158, 58),
+	Ground = Color3.fromRGB(176, 132, 86),
+	Mud = Color3.fromRGB(112, 84, 58),
+	Sand = Color3.fromRGB(236, 212, 158),
+	Sandstone = Color3.fromRGB(214, 146, 96),
+	Rock = Color3.fromRGB(132, 138, 150),
+	Slate = Color3.fromRGB(112, 118, 132),
+	Basalt = Color3.fromRGB(70, 66, 74),
+	Limestone = Color3.fromRGB(232, 214, 182),
+	Snow = Color3.fromRGB(246, 250, 255),
+	Cobblestone = Color3.fromRGB(150, 152, 162),
+	Pavement = Color3.fromRGB(176, 182, 194),
+	Salt = Color3.fromRGB(236, 230, 220),
+	Asphalt = Color3.fromRGB(90, 92, 100),
+}
+
+Style.Water = {
+	Color = Color3.fromRGB(36, 150, 186),
+	Transparency = 0.35,
+	WaveSize = 0.12,
+	WaveSpeed = 8,
+	Reflectance = 0.6,
+}
+
 -- Éclairage global (appliqué au démarrage du serveur)
 Style.Lighting = {
 	ClockTime = 13.5,
@@ -83,6 +110,11 @@ Style.Bloom = {
 	Intensity = 0.35,
 	Size = 20,
 	Threshold = 1.4,
+}
+
+Style.SunRays = {
+	Intensity = 0.04,
+	Spread = 0.6,
 }
 
 Style.Clouds = {
