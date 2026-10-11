@@ -119,6 +119,14 @@ function KillFeed.Init(screen: ScreenGui)
 		Padding = UDim.new(0.03, 0),
 		HorizontalAlignment = Enum.HorizontalAlignment.Right,
 	}, container)
+	local camera = workspace.CurrentCamera
+	if camera then
+		local function update()
+			KillFeed.Rescale(camera.ViewportSize.Y < 500)
+		end
+		camera:GetPropertyChangedSignal("ViewportSize"):Connect(update)
+		update()
+	end
 end
 
 -- Taille compacte sur téléphone

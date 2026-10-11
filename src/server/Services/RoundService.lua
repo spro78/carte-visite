@@ -701,8 +701,27 @@ local function onActorAdded(actor: Actor)
 		if not RoundState.IsInRound() or RoundState.IsParticipant(actor) or ActorService.Get(actor.Id) == nil then
 			return
 		end
+		local team: string?, cframe: CFrame? = nil, nil
 		if botProvider and Config.Bots.JoinerReplacesBot then
-			local team, cframe = botProvider.TakeSeat(actor)
+			team, cframe = botProvider.TakeSeat(actor)
+		end
+		-- Pas de bot à remplacer : on rejoint quand même la plus petite équipe
+		-- encore en jeu, si la manche n'est pas trop avancée (arrivée rapide).
+		if not team then
+			local elapsed = RoundState.Phase == "Round" and (os.clock() - roundStartedAt) or 0
+			if elapsed <= Config.Round.LateJoinSeconds then
+				local participants = RoundState.GetParticipants()
+				local counts = TeamService.GetCounts(participants)
+				local best: string? = nil
+				for _, id in TeamService.GetNonEmptyTeams(participants) do
+					if best == nil or (counts[id] or 0) < (counts[best] or 0) then
+						best = id
+					end
+				end
+				team = best
+			end
+		end
+		do
 			if team then
 				RoundState.Participants[actor.Id] = true
 				actor.RoundCaptures = 0
@@ -726,7 +745,7 @@ local function onActorAdded(actor: Actor)
 				return
 			end
 		end
-		announceTo(actor, "A round is in progress. You'll join the next one!")
+		announceTo(actor, "A round is almost over. You'll join the next one!")
 	end)
 end
 

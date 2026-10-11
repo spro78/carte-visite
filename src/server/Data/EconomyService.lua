@@ -122,6 +122,10 @@ function EconomyService.OnRoundEnd(participants: { Actor }, winner: string?, dur
 			XP = profile and profile.XP or 0,
 			XPNeeded = DataService.XPForLevel(levelAfter),
 			Unlocks = unlocks,
+			-- Ta manche en chiffres (pour comprendre ta victoire ou ta défaite)
+			Catches = actor.RoundCaptures or 0,
+			Objectives = actor.RoundObjectives or 0,
+			Survival = math.floor(math.max(actor.BestSurvival or 0, math.min(duration, os.clock() - actor.LastCaughtAt))),
 		})
 	end
 	table.clear(ledger)

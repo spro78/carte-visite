@@ -11,7 +11,7 @@ local Config = {}
 -- ---------------------------------------------------------------------------
 Config.Round = {
 	MinPlayersToStart = 1, -- une manche peut se lancer avec un seul vrai joueur (les bots complètent)
-	IntermissionSeconds = 20, -- lobby + vote de map
+	IntermissionSeconds = 15, -- lobby + vote de map (court : on joue vite)
 	CountdownSeconds = 5, -- compte à rebours, bases protégées
 	BaseProtectionSeconds = 2, -- protection supplémentaire après le "GO!"
 	RoundSeconds = 240, -- durée maximale d'une manche (4 minutes)
@@ -20,6 +20,7 @@ Config.Round = {
 	MinTeamsForLastStanding = 2, -- "dernière équipe debout" seulement si >= 2 équipes au départ
 	StateBroadcastInterval = 1, -- secondes entre deux envois d'état aux clients
 	FreezeDuringCountdown = true, -- les joueurs ne peuvent pas quitter leur base pendant le décompte
+	LateJoinSeconds = 120, -- un joueur qui arrive rejoint la manche en cours pendant ses 2 premières minutes
 }
 
 -- ---------------------------------------------------------------------------
@@ -34,7 +35,7 @@ Config.Round = {
 Config.Appearance = {
 	Mode = "Accessories",
 	ShowTeamBadge = true, -- badge "FOX / CHICKEN / SNAKE" au-dessus de la tête
-	BadgeMaxDistance = 140,
+	BadgeMaxDistance = 90,
 }
 
 -- ---------------------------------------------------------------------------

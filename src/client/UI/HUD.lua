@@ -286,8 +286,9 @@ Label(helpPanel, {
 	TextYAlignment = Enum.TextYAlignment.Top,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	ZIndex = 40,
-	Text = "Catch your prey. Run from your hunter.\n\nFOX catches CHICKEN, CHICKEN catches SNAKE, SNAKE catches FOX.\nGreen outline = your prey. Red outline = your hunter.\nA caught player joins the team that caught them.\n\nQ / E : dash left / right    F : instant stop\nR : animal ability    1-4 : items\nOn mobile, use the buttons at the bottom right.",
+	Text = "Catch your prey. Run from your hunter.\n\nFOX catches CHICKEN, CHICKEN catches SNAKE, SNAKE catches FOX.\nGreen outline = your prey. Red outline = your hunter.\nCaught? You join the team that caught you and keep playing.\n\nQ / E : dash sideways to dodge    F : stop dead to fake out\nR : your animal's ability    Hide in tall grass and bushes!\nOn mobile, use the buttons at the bottom right.",
 })
+New("UIScale", { Name = "Scale" }, helpPanel)
 local helpClose: TextButton = New("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 10), Size = UDim2.new(0, 36, 0, 36), BackgroundColor3 = Theme.Bad, Text = "X", FontFace = Theme.FaceHeavy, TextScaled = true, TextColor3 = Theme.White, ZIndex = 41 }, helpPanel)
 Theme.Corner(helpClose, 8)
 helpClose.Activated:Connect(function()
@@ -435,8 +436,15 @@ function HUD.SetCoins(amount: number)
 end
 
 -- Profil (niveau, VIP, roue)
+local helpShownOnce = false
 function HUD.SetProfile(data: { [string]: any })
 	profile = data
+	-- Nouveau joueur : les règles s'affichent une fois, tout de suite
+	if not helpShownOnce and type(data.Stats) == "table" and (data.Stats.RoundsPlayed or 0) == 0 then
+		helpShownOnce = true
+		helpPanel.Visible = true
+	end
+	helpShownOnce = true
 	HUD.SetCoins(data.Coins or 0)
 	coinsCaption.Text = player:GetAttribute("VIP") and "COINS  [2X]" or "COINS"
 	local level = data.Level or 1
@@ -525,6 +533,19 @@ local function updateResults(state: Types.GameState)
 		resultsTitle.TextColor3 = Theme.White
 	end
 	local reason = REASONS[state.WinReason or ""] or ""
+	-- Raison détaillée : on comprend pourquoi l'équipe a gagné
+	if winnerDef then
+		local score = state.Scores[winnerDef.Id] or 0
+		local count = state.TeamCounts[winnerDef.Id] or 0
+		if state.WinReason == "Objective" then
+			reason = string.format("%s reached the goal (%d %s)", winnerDef.Plural, score, string.lower(state.ScoreLabel or "points"))
+		elseif state.WinReason == "LastStanding" then
+			reason = winnerDef.Plural .. " converted everyone!"
+		elseif state.WinReason == "TimeUp" then
+			reason = state.ScoreLabel and string.format("Time's up: %s had the most %s (%d)", winnerDef.Plural, string.lower(state.ScoreLabel), score)
+				or string.format("Time's up: %s was the biggest team (%d)", winnerDef.Plural, count)
+		end
+	end
 	local myTeam = player:GetAttribute("Team")
 	if winnerDef and myTeam then
 		reason = (myTeam == winnerDef.Id and "Your team won! " or "Your team lost. ") .. reason
@@ -543,7 +564,17 @@ local function updateResults(state: Types.GameState)
 		xpLevelRight.Text = "Level " .. ((reward.Level or 1) + 1)
 		xpText.Text = string.format("%d/%d XP", reward.XP or 0, needed)
 		xpFill.Size = UDim2.fromScale(math.clamp((reward.XP or 0) / needed, 0, 1), 1)
-		readyLabel.Text = (reward.LevelBefore and reward.Level and reward.Level > reward.LevelBefore) and ("LEVEL UP! Level " .. reward.Level) or "Ready for the next match"
+		local leveledUp = reward.LevelBefore and reward.Level and reward.Level > reward.LevelBefore
+		local unlocks = type(reward.Unlocks) == "table" and reward.Unlocks or {}
+		if leveledUp then
+			local extra = #unlocks > 0 and ("  ·  " .. unlocks[#unlocks]) or ""
+			readyLabel.Text = "LEVEL UP! Level " .. reward.Level .. extra
+		else
+			-- Ta manche en chiffres
+			local survival = tonumber(reward.Survival) or 0
+			readyLabel.Text = string.format("You: %d catch%s  ·  %ds longest survival%s", reward.Catches or 0, (reward.Catches or 0) == 1 and "" or "es", survival,
+				(reward.Objectives or 0) > 0 and string.format("  ·  %d objective%s", reward.Objectives, reward.Objectives == 1 and "" or "s") or "")
+		end
 	else
 		coinsLine.Text = ""
 		local level = profile.Level or 1
@@ -579,7 +610,8 @@ function HUD.UpdateState(state: Types.GameState)
 	if phase == "Intermission" then
 		subLabel.Text = "Next match soon"
 	elseif phase == "Countdown" then
-		subLabel.Text = mapDef and (mapDef.DisplayName .. " · " .. mapDef.ModeName) or ""
+		-- Comment gagner sur cette map, lisible pendant le décompte
+		subLabel.Text = mapDef and (mapDef.ModeName .. ": " .. mapDef.Tagline) or ""
 	elseif phase == "Round" and mapDef then
 		local goal = state.ScoreGoal and string.format(" · First to %d %s", state.ScoreGoal, state.ScoreLabel or "points") or ""
 		subLabel.Text = mapDef.DisplayName .. " · " .. mapDef.ModeName .. goal
@@ -605,9 +637,12 @@ function HUD.UpdateState(state: Types.GameState)
 
 	if phase == "Results" then
 		results.Visible = not resultsHidden
+		-- Le titre du haut ne passe pas derrière la fenêtre de résultats
+		topCenter.Visible = not results.Visible
 		updateResults(state)
 	else
 		results.Visible = false
+		topCenter.Visible = true
 		resultsHidden = false
 		if phase == "Intermission" or phase == "Waiting" then
 			lastReward = nil
@@ -628,6 +663,10 @@ local function rescale()
 		s.Scale = scale
 	end
 	local small = size.Y < 500
+	local helpScale = helpPanel:FindFirstChild("Scale")
+	if helpScale and helpScale:IsA("UIScale") then
+		helpScale.Scale = math.clamp(math.min(size.X / 600, size.Y / 420), 0.55, 1)
+	end
 	bottomLeft.Size = UDim2.new(0, small and 150 or 230, 0, small and 78 or 112)
 	coinsPanel.Size = UDim2.new(0, small and 150 or 230, 0, small and 35 or 52)
 	levelPanel.Size = coinsPanel.Size
@@ -642,7 +681,7 @@ local function rescale()
 	bottomCenter.Position = UDim2.new(0.5, 0, 1, small and -50 or -64)
 	local dash = screen:FindFirstChild("DashBar")
 	if dash and dash:IsA("Frame") then
-		dash.Size = UDim2.new(small and 0.4 or 1, 0, 0, small and 36 or 44)
+		dash.Size = small and UDim2.new(0.4, 0, 0, 36) or UDim2.new(0, 460, 0, 44)
 		local hint = dash:FindFirstChild("Hint")
 		if hint and hint:IsA("GuiObject") then
 			hint.Visible = not small

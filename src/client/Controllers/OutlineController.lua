@@ -70,15 +70,20 @@ local function getTag(model: Model): Tag?
 	local gui = Instance.new("BillboardGui")
 	gui.Name = BADGE_NAME
 	gui.Adornee = head
-	gui.Size = UDim2.fromOffset(220, 66)
-	gui.StudsOffset = Vector3.new(0, 3.4, 0)
+	-- Taille en studs : l'étiquette rapetisse avec la distance (pas de mur de
+	-- pseudos qui se chevauchent au loin), plafonnée de près.
+	gui.Size = UDim2.new(7, 0, 2.2, 0)
+	gui.StudsOffset = Vector3.new(0, 3.2, 0)
 	gui.MaxDistance = Config.Appearance.BadgeMaxDistance
 	gui.LightInfluence = 0
 	gui.AlwaysOnTop = false
 	gui.Enabled = false
-	local team = Theme.Title(gui, { Name = "Team", Size = UDim2.new(1, 0, 0, 16), Text = "", FontFace = Theme.FaceTitle })
-	local name = Theme.Title(gui, { Name = "PlayerName", Position = UDim2.new(0, 0, 0, 17), Size = UDim2.new(1, 0, 0, 30), Text = "", FontFace = Theme.FaceHeavy })
-	local info = Theme.Label(gui, { Name = "Info", Position = UDim2.new(0, 0, 0, 48), Size = UDim2.new(1, 0, 0, 14), Text = "", TextColor3 = Color3.fromRGB(215, 220, 230), TextStrokeTransparency = 0.4 })
+	local team = Theme.Title(gui, { Name = "Team", Size = UDim2.fromScale(1, 0.26), Text = "", FontFace = Theme.FaceTitle })
+	local name = Theme.Title(gui, { Name = "PlayerName", Position = UDim2.fromScale(0, 0.27), Size = UDim2.fromScale(1, 0.44), Text = "", FontFace = Theme.FaceHeavy })
+	local info = Theme.Label(gui, { Name = "Info", Position = UDim2.fromScale(0, 0.73), Size = UDim2.fromScale(1, 0.22), Text = "", TextColor3 = Color3.fromRGB(215, 220, 230), TextStrokeTransparency = 0.4 })
+	Theme.MaxText(team, 16)
+	Theme.MaxText(name, 28)
+	Theme.MaxText(info, 14)
 	gui.Parent = head
 	local tag = { Gui = gui, Team = team, Name = name, Info = info }
 	tags[model] = tag

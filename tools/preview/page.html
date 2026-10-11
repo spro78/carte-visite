@@ -194,7 +194,7 @@ for (const p of arr(data.parts)) {
     const v = new THREE.Vector3(m[0] + b.offset[0], m[1] + b.offset[1], m[2] + b.offset[2]);
     const dist = v.distanceTo(camera.position);
     v.project(camera);
-    if (v.z < 1 && v.z > -1 && dist < 140) billboards.push({ b, x: (v.x + 1) / 2 * W, y: (1 - v.y) / 2 * H, dist });
+    if (v.z < 1 && v.z > -1 && dist < 90) billboards.push({ b, x: (v.x + 1) / 2 * W, y: (1 - v.y) / 2 * H, dist });
   }
 }
 if (billboards.length) {
@@ -203,8 +203,12 @@ if (billboards.length) {
   hud.appendChild(bc);
   const ctx = bc.getContext("2d");
   billboards.sort((a, b) => b.dist - a.dist);
-  for (const { b, x, y } of billboards) {
-    const w = b.size[1], h = b.size[3];
+  const fovRad = (camera.fov || 60) * Math.PI / 180;
+  for (const { b, x, y, dist } of billboards) {
+    // Taille : composante Scale = studs (dépend de la distance), Offset = pixels
+    const pxPerStud = H / (2 * Math.tan(fovRad / 2) * Math.max(dist, 1));
+    const w = b.size[0] * pxPerStud + b.size[1], h = b.size[2] * pxPerStud + b.size[3];
+    if (w < 4 || h < 4) continue;
     for (const [kid, r] of layoutChildren({ children: arr(b.children) }, [x - w / 2, y - h / 2, w, h], 1)) drawGui(ctx, kid, r, 1);
   }
 }
