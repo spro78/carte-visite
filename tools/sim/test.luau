@@ -189,6 +189,18 @@ if hunter and victim then
 	check(victim.Character:GetAttribute("Team") == hunterTeam, "attribut Team du personnage mis à jour")
 	check(hunter.RoundCaptures == before + 1, "capture comptée pour " .. hunter.Name)
 	check(victim.Character:FindFirstChildOfClass("ForceField") ~= nil, "invincibilité visible après conversion")
+	-- Réaction côté client : ligne dans le fil des captures d'Alice
+	local hud = alice.PlayerGui:FindFirstChild("HuntOrHideHUD")
+	local feed = hud and hud:FindFirstChild("KillFeed")
+	local lines = 0
+	if feed then
+		for _, child in feed:GetChildren() do
+			if child.Name == "Line" then
+				lines += 1
+			end
+		end
+	end
+	check(lines >= 1, "la capture apparaît dans le fil des captures du client")
 end
 
 -- ---------------------------------------------------------------------------

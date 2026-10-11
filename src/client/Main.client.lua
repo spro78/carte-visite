@@ -15,11 +15,13 @@ local HUD = require(UI:WaitForChild("HUD"))
 local ActionBar = require(UI:WaitForChild("ActionBar"))
 local ObjectiveArrow = require(UI:WaitForChild("ObjectiveArrow"))
 local ShopUI = require(UI:WaitForChild("ShopUI"))
+local KillFeed = require(UI:WaitForChild("KillFeed"))
 local StateController = require(Controllers:WaitForChild("StateController"))
 local MovementController = require(Controllers:WaitForChild("MovementController"))
 local OutlineController = require(Controllers:WaitForChild("OutlineController"))
 local MechanicsController = require(Controllers:WaitForChild("MechanicsController"))
 local DataController = require(Controllers:WaitForChild("DataController"))
+local EffectsController = require(Controllers:WaitForChild("EffectsController"))
 
 StateController.Init(HUD)
 MovementController.Init()
@@ -39,6 +41,8 @@ ActionBar.Init(HUD.Screen, HUD.BottomRow, {
 HUD.Rescale() -- la barre de dash existe maintenant
 ShopUI.Init(HUD.Screen, HUD.Pills.SHOP)
 DataController.Init(HUD, ShopUI)
+KillFeed.Init(HUD.Screen)
+EffectsController.Init(KillFeed, HUD)
 
 -- Pastille SPIN : tourner la roue de récompense
 HUD.Pills.SPIN.Activated:Connect(function()
@@ -50,6 +54,10 @@ StateController.OnState(function(state)
 	local inRound = (state.Phase == "Countdown" or state.Phase == "Round") and Players.LocalPlayer:GetAttribute("Team") ~= nil
 	ShopUI.SetButtonVisible(not inRound)
 	HUD.Pills.SPIN.Visible = not inRound
+	EffectsController.OnState(state)
+	if state.Phase == "Intermission" then
+		KillFeed.Clear()
+	end
 end)
 
 print("[HuntOrHide] Client ready")

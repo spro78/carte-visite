@@ -136,6 +136,7 @@ local function capture(hunter: Actor, victim: Actor)
 	end
 	lastCapture[hunter.Id] = os.clock()
 	local newTeam = hunter.Team :: string
+	local oldTeam = victim.Team
 	local def = Teams.Get(newTeam)
 	assert(def)
 
@@ -150,15 +151,22 @@ local function capture(hunter: Actor, victim: Actor)
 		victim.Character:SetAttribute("Carrier", nil)
 	end
 
+	-- Messages clairs : qui t'a eu, ce que tu deviens, ce que tu dois faire
 	local announce = Remotes.Get("Announce")
-	ActorService.FireClient(victim, announce, "You were caught! You are now a " .. def.Display .. "!", def.Color)
-	ActorService.FireClient(hunter, announce, "Caught " .. victim.Name .. "!", Teams.PreyOutlineColor)
+	local preyDef = Teams.Get(def.Prey)
+	local hint = preyDef and (" Now catch " .. preyDef.Plural .. "!") or ""
+	ActorService.FireClient(victim, announce, hunter.Name .. " caught you! You're a " .. def.Display .. "." .. hint, def.Color)
+	ActorService.FireClient(hunter, announce, "You caught " .. victim.Name .. "!", Teams.PreyOutlineColor)
 	local position = ActorService.GetPosition(victim)
 	Remotes.Get("Effect"):FireAllClients("Capture", {
 		Position = position,
 		Team = newTeam,
+		OldTeam = oldTeam,
 		HunterId = hunter.Id,
 		VictimId = victim.Id,
+		HunterName = hunter.Name,
+		VictimName = victim.Name,
+		CatchEffect = hunter.Character and hunter.Character:GetAttribute("CatchEffect") or "None",
 	})
 	CaptureService.Captured:Fire(hunter, victim)
 end
