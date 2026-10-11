@@ -104,19 +104,24 @@ dans la fenêtre *Output* de Studio.
 
 ## Direction artistique et avatars
 
-- **Roblox stylisé et lumineux** : relief en Terrain (vallées, mesas en strates,
-  collines fleuries, bayou), décors en Parts aux formes douces (toits en pente,
-  arbres, manèges), éclairage Future avec ambiance propre à chaque carte
-  (après-midi, heure dorée, coucher de soleil, crépuscule). Réglages dans
-  `src/shared/Style.lua` et `Map.Lighting`.
+- **Bible visuelle** : `reference/BIBLE_VISUELLE.md` (principes tirés de la
+  référence, règles chiffrées vérifiées par `tools/sim/test_visual.luau`, kit
+  d'interface propre au jeu, exemple complet sur le Canyon, preuves dans
+  `reference/preuves/`). En bref :
+  - toujours de jour ;
+  - sol en plaques à tenons d'un ton dominant, sans Terrain (`src/server/Util/Ground.lua`) ;
+  - fond en gradins de blocs ;
+  - couleurs d'équipe réservées aux équipes ;
+  - couloirs de course dégagés ;
+  - interface en police Fredoka One, panneaux vert-de-gris à bord crème.
+
+  Réglages dans `src/shared/Style.lua`, `Map.Lighting` et les thèmes des cartes.
 - **Chacun garde son avatar Roblox.** L'équipe se lit en pleine course grâce aux
   attributs de l'animal ajoutés par-dessus (oreilles et queue de renard, crête de
   poule, capuche de vipère), au foulard d'équipe, au contour (vert = ta proie,
   rouge = ton chasseur) et à l'étiquette au-dessus de la tête.
   `Config.Appearance.Mode` : "Accessories" (défaut), "Avatar" ou "Animal".
 - **Avatars R6** conseillés : *Home > Game Settings > Avatar > Avatar Type = R6*.
-- **Herbe animée du Terrain** : dans Studio, *Workspace > Terrain > Decoration = true*
-  (propriété non modifiable par script).
 
 ## Ajouter une carte
 
