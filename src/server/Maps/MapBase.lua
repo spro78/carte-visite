@@ -5,14 +5,15 @@
 	qui est partagé :
 
 	  MapBase.BuildArena(folder, origin, cfg, theme) -> bases
-	    - sol de jeu plat en Terrain + plaques de matières variées
-	    - vallée autour (talus, collines, montagnes, rochers) et arbres
+	    - plateau de jeu à tenons en bandes de deux tons (Util/Ground)
+	    - terrasses de blocs autour (fond du décor) et arbres en cubes dessus
 	    - limites invisibles + clôture décorative du thème
 	    - trois camps d'équipe en triangle (couleurs d'équipe, balise visible
 	      de loin, points d'apparition)
 	    - chemins des camps vers le centre et anneau de course
-	  MapBase.ClearArena(origin)   -> efface le terrain de la map (appelé par
-	                                  RoundService au nettoyage, pour toutes les maps)
+	  MapBase.ClearArena(origin)   -> efface un éventuel ancien Terrain de la map
+	                                  (appelé par RoundService au nettoyage)
+	Direction artistique commune : reference/BIBLE_VISUELLE.md.
 
 	La map ne construit ensuite QUE ce qui lui est propre : ses lieux, son
 	mécanisme et son mode de jeu. Les briques réutilisables (cachettes,
@@ -28,6 +29,7 @@ local Mechanics = require(Shared.Mechanics)
 local Build = require(script.Parent.Parent.Util.Build)
 local Props = require(script.Parent.Parent.Util.Props)
 local TerrainKit = require(script.Parent.Parent.Util.TerrainKit)
+local Ground = require(script.Parent.Parent.Util.Ground)
 
 local MapBase = {}
 
@@ -42,30 +44,30 @@ export type Base = {
 	Radius: number, -- demi-côté de la plateforme
 }
 
--- Thème d'une map (voir BuildArena)
+-- Thème d'une map (voir BuildArena et la bible visuelle)
 export type ArenaTheme = {
 	Seed: number,
-	Floor: Enum.Material, -- matière du sol de jeu
-	Patches: { Enum.Material }?, -- plaques de matière pour casser l'aplat
-	PatchCount: number?,
-	Path: Enum.Material, -- chemins
+	Board: Color3, -- sol de jeu (bandes claires)
+	BoardAlt: Color3?, -- bandes foncées (sinon une teinte un peu plus sombre)
+	Stripe: number?, -- largeur des bandes (studs)
+	Path: Enum.Material, -- chemins (couleur via GroundColors)
 	PathWidth: number?,
 	RingPath: number?, -- rayon de l'anneau de course autour du centre (nil = pas d'anneau)
 	CenterRadius: number?, -- les chemins s'arrêtent à ce rayon du centre
-	Valley: TerrainKit.ValleyTheme,
+	Backdrop: Ground.BackdropTheme, -- terrasses du fond
 	Perimeter: string?, -- "Fence" | "Picket" | "Hedge" | "StoneWall" | "Rocks" | "None"
 	PerimeterColor: Color3?,
-	Trees: { string }?, -- styles d'arbres (Props.Tree)
+	Trees: { string }?, -- styles d'arbres (Props.Tree), plantés sur les terrasses
 	TreeCount: number?,
 	TreeScale: number?,
 	Camp: CampTheme?,
-	TerrainColors: { [string]: Color3 }?, -- couleurs de matières propres à la map
+	GroundColors: { [string]: Color3 }?, -- couleur de chaque matière logique des aplats
 }
 
 export type CampTheme = {
 	Wall: Enum.Material?, -- matière des murets du camp
 	WallColor: Color3?, -- sinon couleur foncée de l'équipe
-	Ground: Enum.Material?, -- terrain sous le camp
+	Ground: Enum.Material?, -- aplat sous le camp (matière logique)
 }
 
 -- Angles (degrés) des trois bases autour du centre
@@ -160,21 +162,12 @@ function MapBase.BuildPerimeter(folder: Instance, origin: Vector3, size: number,
 	end
 end
 
--- Arbres posés sur le relief autour de la zone de jeu
-local function plantSurroundingTrees(folder: Instance, origin: Vector3, size: number, theme: ArenaTheme)
+-- Arbres en cubes plantés sur les terrasses du fond (jamais dans la zone de jeu)
+local function plantSurroundingTrees(folder: Instance, theme: ArenaTheme)
 	local count = theme.TreeCount or 60
-	local kinds = theme.Trees or { "Block", "Round", "Pine" }
-	local ring1, ring2 = TerrainKit.ValleyRing(size, theme.Valley.Gap)
-	local half = size / 2
-	for i = 1, count do
-		local a = random:NextNumber(0, math.pi * 2)
-		-- Distance : dans la bande entre la clôture et les grandes collines
-		local edge = half / math.max(math.abs(math.cos(a)), math.abs(math.sin(a)))
-		local inner = math.min(edge + 8, ring1 - 10)
-		local d = random:NextNumber(inner, ring2 + 20)
-		local p = origin + Vector3.new(math.cos(a) * d, 0, math.sin(a) * d)
-		local ground = TerrainKit.Ground(p)
-		Props.Tree(folder, ground - Vector3.new(0, 0.6, 0), (theme.TreeScale or 1) * random:NextNumber(0.85, 1.35), kinds)
+	local kinds = theme.Trees or { "Block" }
+	for _, spot in Ground.TerraceSpots(count, random) do
+		Props.Tree(folder, spot - Vector3.new(0, 0.2, 0), (theme.TreeScale or 1) * random:NextNumber(0.9, 1.4), kinds)
 	end
 end
 
@@ -210,9 +203,9 @@ function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, p
 		local wallColor = style.WallColor or def.DarkColor
 		local wallMaterial = style.Wall or Enum.Material.WoodPlanks
 
-		-- Terrain du camp (sous la plateforme)
+		-- Aplat sous le camp
 		if style.Ground then
-			TerrainKit.Paint(facing, padSize + 16, padSize + 16, origin.Y, style.Ground)
+			Ground.Paint(facing, padSize + 16, padSize + 16, origin.Y, style.Ground)
 		end
 
 		-- Plateforme (couleur d'équipe) et bordure
@@ -329,7 +322,7 @@ function MapBase.BuildPaths(origin: Vector3, bases: { [string]: Base }, theme: A
 				local wobble = math.sin(t * math.pi * 2) * 5 * (1 - t)
 				table.insert(points, base.Center + unit * (length * t) + side * wobble)
 			end
-			TerrainKit.Path(points, width, origin.Y, theme.Path)
+			Ground.Path(points, width, origin.Y, theme.Path)
 		end
 	end
 	if theme.RingPath then
@@ -338,7 +331,7 @@ function MapBase.BuildPaths(origin: Vector3, bases: { [string]: Base }, theme: A
 			local a = k / 36 * math.pi * 2
 			table.insert(points, origin + Vector3.new(math.cos(a), 0, math.sin(a)) * theme.RingPath)
 		end
-		TerrainKit.Path(points, width * 0.8, origin.Y, theme.Path)
+		Ground.Path(points, width * 0.8, origin.Y, theme.Path)
 	end
 end
 
@@ -356,26 +349,12 @@ export type ArenaConfig = {
 
 function MapBase.BuildArena(folder: Instance, origin: Vector3, cfg: ArenaConfig, theme: ArenaTheme): { [string]: Base }
 	MapBase.Seed(theme.Seed)
-	TerrainKit.ResetRelief(origin.Y)
 	local size = cfg.GroundSize
 	MapBase.ClearArena(origin)
-	TerrainKit.ApplyOverrides(theme.TerrainColors)
-	-- Vallée + sol de jeu plat
-	if theme.Valley.Style == "Canyon" then
-		TerrainKit.Canyon(origin, size, theme.Valley, random)
-	else
-		TerrainKit.Valley(origin, size, theme.Valley, random)
-	end
-	TerrainKit.Slab(origin, size + 8, size + 8, origin.Y, 16, theme.Floor)
-	-- Plaques de matières (variations du sol)
-	if theme.Patches and #theme.Patches > 0 then
-		local half = size / 2 - 16
-		for i = 1, theme.PatchCount or 18 do
-			local p = origin + Vector3.new(random:NextNumber(-half, half), 0, random:NextNumber(-half, half))
-			local material = theme.Patches[(i - 1) % #theme.Patches + 1]
-			TerrainKit.PaintDisc(p, random:NextNumber(8, 18), origin.Y, material)
-		end
-	end
+	-- Plateau de jeu à tenons + terrasses de blocs autour
+	Ground.Begin(folder, origin.Y, theme.GroundColors)
+	Ground.Board(origin, size + 8, theme.Board, theme.BoardAlt or theme.Board:Lerp(Color3.new(0, 0, 0), 0.07), theme.Stripe)
+	Ground.Terraces(origin, size, theme.Backdrop, random)
 	MapBase.BuildBoundary(folder, origin, size, cfg.BoundaryHeight or 90)
 	MapBase.BuildPerimeter(folder, origin, size, theme.Perimeter, theme.PerimeterColor)
 	local bases = MapBase.BuildBases(folder, origin, cfg.BaseRadius, cfg.BasePadSize, theme.Camp, cfg.BaseAngles)
@@ -383,7 +362,7 @@ function MapBase.BuildArena(folder: Instance, origin: Vector3, cfg: ArenaConfig,
 	local trees = Instance.new("Folder")
 	trees.Name = "Surroundings"
 	trees.Parent = folder
-	plantSurroundingTrees(trees, origin, size, theme)
+	plantSurroundingTrees(trees, theme)
 	return bases
 end
 
@@ -438,7 +417,7 @@ function MapBase.BuildTallGrass(folder: Instance, position: Vector3, radius: num
 		}, model)
 	end
 	model.Parent = folder
-	TerrainKit.PaintDisc(position, radius + 2, position.Y, Enum.Material.LeafyGrass)
+	Ground.PaintDisc(position, radius + 2, position.Y, Enum.Material.LeafyGrass)
 	hidingZone(folder, CFrame.new(position + Vector3.new(0, 3, 0)), Vector3.new(radius * 1.8, 6, radius * 1.8), "Grass")
 	return model
 end

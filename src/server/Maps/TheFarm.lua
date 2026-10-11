@@ -21,7 +21,7 @@ local Types = require(Shared.Types)
 local MapBase = require(script.Parent.MapBase)
 local Build = require(script.Parent.Parent.Util.Build)
 local Props = require(script.Parent.Parent.Util.Props)
-local TerrainKit = require(script.Parent.Parent.Util.TerrainKit)
+local Ground = require(script.Parent.Parent.Util.Ground)
 
 type Actor = Types.Actor
 type MapContext = Types.MapContext
@@ -57,23 +57,31 @@ local eggTick = 0
 -- ---------------------------------------------------------------------------
 local RED = Color3.fromRGB(198, 60, 50)
 local WHITE = Color3.fromRGB(246, 244, 238)
-local HAY = Color3.fromRGB(244, 204, 74)
+-- Paille ocre clair : ne se confond pas avec le jaune des poules (bible visuelle, §1)
+local HAY = Color3.fromRGB(214, 184, 120)
 
--- Thème commun de la map (MapBase.BuildArena)
+-- Thème commun de la map (MapBase.BuildArena, reference/BIBLE_VISUELLE.md) :
+-- prairie verte à tenons, chemins de terre claire, terrasses gris-bleu à dessus d'herbe
 local THEME: MapBase.ArenaTheme = {
 	Seed = 1201,
-	Floor = Enum.Material.Grass,
-	Patches = { Enum.Material.LeafyGrass, Enum.Material.LeafyGrass, Enum.Material.Ground },
-	PatchCount = 16,
+	Board = Color3.fromRGB(98, 188, 84),
+	BoardAlt = Color3.fromRGB(86, 172, 74),
 	Path = Enum.Material.Ground,
-	PathWidth = 11,
+	PathWidth = 12,
 	RingPath = 78,
 	CenterRadius = 64,
-	Valley = { Ground = Enum.Material.Grass, Hill = Enum.Material.Grass, Rock = Enum.Material.Rock, Height = 95, Gap = 26, RockChance = 0.45 },
+	Backdrop = { Side = Color3.fromRGB(112, 130, 166), Top = Color3.fromRGB(92, 176, 78), Heights = { 12, 26, 46 } },
 	Perimeter = "Fence",
-	Trees = { "Block", "Round", "Green", "Round" },
-	TreeCount = 120,
+	Trees = { "Block", "Green", "Block", "Green" },
+	TreeCount = 80,
 	Camp = { Wall = Enum.Material.WoodPlanks },
+	GroundColors = {
+		Ground = Color3.fromRGB(216, 190, 146), -- terre claire (chemins, aire de battage)
+		LeafyGrass = Color3.fromRGB(72, 156, 64), -- herbe du verger et des cachettes
+		Mud = Color3.fromRGB(150, 112, 78), -- potager
+		Sand = Color3.fromRGB(226, 208, 160), -- berge de la mare
+		Pavement = Color3.fromRGB(222, 214, 198),
+	},
 }
 
 -- Grange rouge ouverte aux deux bouts : on la traverse (raccourci).
@@ -255,7 +263,7 @@ local function buildOrchard(parent: Instance, center: Vector3, facing: number)
 	end
 	Props.Sign(model, cf * CFrame.new(10, 0, -24) * CFrame.Angles(0, math.pi, 0), "APPLE ORCHARD", Color3.fromRGB(150, 60, 50))
 	model.Parent = parent
-	TerrainKit.PaintDisc(center, 30, center.Y, Enum.Material.LeafyGrass)
+	Ground.PaintDisc(center, 30, center.Y, Enum.Material.LeafyGrass)
 end
 
 -- Potager : sillons de terre (on peut sauter par-dessus), citrouilles, épouvantail
@@ -264,7 +272,7 @@ local function buildPumpkinPatch(parent: Instance, center: Vector3, facing: numb
 	model.Name = "PumpkinPatch"
 	local cf = CFrame.new(center) * CFrame.Angles(0, facing, 0)
 	local random = MapBase.Random()
-	TerrainKit.Paint(cf, 40, 34, center.Y, Enum.Material.Mud)
+	Ground.Paint(cf, 40, 34, center.Y, Enum.Material.Mud)
 	for i = -3, 3 do
 		local x = i * 5
 		Build.Part({ Name = "Furrow", Size = Vector3.new(2.6, 1, 30), CFrame = cf * CFrame.new(x, 0.3, 0), Color = Color3.fromRGB(118, 82, 52), Material = Enum.Material.Ground }, model)
@@ -329,7 +337,7 @@ end
 local function buildDuckPond(parent: Instance, center: Vector3)
 	local model = Instance.new("Model")
 	model.Name = "DuckPond"
-	TerrainKit.PaintDisc(center, 17, center.Y, Enum.Material.Sand)
+	Ground.PaintDisc(center, 17, center.Y, Enum.Material.Sand)
 	Build.VerticalCylinder(center + Vector3.new(0, 0.06, 0), 13, 0.12, { Name = "PondWater", Color = Color3.fromRGB(70, 170, 210), Material = Enum.Material.Glass, Transparency = 0.15, Reflectance = 0.2, Accent = true, CanCollide = false }, model)
 	local random = MapBase.Random()
 	for i = 0, 9 do
@@ -376,7 +384,7 @@ local function buildFarmhouse(parent: Instance, position: Vector3, facing: Vecto
 	Props.PicketFence(parent, (cf * CFrame.new(4, 0, -16)).Position, (cf * CFrame.new(16, 0, -16)).Position)
 	Props.FlowerBed(parent, cf * CFrame.new(-10, 0, -14), 8, 2.4)
 	Props.FlowerBed(parent, cf * CFrame.new(10, 0, -14), 8, 2.4)
-	TerrainKit.Path({ (cf * CFrame.new(0, 0, -11)).Position, (cf * CFrame.new(0, 0, -30)).Position }, 5, position.Y, Enum.Material.Pavement)
+	Ground.Path({ (cf * CFrame.new(0, 0, -11)).Position, (cf * CFrame.new(0, 0, -30)).Position }, 5, position.Y, Enum.Material.Pavement)
 	Props.Tree(parent, (cf * CFrame.new(16, 0, 6)).Position, 1.1, { "Round" })
 	Props.Well(parent, (cf * CFrame.new(-18, 0, -6)).Position)
 end
@@ -444,7 +452,7 @@ end
 
 local function buildNest(parent: Instance)
 	-- Aire de battage : terre battue balayée par le bras (zone dangereuse lisible)
-	TerrainKit.PaintDisc(origin, cfg.ArmLength + 4, origin.Y, Enum.Material.Ground)
+	Ground.PaintDisc(origin, cfg.ArmLength + 4, origin.Y, Enum.Material.Ground)
 	-- Bordure de pavés autour de l'aire (rappel visuel du danger)
 	local count = 48
 	for i = 0, count - 1 do
@@ -463,8 +471,8 @@ local function buildNest(parent: Instance)
 	end
 	-- Poteau fixe au centre (le bras tourne autour) et nid de paille
 	Build.VerticalCylinder(origin + Vector3.new(0, 4.5, 0), 1, 9, { Name = "CenterPole", Color = Color3.fromRGB(120, 85, 55), Material = Enum.Material.Wood }, parent)
-	Build.VerticalCylinder(origin + Vector3.new(0, 0.5, 0), 6.5, 1, { Name = "Nest", Color = Color3.fromRGB(222, 184, 96), Material = Enum.Material.Fabric }, parent)
-	Build.VerticalCylinder(origin + Vector3.new(0, 1.05, 0), 5.2, 0.2, { Name = "NestInner", Color = Color3.fromRGB(196, 150, 70), Material = Enum.Material.Fabric, CanCollide = false }, parent)
+	Build.VerticalCylinder(origin + Vector3.new(0, 0.5, 0), 6.5, 1, { Name = "Nest", Color = Color3.fromRGB(176, 140, 92), Material = Enum.Material.Fabric }, parent)
+	Build.VerticalCylinder(origin + Vector3.new(0, 1.05, 0), 5.2, 0.2, { Name = "NestInner", Color = Color3.fromRGB(150, 112, 70), Material = Enum.Material.Fabric, CanCollide = false }, parent)
 	-- Rail circulaire du bras
 	for i = 0, 23 do
 		local a = i / 24 * math.pi * 2
@@ -487,11 +495,12 @@ local function buildNest(parent: Instance)
 end
 
 -- Obstacles du cercle intérieur (entre l'aire de battage et les camps) :
--- murets de foin, caisses, abreuvoirs. Ils créent des feintes sans fermer les lignes.
+-- murets de foin, caisses, abreuvoirs. Ils créent des feintes sans fermer les lignes :
+-- posés entre les couloirs des camps (90°, 210°, 330°), jamais dessus.
 local function buildRingCover(parent: Instance)
 	local random = MapBase.Random()
 	for i = 0, 5 do
-		local deg = i * 60 + 30
+		local deg = i * 60
 		local p = MapBase.Polar(origin, deg, 84)
 		local a = math.rad(deg)
 		local tangent = math.atan2(-math.cos(a), math.sin(a))
@@ -538,37 +547,15 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	buildWindmill(f, MapBase.Polar(origin, 225, 168), origin)
 	buildWaterTower(f, MapBase.Polar(origin, 315, 168))
 
-	-- Petites scènes de la vie de la ferme (remplissent les pelouses, servent d'obstacles)
+	-- Petites scènes de la vie de la ferme, regroupées en bordure (jamais sur
+	-- les lignes de course : bible visuelle, §4)
 	Props.SheepPen(f, CFrame.lookAt(MapBase.Polar(origin, 0, 130), origin), 22, 16, 4)
 	for k = 0, 2 do
-		Props.Beehive(f, MapBase.Polar(origin, 180 + (k - 1) * 6, 132 + (k % 2) * 4))
+		Props.Beehive(f, MapBase.Polar(origin, 180 + (k - 1) * 6, 136 + (k % 2) * 4))
 	end
-	for k = 0, 9 do
-		Props.Sunflower(f, MapBase.Polar(origin, 172 + k * 1.8, 142 + (k % 3) * 2.5))
-	end
-	Props.Flowers(f, MapBase.Polar(origin, 186, 120), 16, 7)
-	Props.LogPile(f, MapBase.Polar(origin, 300, 132), math.rad(-60))
-	Props.Wheelbarrow(f, MapBase.Polar(origin, 306, 122), math.rad(20), Color3.fromRGB(196, 150, 90))
-	Props.Cart(f, CFrame.new(MapBase.Polar(origin, 238, 132)) * CFrame.Angles(0, math.rad(-30), 0), Color3.fromRGB(244, 204, 74))
-	Props.HayBale(f, MapBase.Polar(origin, 244, 140), 0.4, true)
-	Props.HayBale(f, MapBase.Polar(origin, 232, 142), -0.3, true)
-	for k = 0, 5 do
-		Props.Sunflower(f, MapBase.Polar(origin, 112 + k * 2.2, 140 + (k % 2) * 3))
-	end
-	Props.Wheelbarrow(f, MapBase.Polar(origin, 66, 132), math.rad(140), Color3.fromRGB(226, 40, 46))
-
-	-- Touffes d'herbe et fleurs semées sur la pelouse (texture du sol)
-	local random = MapBase.Random()
-	for _ = 1, 70 do
-		local a = random:NextNumber(0, 360)
-		local r = random:NextNumber(70, 145)
-		local p = MapBase.Polar(origin, a, r)
-		if random:NextNumber() < 0.7 then
-			Props.GrassTuft(f, p)
-		else
-			Props.Flowers(f, p, 4, 1.5)
-		end
-	end
+	Props.LogPile(f, MapBase.Polar(origin, 300, 134), math.rad(-60))
+	Props.Cart(f, CFrame.new(MapBase.Polar(origin, 238, 136)) * CFrame.Angles(0, math.rad(-30), 0), HAY)
+	Props.HayBale(f, MapBase.Polar(origin, 244, 142), 0.4, true)
 
 	-- Cachettes : hautes herbes, terriers et buissons
 	for _, deg in { 22, 150, 262 } do
@@ -590,21 +577,13 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 		Props.Fence(f, center + tangent * 3, center + tangent * 13)
 	end
 
-	-- Lampadaires et fleurs à l'entrée des camps
+	-- Lampadaires à l'entrée des camps (de part et d'autre du chemin)
 	for _, base in builtBases do
 		local toCenter = (origin - base.Center).Unit
 		local side = Vector3.new(-toCenter.Z, 0, toCenter.X)
 		local p = base.Center + toCenter * (base.Radius + 12)
 		Props.Lamp(f, p + side * 9, math.atan2(toCenter.X, toCenter.Z))
 		Props.Lamp(f, p - side * 9, math.atan2(toCenter.X, toCenter.Z))
-		Props.Flowers(f, base.Center + side * (base.Radius + 8), 10, 4)
-		Props.Flowers(f, base.Center - side * (base.Radius + 8), 10, 4)
-	end
-
-	-- Champs cultivés hors de la zone de jeu (vus depuis la map)
-	for _, deg in { 20, 100, 200, 290 } do
-		local p = MapBase.Polar(origin, deg, 205)
-		TerrainKit.Paint(CFrame.new(p) * CFrame.Angles(0, math.rad(deg), 0), 40, 60, origin.Y, deg % 200 == 0 and Enum.Material.Sand or Enum.Material.Ground)
 	end
 
 	f.Parent = workspace

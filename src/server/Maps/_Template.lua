@@ -52,7 +52,11 @@
 	  MapBase    : arène, camps, cachettes (BuildTallGrass, BuildBush, BuildBurrow),
 	               mécanismes tournants (NewSpinner, StartSpinner), Polar()
 	  Util/Props : arbres, maisons, toits, clôtures, rochers, mobilier...
-	  Util/TerrainKit : relief en Terrain (collines, mesas, falaises, mares, chemins)
+	  Util/Ground : sol en pièces (aplats, chemins, mares, buttes, crêtes) ; pas de Terrain
+
+	DIRECTION ARTISTIQUE
+	  Suivre reference/BIBLE_VISUELLE.md : plein jour, sol à tenons, formes simples,
+	  aucune grande surface aux couleurs des équipes, lignes de course dégagées.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -73,14 +77,15 @@ Map.Lighting = {
 -- Décor commun construit par MapBase.BuildArena
 local THEME: MapBase.ArenaTheme = {
 	Seed = 1, -- même décor d'une manche à l'autre
-	Floor = Enum.Material.Grass,
-	Patches = { Enum.Material.LeafyGrass },
-	Path = Enum.Material.Ground,
+	Board = Color3.fromRGB(98, 188, 84), -- plateau à tenons (bandes claires)
+	BoardAlt = Color3.fromRGB(86, 172, 74), -- bandes foncées
+	Path = Enum.Material.Ground, -- couleur via GroundColors
 	RingPath = 80, -- anneau de course autour du centre (nil = aucun)
-	Valley = { Ground = Enum.Material.Grass, Hill = Enum.Material.Grass, Rock = Enum.Material.Rock },
+	Backdrop = { Side = Color3.fromRGB(112, 130, 166), Top = Color3.fromRGB(92, 176, 78) }, -- terrasses du fond
 	Perimeter = "Fence", -- "Fence" | "Picket" | "Hedge" | "StoneWall" | "Rocks" | "None"
-	Trees = { "Round", "Green" },
+	Trees = { "Block", "Green" }, -- plantés sur les terrasses
 	TreeCount = 60,
+	GroundColors = { Ground = Color3.fromRGB(216, 190, 146) },
 }
 
 local folder: Folder? = nil

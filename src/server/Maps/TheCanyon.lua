@@ -23,49 +23,56 @@ local Types = require(Shared.Types)
 local MapBase = require(script.Parent.MapBase)
 local Build = require(script.Parent.Parent.Util.Build)
 local Props = require(script.Parent.Parent.Util.Props)
-local TerrainKit = require(script.Parent.Parent.Util.TerrainKit)
+local Ground = require(script.Parent.Parent.Util.Ground)
 
 type Actor = Types.Actor
 type MapContext = Types.MapContext
 
 local Map = {}
 Map.Id = "TheCanyon"
--- Soleil bas et chaud, brume orangée
+-- Plein soleil chaud et clair, ombres franches mais douces (bible visuelle, §2)
 Map.Lighting = {
-	ClockTime = 16.3,
-	Brightness = 2.7,
-	OutdoorAmbient = Color3.fromRGB(196, 150, 120),
-	Atmosphere = { Density = 0.3, Haze = 1.4, Color = Color3.fromRGB(255, 206, 160), Decay = Color3.fromRGB(230, 140, 90) },
-	ColorCorrection = { TintColor = Color3.fromRGB(255, 238, 222), Saturation = 0.2, Contrast = 0.08 },
+	ClockTime = 14.6,
+	Brightness = 3,
+	OutdoorAmbient = Color3.fromRGB(176, 160, 150),
+	Atmosphere = { Density = 0.2, Haze = 0.8, Color = Color3.fromRGB(255, 230, 205), Decay = Color3.fromRGB(230, 170, 130) },
+	ColorCorrection = { TintColor = Color3.fromRGB(255, 246, 236), Saturation = 0.14, Contrast = 0.06 },
 }
 
 local cfg = Config.Maps.TheCanyon
 local BUCKET_HEIGHT = 2.5
-local ROCK = Color3.fromRGB(176, 98, 60)
+-- Roche brun-rouge et crème en strates : jamais l'orange des renards (bible, §1)
+local ROCK = Color3.fromRGB(170, 70, 66)
+local ROCK_DARK = Color3.fromRGB(140, 58, 56)
+local ROCK_CREAM = Color3.fromRGB(236, 214, 182)
+local SAND_TOP = Color3.fromRGB(228, 204, 156)
+local STRATA = { ROCK_DARK, ROCK, ROCK_CREAM, ROCK }
 
+-- Sable clair à tenons, chemins de terre battue, gradins en strates brun-rouge
 local THEME: MapBase.ArenaTheme = {
 	Seed = 3307,
-	Floor = Enum.Material.Sand,
-	Patches = { Enum.Material.Ground },
-	PatchCount = 10,
+	Board = Color3.fromRGB(234, 214, 170),
+	BoardAlt = Color3.fromRGB(224, 202, 156),
 	Path = Enum.Material.Ground,
 	PathWidth = 12,
 	RingPath = 76,
 	CenterRadius = 26,
-	Valley = {
-		Style = "Canyon",
-		Ground = Enum.Material.Sand,
-		Hill = Enum.Material.Sandstone,
-		Rock = Enum.Material.Sandstone,
-		Strata = { Enum.Material.Sandstone, Enum.Material.Sandstone, Enum.Material.Limestone, Enum.Material.Ground },
-		Height = 120,
-		Gap = 20,
+	Backdrop = {
+		Side = ROCK,
+		Top = SAND_TOP,
+		Strata = STRATA,
+		Heights = { 16, 34, 58 },
+		Depths = { 28, 40, 70 },
 	},
 	Perimeter = "Fence",
 	PerimeterColor = Color3.fromRGB(150, 112, 80),
-	Trees = { "Round" },
+	Trees = {},
 	TreeCount = 0,
 	Camp = { Wall = Enum.Material.WoodPlanks, Ground = Enum.Material.Ground },
+	GroundColors = {
+		Ground = Color3.fromRGB(190, 150, 118), -- terre battue
+		Salt = Color3.fromRGB(242, 234, 218), -- lit de rivière à sec
+	},
 }
 
 local folder: Folder? = nil
@@ -193,10 +200,10 @@ end
 -- vers la ruelle arrière), shérif et magasin général sur les côtés.
 local function buildTown(parent: Instance, center: Vector3)
 	local facing = CFrame.lookAt(center, Vector3.new(origin.X, center.Y, origin.Z))
-	TerrainKit.Paint(facing * CFrame.new(0, 0, 4), 70, 40, center.Y, Enum.Material.Ground)
-	buildStorefront(parent, facing * CFrame.new(0, 0, 8), 22, 16, 11, Color3.fromRGB(176, 84, 60), "SALOON", true)
+	Ground.Paint(facing * CFrame.new(0, 0, 4), 70, 40, center.Y, Enum.Material.Ground)
+	buildStorefront(parent, facing * CFrame.new(0, 0, 8), 22, 16, 11, Color3.fromRGB(158, 56, 54), "SALOON", true)
 	buildStorefront(parent, facing * CFrame.new(-25, 0, 2) * CFrame.Angles(0, math.rad(-25), 0), 16, 12, 9, Color3.fromRGB(110, 134, 160), "SHERIFF", false)
-	buildStorefront(parent, facing * CFrame.new(25, 0, 2) * CFrame.Angles(0, math.rad(25), 0), 18, 12, 10, Color3.fromRGB(196, 160, 96), "GENERAL STORE", false)
+	buildStorefront(parent, facing * CFrame.new(25, 0, 2) * CFrame.Angles(0, math.rad(25), 0), 18, 12, 10, Color3.fromRGB(96, 148, 128), "GENERAL STORE", false)
 	-- Abreuvoir, tonneaux, poteau d'attache
 	Build.Part({ Name = "HitchRail", Size = Vector3.new(10, 0.5, 0.5), CFrame = facing * CFrame.new(-9, 3.2, -6), Color = WOOD_DARK, Material = Enum.Material.Wood }, parent)
 	for _, x in { -13.5, -4.5 } do
@@ -213,9 +220,24 @@ local function buildMine(parent: Instance, center: Vector3)
 	local random = MapBase.Random()
 	local a = math.atan2(center.Z - origin.Z, center.X - origin.X)
 	local tangent = Vector3.new(-math.sin(a), 0, math.cos(a))
-	TerrainKit.Mesa(center, 18, 26, origin.Y, { Enum.Material.Sandstone, Enum.Material.Limestone, Enum.Material.Sandstone, Enum.Material.Ground }, random)
+	-- Mesa en blocs : deux massifs de part et d'autre du tunnel et un linteau
+	-- au-dessus (le tunnel de 10 x 11 studs reste libre)
 	local tunnel = CFrame.lookAt(center, center + tangent)
-	workspace.Terrain:FillBlock(tunnel * CFrame.new(0, 5.5, 0), Vector3.new(10, 11, 48), Enum.Material.Air)
+	local mesaW, mesaL, mesaH = 36, 40, 26
+	local sideW = (mesaW - 10) / 2
+	for _, s in { -1, 1 } do
+		Ground.Butte(tunnel * CFrame.new(s * (5 + sideW / 2), 0, 0), sideW, mesaL, mesaH, STRATA, SAND_TOP, random)
+	end
+	local lintel = Instance.new("Model")
+	lintel.Name = "MineLintelRock"
+	local y = 11
+	for i, color in { ROCK_CREAM, ROCK } do
+		local h = i == 1 and 7 or mesaH - 18
+		Build.Part({ Name = "Stratum", Size = Vector3.new(10.5, h, mesaL - 2), CFrame = tunnel * CFrame.new(0, y + h / 2, 0), Color = color }, lintel)
+		y += h
+	end
+	Build.Part({ Name = "ButteTop", Size = Vector3.new(12, 0.8, mesaL - 1), CFrame = tunnel * CFrame.new(0, mesaH + 0.4, 0), Color = SAND_TOP, Studs = true }, lintel)
+	lintel.Parent = parent
 	-- Cadres de bois tout le long
 	for k = -4, 4 do
 		local frame = tunnel * CFrame.new(0, 0, k * 5)
@@ -260,15 +282,13 @@ end
 local function buildRockArch(parent: Instance, center: Vector3)
 	local a = math.atan2(center.Z - origin.Z, center.X - origin.X)
 	local tangent = Vector3.new(-math.sin(a), 0, math.cos(a))
-	local t = workspace.Terrain
+	-- Arche en blocs : deux piliers en strates et une poutre de roche
+	local arch = CFrame.lookAt(center, center + tangent)
 	for _, s in { -1, 1 } do
-		local foot = center + tangent * s * 11
-		t:FillBall(foot + Vector3.new(0, 4, 0), 7, Enum.Material.Sandstone)
-		t:FillCylinder(CFrame.new(foot + Vector3.new(0, 11, 0)), 14, 4.5, Enum.Material.Sandstone)
-		t:FillBall(foot + Vector3.new(0, 17, 0), 5.5, Enum.Material.Limestone)
+		Ground.Butte(arch * CFrame.new(0, 0, s * 11), 9, 9, 19, { ROCK_DARK, ROCK, ROCK_CREAM }, nil, MapBase.Random())
 	end
-	t:FillBlock(CFrame.lookAt(center + Vector3.new(0, 21, 0), center + Vector3.new(0, 21, 0) + tangent), Vector3.new(7, 6, 30), Enum.Material.Sandstone)
-	t:FillBall(center + Vector3.new(0, 23, 0), 6, Enum.Material.Limestone)
+	Build.Part({ Name = "ArchBeam", Size = Vector3.new(8, 4, 31), CFrame = arch * CFrame.new(0, 21, 0), Color = ROCK }, parent)
+	Build.Part({ Name = "ArchCap", Size = Vector3.new(8.6, 1.4, 31.6), CFrame = arch * CFrame.new(0, 23.7, 0), Color = ROCK_CREAM, Studs = true }, parent)
 	local random = MapBase.Random()
 	for _ = 1, 7 do
 		local ang = random:NextNumber(0, math.pi * 2)
@@ -347,8 +367,8 @@ end
 
 -- Lit de rivière à sec qui serpente (sable clair, galets) et pont de bois
 local function buildDryCreek(parent: Instance, points: { Vector3 })
-	TerrainKit.Path(points, 14, origin.Y, Enum.Material.Ground)
-	TerrainKit.Path(points, 8, origin.Y, Enum.Material.Salt)
+	Ground.Path(points, 14, origin.Y, Enum.Material.Ground)
+	Ground.Path(points, 8, origin.Y, Enum.Material.Salt)
 	local random = MapBase.Random()
 	for i = 1, #points - 1 do
 		local a, b = points[i], points[i + 1]
@@ -389,7 +409,7 @@ local function buildCorral(parent: Instance, center: Vector3)
 			Props.Fence(parent, center + Vector3.new(math.cos(a1) * r, 0, math.sin(a1) * r), center + Vector3.new(math.cos(a2) * r, 0, math.sin(a2) * r), Color3.fromRGB(150, 112, 80))
 		end
 	end
-	TerrainKit.PaintDisc(center, r, origin.Y, Enum.Material.Ground)
+	Ground.PaintDisc(center, r, origin.Y, Enum.Material.Ground)
 	Build.Part({ Name = "Trough", Size = Vector3.new(2.4, 1.8, 7), CFrame = CFrame.new(center + Vector3.new(-6, 0.9, 2)), Color = WOOD, Material = Enum.Material.WoodPlanks }, parent)
 	Build.Part(deco({ Name = "TroughWater", Size = Vector3.new(1.8, 0.2, 6.4), CFrame = CFrame.new(center + Vector3.new(-6, 1.75, 2)), Color = Color3.fromRGB(80, 160, 200), Material = Enum.Material.Glass, Transparency = 0.2, Accent = true }), parent)
 	Props.HayBale(parent, center + Vector3.new(5, 0, 4), 0.3, true)
@@ -491,7 +511,7 @@ local function buildNest(parent: Instance, teamId: string)
 		Name = teamId .. "_EggNest",
 		Size = Vector3.new(17, 0.8, 11),
 		CFrame = base.CFrame * CFrame.new(0, 1.3, 9),
-		Color = Color3.fromRGB(200, 165, 100),
+		Color = Color3.fromRGB(168, 128, 88),
 		Material = Enum.Material.Fabric,
 	}, parent)
 end
@@ -501,7 +521,7 @@ local function buildCatapult(parent: Instance): Model
 	Build.VerticalCylinder(origin + Vector3.new(0, 1.5, 0), 6, 3, { Name = "CatapultBase", Color = Color3.fromRGB(120, 80, 50), Material = Enum.Material.WoodPlanks }, parent)
 	Build.VerticalCylinder(origin + Vector3.new(0, 0.05, 0), cfg.CatapultArmLength + 5, 0.1, {
 		Name = "CatapultRing",
-		Color = Color3.fromRGB(190, 120, 70),
+		Color = Color3.fromRGB(150, 116, 92),
 		Material = Enum.Material.Sand,
 		CanCollide = false,
 		CanQuery = false,
@@ -575,9 +595,8 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	buildTown(f, MapBase.Polar(origin, 270, 122))
 	buildWaterTower(f, MapBase.Polar(origin, 270, 122) + Vector3.new(-30, 0, -14))
 	-- Gorge qui encadre la ville : deux parois rocheuses en strates
-	local strata = { Enum.Material.Sandstone, Enum.Material.Limestone, Enum.Material.Sandstone, Enum.Material.Ground }
 	for _, deg in { 249, 291 } do
-		TerrainKit.RockRidge(MapBase.Polar(origin, deg, 100), MapBase.Polar(origin, deg, 136), 9, 16, origin.Y, strata, MapBase.Random())
+		Ground.Ridge(MapBase.Polar(origin, deg, 100), MapBase.Polar(origin, deg, 136), 14, 16, STRATA, SAND_TOP, MapBase.Random())
 	end
 	-- Rivière à sec entre le camp des renards et l'arche
 	buildDryCreek(f, {
@@ -637,19 +656,18 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 		Props.Lamp(f, p + side * 9, math.atan2(toCenter.X, toCenter.Z))
 		Props.Lamp(f, p - side * 9, math.atan2(toCenter.X, toCenter.Z))
 	end
-	for _ = 1, 18 do
-		local p = MapBase.Polar(origin, random:NextNumber(0, 360), random:NextNumber(96, 146))
-		if random:NextNumber() < 0.5 then
-			buildCactus(f, p, random:NextNumber(0.5, 0.8))
-		else
+	-- Quelques cactus en bordure (jamais sur les lignes de course)
+	for k = 0, 7 do
+		local p = MapBase.Polar(origin, k * 45 + random:NextNumber(-12, 12), random:NextNumber(140, 152))
+		if k % 3 == 2 then
 			buildTumbleweed(f, p)
+		else
+			buildCactus(f, p, random:NextNumber(0.6, 0.85))
 		end
 	end
-	-- Cactus géants hors de la zone de jeu
-	for _ = 1, 30 do
-		local a = random:NextNumber(0, 360)
-		local p = MapBase.Polar(origin, a, random:NextNumber(185, 260))
-		buildCactus(f, TerrainKit.Ground(p) - Vector3.new(0, 0.5, 0), random:NextNumber(1, 1.6))
+	-- Cactus géants sur les gradins du fond
+	for _, spot in Ground.TerraceSpots(26, random) do
+		buildCactus(f, spot - Vector3.new(0, 0.3, 0), random:NextNumber(1, 1.6))
 	end
 
 	f.Parent = workspace

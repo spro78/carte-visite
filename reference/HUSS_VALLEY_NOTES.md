@@ -1,5 +1,59 @@
 # Huss Valley (Roblox) : notes de référence pour "Hunt or Hide"
 
+## 0. L'expérience de référence exacte (mise à jour du 11/10/2026)
+
+**Référence retenue : Huss Valley, de Huss Valley Official, place `107535308163741`.**
+- https://www.roblox.com/games/107535308163741/Huss-Valley
+- La bible visuelle qui en découle : `BIBLE_VISUELLE.md`.
+
+Plusieurs jeux portent un nom proche. Ils **ne sont pas** la référence :
+- **Escape Huss Valley** (place `125215626986308`, groupe « games group hahaa ») : un jeu d'évasion d'horreur.
+- **Un jeu « Huss Valley » de type tag-survie dans une arène industrielle grise appelée « Folk Valley »** (développeur cité : « Ve3 », 16 joueurs, vault et slide). Les sections 1 à 4 plus bas, rédigées avant cette mise à jour, mélangent ses informations avec celles de la référence. **Elles ne s'appliquent pas** au décor de la référence. L'ancienne idée d'une « ambiance industrielle grise » est abandonnée.
+
+**Ce qui est vérifié pour la place 107535308163741**
+- Les trois captures fournies par Malcom (section A) viennent bien de cette expérience.
+  - On y lit « TEAM FÚTBOL » au-dessus des joueurs, ainsi qu'un bouton EVENT.
+  - Cela correspond à l'événement « Football vs Futbol » (Team Red contre Team Blue) que des guides attribuent à ce jeu en octobre 2026.
+  - Ce sont les **seules images** de la référence dont on dispose. Elles montrent le lobby et l'écran de fin de match, **pas l'arène de jeu**.
+
+**Ce qui vient de sources secondaires** (wikis de fans et guides, souvent contradictoires)
+- Description publique : « RUN!! ».
+- Un poursuivant (Chaser) armé d'un couteau, tiré au hasard ; les autres sont des coureurs (Runners).
+- Les coureurs doivent traverser trois fois une arène rectangulaire, d'une ligne de départ à une ligne d'arrivée.
+- Un coureur touché passe chez les poursuivants.
+- Mouvement à inertie, dash latéral, arrêt instantané.
+- Pièces et gemmes, environ 30 joueurs par serveur.
+
+**Ce qui n'a pas pu être vérifié**
+- L'aspect de l'arène, les effets et les sons. La politique réseau de l'environnement bloque `www.roblox.com`, `thumbnails.roblox.com`, `tr.rbxcdn.com` et `www.youtube.com`/`i.ytimg.com`, aussi bien depuis le conteneur que depuis l'outil de lecture web.
+- Pour aller plus loin, deux solutions :
+  - autoriser ces domaines dans les réglages réseau de l'environnement ;
+  - fournir des captures de l'arène.
+
+Sources consultées (texte seulement) :
+- [hussvalley-roblox.wiki](https://hussvalley-roblox.wiki/)
+- [hussvalley.top](https://hussvalley.top/)
+- [huss-valley.wiki](https://huss-valley.wiki/)
+- [progameguides : guide du débutant](https://progameguides.com/roblox/complete-huss-valley-beginners-guide-movement-abilities-consumables/)
+- [progameguides : événement Football vs Futbol](https://progameguides.com/roblox/complete-huss-valley-football-vs-futbol-event-guide/)
+- [sportskeeda : guide du débutant](https://www.sportskeeda.com/roblox-news/huss-valley-a-beginner-s-guide)
+- [escapehussvalley.com](https://escapehussvalley.com/) (l'autre jeu)
+
+**Mesures faites sur les captures** (niveaux visés, pas des couleurs à recopier)
+
+| Surface | Saturation | Luminosité |
+|---|---|---|
+| Sol vert à tenons | 0,57 à 0,77 | 0,54 à 0,72 |
+| Dalle de pierre gris-bleu | ≈ 0,30 | ≈ 0,90 |
+| Côtés des terrasses du fond | ≈ 0,60 | ≈ 0,60 |
+| Accents (feuillage orange, cadeau rouge) | ≈ 0,85 à 0,91 | ≈ 0,93 à 0,95 |
+
+En résumé :
+- un sol coloré à valeur moyenne ;
+- des dalles claires et peu saturées ;
+- des accents très saturés mais rares ;
+- un ciel clair à nuages.
+
 ## A. Ce que montrent les captures fournies par Malcom (11/10/2026) - VÉRIFIÉ
 
 Trois captures du lobby et de l'écran de fin de match. Elles remplacent les

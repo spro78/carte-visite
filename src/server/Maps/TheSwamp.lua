@@ -23,21 +23,21 @@ local Types = require(Shared.Types)
 local MapBase = require(script.Parent.MapBase)
 local Build = require(script.Parent.Parent.Util.Build)
 local Props = require(script.Parent.Parent.Util.Props)
-local TerrainKit = require(script.Parent.Parent.Util.TerrainKit)
+local Ground = require(script.Parent.Parent.Util.Ground)
 
 type Actor = Types.Actor
 type MapContext = Types.MapContext
 
 local Map = {}
 Map.Id = "TheSwamp"
--- Crépuscule : brume verte, lumières chaudes et champignons lumineux
+-- Bayou de jour : lumière fraîche et verte, brume légère (bible visuelle, §2)
 Map.Lighting = {
-	ClockTime = 18.1,
-	Brightness = 1.9,
-	OutdoorAmbient = Color3.fromRGB(130, 150, 150),
-	Atmosphere = { Density = 0.4, Haze = 2, Color = Color3.fromRGB(176, 210, 190), Decay = Color3.fromRGB(110, 140, 150) },
-	ColorCorrection = { TintColor = Color3.fromRGB(236, 250, 244), Saturation = 0.12 },
-	Bloom = { Intensity = 0.6, Threshold = 1.1 },
+	ClockTime = 12.8,
+	Brightness = 2.7,
+	OutdoorAmbient = Color3.fromRGB(150, 168, 162),
+	Atmosphere = { Density = 0.25, Haze = 1, Color = Color3.fromRGB(205, 232, 220), Decay = Color3.fromRGB(140, 180, 170) },
+	ColorCorrection = { TintColor = Color3.fromRGB(242, 255, 248), Saturation = 0.12, Contrast = 0.05 },
+	Bloom = { Intensity = 0.4, Threshold = 1.3 },
 }
 
 local cfg = Config.Maps.TheSwamp
@@ -45,23 +45,22 @@ local ARM_COUNT = 4
 local ARM_HEIGHT = 3
 local SAFE_JUMP_HEIGHT = 6.5
 
+-- Mousse vert-bleu à tenons, chemins de vase, gradins vert sapin bas
 local THEME: MapBase.ArenaTheme = {
 	Seed = 4409,
-	Floor = Enum.Material.LeafyGrass,
-	Patches = { Enum.Material.Mud, Enum.Material.Mud, Enum.Material.Grass },
-	PatchCount = 22,
+	Board = Color3.fromRGB(82, 156, 112),
+	BoardAlt = Color3.fromRGB(72, 142, 102),
 	Path = Enum.Material.Mud,
 	PathWidth = 8,
 	CenterRadius = 26,
-	Valley = { Ground = Enum.Material.LeafyGrass, Hill = Enum.Material.LeafyGrass, Rock = Enum.Material.Slate, Height = 60, Gap = 40 },
+	Backdrop = { Side = Color3.fromRGB(58, 100, 88), Top = Color3.fromRGB(92, 152, 98), Heights = { 10, 22, 40 }, Gap = 22 },
 	Perimeter = "None",
-	Trees = { "Pine", "Round", "Pine" },
-	TreeCount = 110,
+	Trees = { "Green", "Pine", "Green" },
+	TreeCount = 90,
 	Camp = { Wall = Enum.Material.WoodPlanks },
-	TerrainColors = {
-		LeafyGrass = Color3.fromRGB(78, 130, 66),
-		Grass = Color3.fromRGB(92, 140, 70),
-		Mud = Color3.fromRGB(92, 76, 58),
+	GroundColors = {
+		LeafyGrass = Color3.fromRGB(66, 134, 84),
+		Mud = Color3.fromRGB(122, 102, 78),
 	},
 }
 
@@ -86,7 +85,8 @@ local PLANK = Color3.fromRGB(132, 98, 70)
 local PLANK_DARK = Color3.fromRGB(96, 72, 54)
 local MOSS = Color3.fromRGB(104, 150, 86)
 local GLOW_A = Color3.fromRGB(120, 230, 255)
-local GLOW_B = Color3.fromRGB(200, 130, 255)
+-- Lueurs cyan et rose (le violet est réservé aux vipères)
+local GLOW_B = Color3.fromRGB(255, 150, 196)
 
 local function deco(props: { [string]: any }): { [string]: any }
 	props.CanCollide = false
@@ -185,7 +185,7 @@ local function buildStiltShack(parent: Instance, center: Vector3)
 	-- Lanterne suspendue sous le porche
 	glow(model, (cf * CFrame.new(-w / 2, floorY + 7.5, -7)).Position, Color3.fromRGB(255, 200, 120), 1.2, 16)
 	model.Parent = parent
-	TerrainKit.PaintDisc(center, 16, center.Y, Enum.Material.Mud)
+	Ground.PaintDisc(center, 16, center.Y, Enum.Material.Mud)
 end
 
 -- Bateau à aubes échoué, penché dans une flaque
@@ -196,15 +196,15 @@ local function buildWreck(parent: Instance, center: Vector3)
 	Build.VerticalCylinder(center + Vector3.new(0, 0.07, 0), 17, 0.14, deco({ Name = "Puddle", Color = Color3.fromRGB(60, 120, 110), Material = Enum.Material.Glass, Transparency = 0.15, Accent = true }), model)
 	Build.Part({ Name = "Hull", Size = Vector3.new(9, 4, 22), CFrame = cf * CFrame.new(0, 1.6, 0), Color = Color3.fromRGB(236, 230, 214), Material = Enum.Material.WoodPlanks }, model)
 	Build.Wedge({ Name = "Bow", Size = Vector3.new(9, 4, 5), CFrame = cf * CFrame.new(0, 1.6, -13.5) * CFrame.Angles(math.pi, 0, 0), Color = Color3.fromRGB(236, 230, 214), Material = Enum.Material.WoodPlanks }, model)
-	Build.Part(deco({ Name = "HullStripe", Size = Vector3.new(9.2, 0.8, 22.2), CFrame = cf * CFrame.new(0, 2.8, 0), Color = Color3.fromRGB(196, 70, 60) }), model)
+	Build.Part(deco({ Name = "HullStripe", Size = Vector3.new(9.2, 0.8, 22.2), CFrame = cf * CFrame.new(0, 2.8, 0), Color = Color3.fromRGB(196, 60, 66) }), model)
 	Build.Part({ Name = "Cabin", Size = Vector3.new(7, 4.5, 9), CFrame = cf * CFrame.new(0, 5.8, 3), Color = Color3.fromRGB(236, 230, 214), Material = Enum.Material.WoodPlanks }, model)
-	Build.Part(deco({ Name = "CabinRoof", Size = Vector3.new(8, 0.6, 10), CFrame = cf * CFrame.new(0, 8.3, 3), Color = Color3.fromRGB(196, 70, 60) }), model)
+	Build.Part(deco({ Name = "CabinRoof", Size = Vector3.new(8, 0.6, 10), CFrame = cf * CFrame.new(0, 8.3, 3), Color = Color3.fromRGB(196, 60, 66) }), model)
 	for _, x in { -1.6, 1.6 } do
 		Build.VerticalCylinder((cf * CFrame.new(x, 11, 5)).Position, 0.6, 6, deco({ Name = "Smokestack", Color = Color3.fromRGB(50, 50, 56), Material = Enum.Material.Metal }), model)
 	end
 	-- Roue à aubes à l'arrière
 	local wheel = cf * CFrame.new(0, 4, 12.5)
-	Build.Part(deco({ Name = "Paddlewheel", Shape = Enum.PartType.Cylinder, Size = Vector3.new(6, 8, 8), CFrame = wheel * CFrame.Angles(0, 0, 0), Color = Color3.fromRGB(196, 70, 60) }), model)
+	Build.Part(deco({ Name = "Paddlewheel", Shape = Enum.PartType.Cylinder, Size = Vector3.new(6, 8, 8), CFrame = wheel * CFrame.Angles(0, 0, 0), Color = Color3.fromRGB(196, 60, 66) }), model)
 	for i = 0, 5 do
 		Build.Part(deco({ Name = "Paddle", Size = Vector3.new(6.4, 0.4, 8.4), CFrame = wheel * CFrame.Angles(i / 6 * math.pi, 0, 0), Color = PLANK_DARK }), model)
 	end
@@ -236,7 +236,7 @@ local function buildMushroomRing(parent: Instance, center: Vector3)
 		local capR = random:NextNumber(3.2, 5)
 		local color = i % 2 == 0 and GLOW_A or GLOW_B
 		Build.VerticalCylinder(p + Vector3.new(0, h / 2, 0), 1.1, h, { Name = "MushStem", Color = Color3.fromRGB(236, 230, 214) }, model)
-		Build.Part({ Name = "MushCap", Shape = Enum.PartType.Ball, Size = Vector3.new(capR * 2, capR * 0.9, capR * 2), Position = p + Vector3.new(0, h + capR * 0.2, 0), Color = color:Lerp(Color3.fromRGB(80, 60, 140), 0.35), Material = Enum.Material.SmoothPlastic, CanCollide = false }, model)
+		Build.Part({ Name = "MushCap", Shape = Enum.PartType.Ball, Size = Vector3.new(capR * 2, capR * 0.9, capR * 2), Position = p + Vector3.new(0, h + capR * 0.2, 0), Color = color:Lerp(Color3.fromRGB(40, 92, 104), 0.3), Material = Enum.Material.SmoothPlastic, CanCollide = false }, model)
 		-- Points lumineux sur le chapeau + lumière
 		for k = 0, 3 do
 			local b = k / 4 * math.pi * 2 + a
@@ -251,7 +251,7 @@ local function buildMushroomRing(parent: Instance, center: Vector3)
 		glow(model, center + Vector3.new(math.cos(a) * 9, 0.4, math.sin(a) * 9), k % 2 == 0 and GLOW_A or GLOW_B, 0.5, nil)
 	end
 	model.Parent = parent
-	TerrainKit.PaintDisc(center, 22, center.Y, Enum.Material.LeafyGrass)
+	Ground.PaintDisc(center, 22, center.Y, Enum.Material.LeafyGrass)
 end
 
 -- Passerelle en planches (posée au sol, poteaux et cordes sur les côtés)
@@ -376,7 +376,7 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	bases = MapBase.BuildArena(f, origin, cfg, THEME)
 	turnstile = buildTurnstile(f)
 	-- Îlot de boue autour du tourniquet
-	TerrainKit.PaintDisc(origin, cfg.TurnstileRadius + 4, origin.Y, Enum.Material.Mud)
+	Ground.PaintDisc(origin, cfg.TurnstileRadius + 4, origin.Y, Enum.Material.Mud)
 
 	-- Geysers sur deux anneaux
 	for i = 0, cfg.GeyserCount - 1 do
@@ -428,8 +428,8 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	-- Bordure : roseaux et quenouilles le long de la limite, lucioles
 	local random = MapBase.Random()
 	local half = cfg.GroundSize / 2 - 4
-	for i = 0, 47 do
-		local t = (i + random:NextNumber(0, 0.6)) / 48
+	for i = 0, 23 do
+		local t = (i + random:NextNumber(0, 0.6)) / 24
 		local side = i % 4
 		local along = (t * 4 % 1) * 2 - 1
 		local p = side == 0 and Vector3.new(along * half, 0, -half) or side == 1 and Vector3.new(half, 0, along * half) or side == 2 and Vector3.new(-along * half, 0, half) or Vector3.new(-half, 0, -along * half)
@@ -438,9 +438,11 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	for _, deg in { 20, 95, 165, 230, 305 } do
 		buildFireflies(f, MapBase.Polar(origin, deg, 90 + (deg % 3) * 15))
 	end
-	-- Eau du bayou au-delà de la limite
-	for _, deg in { 0, 72, 144, 216, 288 } do
-		TerrainKit.Pond(MapBase.Polar(origin, deg + 20, 205), 34, 6, origin.Y, Enum.Material.Mud)
+	-- Eau du bayou tout autour, entre la limite et les gradins (douves)
+	local moat = cfg.GroundSize / 2 + 4
+	for side = 0, 3 do
+		local rot = CFrame.Angles(0, side * math.pi / 2, 0)
+		Build.Part({ Name = "BayouWater", Size = Vector3.new(cfg.GroundSize + 44, 0.3, 18), CFrame = CFrame.new(origin) * rot * CFrame.new(0, -0.05, -(moat + 9)), Color = Color3.fromRGB(56, 150, 156), Material = Enum.Material.Glass, Transparency = 0.15, Reflectance = 0.15, Accent = true }, f)
 	end
 
 	f.Parent = workspace
