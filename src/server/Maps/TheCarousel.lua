@@ -455,6 +455,27 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 		end
 	end
 	print(string.format("[Carousel Valley] carte construite : %d assets du kit, %d volumes de collision", assets, colliders))
+	-- Contrôle physique réel (sortie) : apparitions, bordure, piste des chevaux
+	task.delay(1, function()
+		if folder ~= f or not bases then
+			return
+		end
+		MapBase.SelfCheck("Carousel Valley", origin, cfg.GroundSize / 2, f, bases, function(report, problems)
+			local _, overlap = MapBase.ClearanceParams()
+			local free = 0
+			for k = 0, 71 do
+				local a = k / 72 * math.pi * 2
+				local p = origin + Vector3.new(math.cos(a), 0, math.sin(a)) * L.TrackRadius + Vector3.new(0, 3.5, 0)
+				local hits = workspace:GetPartBoundsInBox(CFrame.new(p), Vector3.new(3, 5, 3), overlap)
+				if #hits == 0 then
+					free += 1
+				else
+					table.insert(problems, string.format("piste gênée à %d° par %s", k * 5, hits[1].Name))
+				end
+			end
+			table.insert(report, string.format("piste libre %d/72", free))
+		end)
+	end)
 end
 
 function Map.GetSpawns(teamId: string): { CFrame }

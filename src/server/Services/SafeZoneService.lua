@@ -9,6 +9,9 @@
 	L'attribut "SafeZone" du personnage est tenu à jour pour l'interface (pastille
 	du HUD, étiquette au-dessus de la tête) : il n'est qu'un reflet, la règle est
 	toujours vérifiée ici, à partir de la position actuelle.
+	Sortie de zone : la protection dure encore Config.SafeZone.ExitGraceSeconds
+	(et l'attribut avec elle). Ainsi « SAFE ZONE » affiché chez le joueur, même
+	avec le décalage du réseau, veut toujours dire « impossible à attraper ».
 ]]
 
 local RunService = game:GetService("RunService")
@@ -25,6 +28,7 @@ type Actor = Types.Actor
 local SafeZoneService = {}
 
 local accumulator = 0
+local lastInside: { [string]: number } = {} -- id d'acteur -> dernier instant dans sa zone
 
 -- Camp d'une équipe sur la carte en cours (nil hors manche)
 function SafeZoneService.GetBase(teamId: string?): MapBase.Base?
@@ -51,8 +55,15 @@ function SafeZoneService.IsSafe(actor: Actor): boolean
 		return false
 	end
 	local position = ActorService.GetPosition(actor)
-	return position ~= nil and SafeZoneService.Contains(actor.Team, position)
+	local now = os.clock()
+	if position ~= nil and SafeZoneService.Contains(actor.Team, position) then
+		lastInside[actor.Id] = now
+		return true
+	end
+	local last = lastInside[actor.Id]
+	return last ~= nil and now - last <= Config.SafeZone.ExitGraceSeconds
 end
+
 
 local function update()
 	for _, actor in ActorService.GetAll() do

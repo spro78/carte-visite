@@ -130,6 +130,16 @@ function KitMesh.GetGeometry(meshName: string): Geometry?
 	return geometry
 end
 
+-- Une pièce visible doit-elle être vue par la caméra ? Invisicam
+-- (StarterPlayer.DevCameraOcclusionMode) rend transparent ce qui cache le
+-- joueur : murs, arbres, rochers, repères. Les sols, collines et éléments
+-- plats en sont exclus (ils clignoteraient sous les pieds).
+local OCCLUDING_CATEGORIES = { Landmark = true, Cover = true, Fence = true, Tree = true, Rock = true, Bush = true, Camp = true, Ride = true, Decor = true }
+
+function KitMesh.Occludes(category: string, pieceSize: Vector3): boolean
+	return OCCLUDING_CATEGORIES[category] == true and pieceSize.Y >= 1.5
+end
+
 -- ---------------------------------------------------------------------------
 -- Meshes importés dans Studio (chemin recommandé : vrais assets Roblox)
 -- ---------------------------------------------------------------------------

@@ -143,9 +143,89 @@ function MapBase.BuildBoundary(folder: Instance, origin: Vector3, size: number, 
 			Size = spec[2],
 			Position = origin + spec[1] + Vector3.new(0, height / 2, 0),
 			Transparency = 1,
-			CanQuery = false,
 		}, folder)
 	end
+end
+
+-- ---------------------------------------------------------------------------
+-- Contrôle physique d'une carte posée, avec les vraies requêtes du moteur
+-- (rayons et boîtes) ; le bilan est écrit dans la sortie. Dans Studio, c'est
+-- la preuve que les apparitions sont posées au sol et dégagées et que la
+-- bordure est fermée. extra(report) ajoute des contrôles propres à la carte.
+-- ---------------------------------------------------------------------------
+local function characterFilter(): { Instance }
+	local list = {}
+	for _, child in workspace:GetChildren() do
+		if child:IsA("Model") and child:FindFirstChildOfClass("Humanoid") then
+			table.insert(list, child)
+		end
+	end
+	return list
+end
+
+function MapBase.ClearanceParams(): (RaycastParams, OverlapParams)
+	local ray = RaycastParams.new()
+	ray.FilterType = Enum.RaycastFilterType.Exclude
+	ray.FilterDescendantsInstances = characterFilter()
+	ray.RespectCanCollide = true
+	local overlap = OverlapParams.new()
+	overlap.FilterType = Enum.RaycastFilterType.Exclude
+	overlap.FilterDescendantsInstances = characterFilter()
+	overlap.RespectCanCollide = true
+	return ray, overlap
+end
+
+function MapBase.SelfCheck(label: string, origin: Vector3, half: number, folder: Instance, bases: { [string]: Base }, extra: ((report: { string }, problems: { string }) -> ())?)
+	local ray, overlap = MapBase.ClearanceParams()
+	local report, problems = {}, {}
+	-- Apparitions : sol dessous, rien autour du personnage
+	local total, clear = 0, 0
+	for teamId, base in bases do
+		for index, cf in base.Spawns do
+			total += 1
+			local ground = workspace:Raycast(cf.Position, Vector3.new(0, -12, 0), ray)
+			local blocking = workspace:GetPartBoundsInBox(cf, Vector3.new(3, 5, 3), overlap)
+			if ground and #blocking == 0 then
+				clear += 1
+			else
+				table.insert(problems, string.format("apparition %s %d : %s", teamId, index, ground and ("gênée par " .. blocking[1].Name) or "pas de sol dessous"))
+			end
+		end
+	end
+	table.insert(report, string.format("apparitions %d/%d dégagées et au sol", clear, total))
+	-- Bordure : chaque direction est fermée, au sol comme en hauteur
+	local walls = {}
+	for _, child in folder:GetDescendants() do
+		if child:IsA("BasePart") and string.match(child.Name, "^Boundary%d") then
+			table.insert(walls, child)
+		end
+	end
+	local wallParams = RaycastParams.new()
+	wallParams.FilterType = Enum.RaycastFilterType.Include
+	wallParams.FilterDescendantsInstances = walls
+	local closed = 0
+	for k = 0, 31 do
+		local a = k / 32 * math.pi * 2
+		local dir = Vector3.new(math.cos(a), 0, math.sin(a)) * half * 1.6
+		local low = workspace:Raycast(origin + Vector3.new(0, 3, 0), dir, wallParams)
+		local high = workspace:Raycast(origin + Vector3.new(0, 30, 0), dir, wallParams)
+		if low and high then
+			closed += 1
+		else
+			table.insert(problems, string.format("bordure ouverte vers %d°", math.floor(math.deg(a))))
+		end
+	end
+	table.insert(report, string.format("bordure fermée %d/32", closed))
+	if extra then
+		extra(report, problems)
+	end
+	local line = string.format("[%s] contrôle physique : %s", label, table.concat(report, " ; "))
+	if #problems == 0 then
+		print(line .. " : OK")
+	else
+		warn(line .. " ; à corriger : " .. table.concat(problems, " ; ", 1, math.min(#problems, 6)))
+	end
+	return #problems == 0, problems
 end
 
 -- Clôture décorative tout autour, selon le style du thème
@@ -411,14 +491,16 @@ function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, p
 		-- (Pas de tente ni de caisses dans le camp : la caméra du joueur qui
 		-- apparaît doit voir la carte, pas le décor ; bible visuelle §4 et §6)
 
-		-- Points d'apparition : cercle au centre de la base, tournés vers le centre de la map
+		-- Points d'apparition : deux rangées dans la moitié avant de la plateforme,
+		-- tournées vers le centre de la carte. La caméra (12,5 studs derrière le
+		-- joueur) reste au-dessus de la plateforme : rien du fond du camp
+		-- (clôture, drapeau, tanière) ne passe entre elle et le joueur
 		local spawns = {}
-		local spawnCount = 8
-		for i = 1, spawnCount do
-			local a = (i / spawnCount) * math.pi * 2
-			local offset = Vector3.new(math.cos(a) * padSize * 0.25, 0, math.sin(a) * padSize * 0.25)
-			local position = center + offset + Vector3.new(0, 1 + Config.World.RespawnHeight, 0)
-			table.insert(spawns, CFrame.lookAt(position, Vector3.new(origin.X, position.Y, origin.Z)))
+		for _, rowZ in { -0.39, -0.06 } do
+			for _, colX in { -0.5, -0.17, 0.17, 0.5 } do
+				local position = at(colX * halfPad, 0, rowZ * halfPad).Position + Vector3.new(0, 1 + Config.World.RespawnHeight, 0)
+				table.insert(spawns, CFrame.lookAt(position, Vector3.new(origin.X, position.Y, origin.Z)))
+			end
 		end
 
 		-- Zone sûre autour et derrière le camp, et son repère au sol

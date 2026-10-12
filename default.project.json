@@ -21,7 +21,8 @@
       "$className": "StarterPlayer",
       "$properties": {
         "CharacterWalkSpeed": 16,
-        "CharacterJumpPower": 50
+        "CharacterJumpPower": 50,
+        "DevCameraOcclusionMode": "Invisicam"
       },
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",

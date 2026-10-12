@@ -13,6 +13,7 @@ Ce protocole couvre ce que la simulation (`tools/check.sh`) ne peut pas prouver 
 4. Dans *Output*, ces lignes disent si la carte marche :
    - au démarrage, `[Kit] Pas de kit importé…` ou `[Kit] Kit importé trouvé (HoH_Kit) : 189/189 pièces` ;
    - à la fin du vote, `[Carousel Valley] carte construite : … assets du kit, … volumes de collision` ;
+   - une seconde après, `[Carousel Valley] contrôle physique : apparitions 24/24 dégagées et au sol ; bordure fermée 32/32 ; piste libre 72/72 : OK`. Ce contrôle utilise les vraies requêtes du moteur Roblox (rayons et boîtes). S'il manque « OK », la ligne dit ce qui gêne et où ;
    - puis `[Kit] Décors affichés par ce joueur : … assets en meshes, … simplifiés`. **0 simplifié** : tout le décor est en meshes ;
    - si `[Kit] Limite mémoire des meshes atteinte après … pièces` apparaît : l'appareil n'a pas assez de mémoire pour construire tous les meshes. Les décors restants sont simplifiés (volumes de collision visibles, boules de feuillage), jamais en blocs géants. Pour tout afficher, importer le kit (§1, étape 5B).
 5. Jouer une manche : vote, composition des équipes, puis la manche. Regarder la carte (§2), un objectif (§4 : ramener un œuf ou tenir un anneau) et une conversion (§5, ligne 4).

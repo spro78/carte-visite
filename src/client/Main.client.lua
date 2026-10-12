@@ -25,6 +25,12 @@ local KitController = require(Controllers:WaitForChild("KitController"))
 local DataController = require(Controllers:WaitForChild("DataController"))
 local EffectsController = require(Controllers:WaitForChild("EffectsController"))
 
+-- Le tableau des équipes du jeu remplace la liste des joueurs de Roblox : en
+-- haut à droite, les deux se superposaient (avec le fil des captures)
+pcall(function()
+	game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
+end)
+
 StateController.Init(HUD)
 MovementController.Init()
 OutlineController.Init()

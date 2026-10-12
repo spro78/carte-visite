@@ -108,4 +108,18 @@ for _, w in World.Warnings do
 end
 check(kitWarnings == 0, "aucune alerte du kit dans la sortie")
 
+section("Contrôle physique écrit dans la sortie (vraies requêtes dans Studio)")
+local selfCheck = nil
+for _, line in World.Prints do
+	if string.find(line, "[Carousel Valley] contrôle physique", 1, true) then
+		selfCheck = line
+	end
+end
+for _, w in World.Warnings do
+	if string.find(w, "[Carousel Valley] contrôle physique", 1, true) then
+		selfCheck = w
+	end
+end
+check(selfCheck ~= nil and string.sub(selfCheck, -4) == ": OK", "bilan : " .. tostring(selfCheck))
+
 H.finish()

@@ -126,7 +126,7 @@ local function cloneImported(model: Model, def: Manifest.AssetDef, cframe: CFram
 		part.Transparency = transparency
 		part.Anchored = true
 		part.CanCollide = false
-		part.CanQuery = false
+		part.CanQuery = KitMesh.Occludes(def.Category, piece.Size * scale)
 		part.CanTouch = false
 		part.CastShadow = piece.Shadow
 		part:SetAttribute("KitMesh", piece.Mesh)

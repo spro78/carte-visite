@@ -155,6 +155,10 @@ Config.SafeZone = {
 	BackDepth = 24, -- derrière la plateforme (réduit si la limite de la carte est plus proche)
 	Height = 16, -- hauteur couverte au-dessus du sol
 	CheckInterval = 0.1,
+	-- Protection gardée un instant après la sortie de la zone : tant que le
+	-- HUD du joueur affiche SAFE ZONE (avec le décalage du réseau), il ne peut
+	-- pas être attrapé
+	ExitGraceSeconds = 0.5,
 }
 
 -- ---------------------------------------------------------------------------

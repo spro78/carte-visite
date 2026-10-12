@@ -1658,6 +1658,34 @@ function Engine.Raycast(origin, direction, params)
 	}
 end
 
+-- GetPartBoundsInBox : boîtes englobantes (alignées sur les axes) qui
+-- recouvrent la boîte demandée ; CanQuery et RespectCanCollide respectés
+function Engine.PartsInBox(cf, size, params)
+	local function aabb(c, sz)
+		local half = sz / 2
+		local r = c - c.Position
+		local x = r:VectorToWorldSpace(Vector3.new(half.X, 0, 0))
+		local y = r:VectorToWorldSpace(Vector3.new(0, half.Y, 0))
+		local z = r:VectorToWorldSpace(Vector3.new(0, 0, half.Z))
+		local e = Vector3.new(math.abs(x.X) + math.abs(y.X) + math.abs(z.X), math.abs(x.Y) + math.abs(y.Y) + math.abs(z.Y), math.abs(x.Z) + math.abs(y.Z) + math.abs(z.Z))
+		return c.Position - e, c.Position + e
+	end
+	local qmin, qmax = aabb(cf, size)
+	local out = {}
+	for _, part in descendants(Engine.workspace, {}) do
+		if part:IsA("BasePart") then
+			local props = rawget(part, "_props")
+			if props.CanQuery ~= false and (params == nil or params.RespectCanCollide ~= true or props.CanCollide) and passesFilter(part, params) then
+				local pmin, pmax = aabb(props.CFrame, props.Size)
+				if pmin.X <= qmax.X and pmax.X >= qmin.X and pmin.Y <= qmax.Y and pmax.Y >= qmin.Y and pmin.Z <= qmax.Z and pmax.Z >= qmin.Z then
+					table.insert(out, part)
+				end
+			end
+		end
+	end
+	return out
+end
+
 function Engine.PartsInRadius(position, radius, params)
 	local out = {}
 	for _, part in descendants(Engine.workspace, {}) do

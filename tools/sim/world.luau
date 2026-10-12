@@ -216,7 +216,7 @@ Engine.AddMethods(workspace, {
 		return Engine.PartsInRadius(position, radius, params)
 	end,
 	GetPartBoundsInBox = function(_, cf, size, params)
-		return Engine.PartsInRadius(cf.Position, size.Magnitude / 2, params)
+		return Engine.PartsInBox(cf, size, params)
 	end,
 	GetPartsInPart = function(_, part, params)
 		local p = props(part)

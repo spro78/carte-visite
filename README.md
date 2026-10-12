@@ -35,6 +35,7 @@ avec Roblox Studio grâce à [Rojo](https://rojo.space).
    - En fin de manche, tout le monde se relève sans changer d'équipe. Les joueurs à terre comptaient déjà dans leur équipe.
 6. **Zones sûres** : chaque camp a une zone autour et derrière sa plateforme, marquée au sol par un liseré pointillé et « SAFE ZONE ».
    - Un défenseur dans la zone de **son** camp ne peut être ni attrapé ni mordu (vérifié par le serveur).
+   - La protection dure encore une demi-seconde après la sortie de la zone : tant que la pastille « SAFE ZONE » est affichée chez le joueur, malgré le décalage du réseau, il ne peut pas être attrapé.
    - Les adversaires peuvent y entrer (vol d'œufs du Raid), mais n'y sont pas protégés.
    - Même règle pour les trois camps et les quatre cartes.
 7. **Victoire** : inchangée.

@@ -6,6 +6,9 @@ local Vector3 = H.Roblox.Vector3
 
 local server = H.boot(function(Config)
 	Config.Debug.ForceMap = "TheFarm"
+	-- Pas de fin par l'objectif pendant l'observation : une manche gagnée en
+	-- trois œufs pouvait finir avant le premier portage (0 sauvetage)
+	Config.Maps.TheFarm.PointsToWin = 99
 end)
 local check, section = H.check, H.section
 local BotService = H.require(World.game.ServerScriptService.Server.Bots.BotService)

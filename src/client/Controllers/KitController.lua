@@ -93,7 +93,7 @@ local function recolor(model: Model, attribute: string)
 	end
 end
 
-local function placePiece(model: Model, pivot: BasePart, piece: Manifest.Piece, scale: number, part: BasePart)
+local function placePiece(model: Model, pivot: BasePart, piece: Manifest.Piece, scale: number, part: BasePart, category: string)
 	local color, material, transparency = Palettes.Resolve(model, piece.Role, piece.Material)
 	part.Name = piece.Mesh
 	part.Size = piece.Size * scale
@@ -103,7 +103,7 @@ local function placePiece(model: Model, pivot: BasePart, piece: Manifest.Piece, 
 	part.Transparency = transparency
 	part.Anchored = true
 	part.CanCollide = false
-	part.CanQuery = false
+	part.CanQuery = KitMesh.Occludes(category, piece.Size * scale)
 	part.CanTouch = false
 	part.CastShadow = piece.Shadow
 	part:SetAttribute("KitMesh", piece.Mesh)
@@ -143,7 +143,7 @@ local function simplify(model: Model, def: Manifest.AssetDef, pivot: BasePart, s
 		if FOLIAGE_ROLES[piece.Role] then
 			local ball = Instance.new("Part")
 			ball.Shape = Enum.PartType.Ball
-			placePiece(model, pivot, piece, scale, ball)
+			placePiece(model, pivot, piece, scale, ball, def.Category)
 			local size = piece.Size * scale * 0.85
 			ball.Size = Vector3.one * math.min(size.X, size.Y, size.Z)
 			ball:SetAttribute("KitSimplified", true)
@@ -205,7 +205,7 @@ local function build(model: Model): number
 		return #def.Pieces
 	end
 	for i, piece in def.Pieces do
-		placePiece(model, pivot, piece, scale, templates[i]:Clone())
+		placePiece(model, pivot, piece, scale, templates[i]:Clone(), def.Category)
 	end
 	stats.Assets += 1
 	return #def.Pieces

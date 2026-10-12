@@ -158,7 +158,7 @@ local function shockwave(position: Vector3, color: Color3, radius: number)
 end
 
 -- Texte flottant qui monte et disparaît (au-dessus d'une position du monde)
-local function floatingText(position: Vector3, text: string, color: Color3)
+local function floatingText(position: Vector3, text: string, color: Color3, maxDistance: number?)
 	if live >= MAX_LIVE_EFFECTS then
 		return
 	end
@@ -167,7 +167,7 @@ local function floatingText(position: Vector3, text: string, color: Color3)
 	local gui = Instance.new("BillboardGui")
 	gui.Size = UDim2.fromOffset(160, 44)
 	gui.AlwaysOnTop = true
-	gui.MaxDistance = 120
+	gui.MaxDistance = maxDistance or 120
 	gui.LightInfluence = 0
 	gui.Adornee = host
 	gui.Parent = host
@@ -238,7 +238,14 @@ handlers.Capture = function(data)
 		burst(position + Vector3.new(0, 1, 0), fxDef.Colors, data.CatchEffect == "Lightning" and 40 or 26, data.CatchEffect == "Stars" and 26 or 18, data.CatchEffect == "Hearts" and 0.9 or 0.6)
 		if def then
 			shockwave(position, def.Color, 9)
-			floatingText(position, data.Downed and "DOWN!" or (def.Display .. "!"), def.Color)
+			-- Le texte nomme la victime et ne se voit que de près : une capture
+			-- lointaine ne doit pas faire croire qu'on est soi-même à terre
+			local victimName = type(data.VictimName) == "string" and data.VictimName or ""
+			if me ~= nil and me == data.VictimId then
+				floatingText(position, data.Downed and "DOWN!" or (def.Display .. "!"), def.Color)
+			else
+				floatingText(position, victimName .. (data.Downed and " DOWN!" or (" → " .. def.Display)), def.Color, 60)
+			end
 		end
 	end
 	if me ~= nil and me == data.VictimId then
