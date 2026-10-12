@@ -73,8 +73,9 @@ Toutes les simulations doivent passer :
 Le simulateur refuse toute propriété qui n'existe pas dans l'API Roblox réelle.
 
 Rendus : `tools/check.sh preview <groupe> [carte]`.
-- Groupes : `lobby`, `maps`, `round`, `results`, `mobile`, `players`.
+- Groupes : `lobby`, `maps`, `round`, `results`, `mobile`, `players`, `rescue`, `rescue_mobile`.
 - Exemple : `tools/check.sh preview players TheCanyon` donne une vue joueur pendant une vraie manche sur le Canyon.
+- `rescue` et `rescue_mobile` montrent la tranche verticale : contours, zone sûre, coéquipier à terre, portage, joueur à terre. Les bots sont figés pour la mise en scène.
 
 ## Ajouter ou modifier une carte
 

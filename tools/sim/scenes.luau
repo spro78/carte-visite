@@ -36,8 +36,9 @@ local function v(t)
 	return { t.X, t.Y, t.Z }
 end
 
--- Groupe "mobile" : appareil tactile simulé (pas de clavier), vues de téléphone
-local touchDevice = group == "mobile"
+-- Groupes "mobile" et "rescue_mobile" : appareil tactile simulé (pas de
+-- clavier), vues de téléphone
+local touchDevice = group == "mobile" or group == "rescue_mobile"
 if touchDevice then
 	World.Input.TouchEnabled = true
 	World.Input.KeyboardEnabled = false
@@ -55,6 +56,14 @@ local function addScene(name, caption, center, radius, camera, extra)
 	if extra and extra.hud then
 		-- (hud = true : exporter l'interface du héros à la taille demandée)
 		setViewport(extra.width or 1280, extra.height or 720)
+		-- La caméra simulée prend la place de la caméra du rendu : les repères
+		-- de l'interface projetés dans le monde (flèche d'objectif) tombent juste
+		if camera and camera.position and camera.target and not camera.ortho then
+			local cam = World.workspace.CurrentCamera
+			cam.CFrame = roblox.CFrame.lookAt(Vector3.new(table.unpack(camera.position)), Vector3.new(table.unpack(camera.target)))
+			cam.FieldOfView = camera.fov or 70
+			Engine.Advance(1 / 30)
+		end
 		extra.hud = Export.PlayerGui(hero)
 	end
 	local data = Export.Parts(center, radius)
@@ -134,7 +143,7 @@ local function stageChase()
 		actors = World.Require(World.game.ServerScriptService.Server.Services.RoundState).GetParticipants()
 		Teams = World.Require(World.game.ReplicatedStorage.Shared.Teams)
 	end)
-	local best, bestD = nil, math.huge
+	local pairs = {}
 	for _, a in actors do
 		for _, b in actors do
 			local ra = a.Character and a.Character:FindFirstChild("HumanoidRootPart")
@@ -146,25 +155,43 @@ local function stageChase()
 				local da = Vector3.new(ra.Position.X - O.X, 0, ra.Position.Z - O.Z).Magnitude
 				local db = Vector3.new(rb.Position.X - O.X, 0, rb.Position.Z - O.Z).Magnitude
 				local open = da > 30 and da < 88 and db > 30 and db < 88
-				if open and d > 4 and d < bestD then
-					best, bestD = { ra.Position, rb.Position }, d
+				if open and d > 4 then
+					table.insert(pairs, { ra.Position, rb.Position, d })
 				end
 			end
 		end
 	end
-	if not best then
-		return false
-	end
-	local hunter, prey = best[1], best[2]
-	local dir = Vector3.new(prey.X - hunter.X, 0, prey.Z - hunter.Z).Unit
-	-- Héros en retrait et décalé sur le côté, regard parallèle à la poursuite :
-	-- les deux bots apparaissent à côté de lui, pas cachés derrière son avatar
-	local spot = hunter - dir * 12 + Vector3.new(-dir.Z, 0, dir.X) * 7
-	Engine.Run("server", function()
-		hero.Character:PivotTo(roblox.CFrame.lookAt(Vector3.new(spot.X, hunter.Y, spot.Z), Vector3.new(spot.X + dir.X, hunter.Y, spot.Z + dir.Z)))
+	table.sort(pairs, function(x, y)
+		return x[3] < y[3]
 	end)
-	Engine.Advance(0.25)
-	return true
+	-- Le plus proche couple dont la vue n'est pas bouchée par le décor (caméra
+	-- par défaut de Roblox, derrière le héros)
+	for _, pair in pairs do
+		local hunter, prey = pair[1], pair[2]
+		local dir = Vector3.new(prey.X - hunter.X, 0, prey.Z - hunter.Z).Unit
+		-- Héros en retrait et décalé sur le côté, regard parallèle à la poursuite :
+		-- les deux bots apparaissent à côté de lui, pas cachés derrière son avatar
+		local spot = hunter - dir * 12 + Vector3.new(-dir.Z, 0, dir.X) * 7
+		Engine.Run("server", function()
+			hero.Character:PivotTo(roblox.CFrame.lookAt(Vector3.new(spot.X, hunter.Y, spot.Z), Vector3.new(spot.X + dir.X, hunter.Y, spot.Z + dir.Z)))
+		end)
+		Engine.Advance(0.25)
+		local cam = robloxCamera(hero)
+		local from = Vector3.new(table.unpack(cam.target))
+		local to = Vector3.new(table.unpack(cam.position))
+		local blocked = false
+		Engine.Run("server", function()
+			local params = Engine.Types.RaycastParams.new()
+			params.FilterType = roblox.Enum.RaycastFilterType.Exclude
+			params.FilterDescendantsInstances = { hero.Character }
+			local hit = World.workspace:Raycast(from, to - from, params)
+			blocked = hit ~= nil and hit.Instance.Transparency < 0.5
+		end)
+		if not blocked then
+			return true
+		end
+	end
+	return false
 end
 
 local function playerCamera(player, back, up)
@@ -213,6 +240,12 @@ if group == "players" then
 	waitFor(function()
 		return serverPhase() == "Round"
 	end, 20)
+	-- Le héros observe la manche sans être attrapé pendant l'attente (la mise en
+	-- scène le déplace ensuite : il ne doit pas être à terre)
+	Engine.Run("server", function()
+		local CaptureService = World.Require(World.game.ServerScriptService.Server.Services.CaptureService)
+		CaptureService.Protect(hero.Character, 40)
+	end)
 	Engine.Advance(14)
 	stageChase()
 	addScene(id .. "_player_chase_pc", id .. " - chase in the foreground (PC 1280x720)", O, 300, robloxCamera(hero), { hud = true })
@@ -243,6 +276,165 @@ if group == "mobile" then
 	end, 400)
 	Engine.Advance(1)
 	addScene("phone_results", "Phone 844x390 (touch): end of round", L, 120, robloxCamera(hero), { hud = true, width = 844, height = 390 })
+end
+
+if group == "rescue" or group == "rescue_mobile" then
+	-- Tranche verticale (map imposée en argument, The Canyon) : contours d'équipe,
+	-- zone sûre, coéquipier à terre, portage, joueur à terre. Les bots sont figés
+	-- le temps de la mise en scène ; tout le reste est le vrai code du jeu.
+	local O = Config.World.MapOrigin
+	local id = forcedMap or "map"
+	closeHelp()
+	waitFor(function()
+		return hero:GetAttribute("Team") ~= nil and serverPhase() == "Round"
+	end, 120)
+	Engine.Advance(3)
+	local srv = {}
+	Engine.Run("server", function()
+		local services = World.game.ServerScriptService.Server.Services
+		srv.ActorService = World.Require(services.ActorService)
+		srv.RescueService = World.Require(services.RescueService)
+		srv.SafeZoneService = World.Require(services.SafeZoneService)
+		srv.Teams = World.Require(World.game.ReplicatedStorage.Shared.Teams)
+	end)
+	local me = srv.ActorService.FromPlayer(hero)
+	local myTeam = me.Team
+	local preyTeam, predatorTeam = srv.Teams.GetPrey(myTeam), srv.Teams.GetPredator(myTeam)
+	local pick = {}
+	for _, bot in srv.ActorService.GetBots() do
+		if bot.Character then
+			pick[bot.Team] = pick[bot.Team] or {}
+			table.insert(pick[bot.Team], bot)
+		end
+	end
+	local function server(fn)
+		Engine.Run("server", fn)
+	end
+	local function freezeBots()
+		server(function()
+			for _, bot in srv.ActorService.GetBots() do
+				if bot.Character then
+					bot.Character:SetAttribute("Frozen", true)
+				end
+			end
+		end)
+	end
+	local function place(actor, position, lookAt)
+		server(function()
+			local p = Vector3.new(position.X, O.Y + 3, position.Z)
+			local target = lookAt and Vector3.new(lookAt.X, p.Y, lookAt.Z) or (p + Vector3.new(0, 0, -1))
+			actor.Character:PivotTo(roblox.CFrame.lookAt(p, target))
+		end)
+	end
+	-- Tout le reste loin de la scène (aucune capture ni portage parasite)
+	local function clearStage(keep)
+		local i = 0
+		for _, bot in srv.ActorService.GetBots() do
+			if bot.Character and not keep[bot] then
+				i += 1
+				place(bot, O + Vector3.new(-150 + (i % 6) * 12, 0, -150 + (i // 6) * 12))
+			end
+		end
+	end
+	freezeBots()
+	local mate = pick[myTeam] and pick[myTeam][1]
+	local mate2 = pick[myTeam] and pick[myTeam][2]
+	local hunter = pick[predatorTeam] and pick[predatorTeam][1]
+	local prey = pick[preyTeam] and pick[preyTeam][1]
+	local base = srv.SafeZoneService.GetBase(myTeam)
+	local toCenter = Vector3.new(O.X - base.Center.X, 0, O.Z - base.Center.Z).Unit
+	local side = Vector3.new(-toCenter.Z, 0, toCenter.X)
+	local w, h = 1280, 720
+	if touchDevice then
+		w, h = 844, 390
+	end
+	local suffix = touchDevice and "_phone" or "_pc"
+
+	if not touchDevice then
+		-- 1. Contours des trois équipes en plein champ
+		local spot = O + Vector3.new(60, 0, -40)
+		local forward = Vector3.new(0, 0, 1)
+		clearStage({ [mate] = true, [hunter] = true, [prey] = true })
+		-- Les trois bots en arc devant le héros : celui du milieu se voit au-dessus
+		-- de sa tête, les deux autres de part et d'autre (aucun caché)
+		place(me, spot, spot + forward)
+		place(mate, spot + forward * 13 - Vector3.new(8, 0, 0), spot)
+		place(hunter, spot + forward * 17, spot)
+		place(prey, spot + forward * 13 + Vector3.new(8, 0, 0), spot)
+		Engine.Advance(0.5)
+		addScene(id .. "_outlines" .. suffix, "Intact avatars, glow-only team outlines (FOX orange, CHICKEN yellow, SNAKE green)", O, 300, robloxCamera(hero), { hud = true, width = w, height = h })
+
+		-- 2. Zone sûre du camp : liseré au sol, SAFE pour le défenseur, chasseur dehors
+		clearStage({ [mate] = true, [hunter] = true })
+		local inZone = base.Center - toCenter * (base.Radius + 8)
+		place(me, inZone, O)
+		place(mate, base.Center + side * 8 - toCenter * 4, O)
+		place(hunter, base.Center + toCenter * (base.Safe.Front + 3), base.Center)
+		Engine.Advance(0.6)
+		local camPos = base.Center + toCenter * (base.Safe.Front + 26) + side * 14 + Vector3.new(0, 22, 0)
+		addScene(id .. "_safe_zone" .. suffix, "Camp safe zone: dashed border and SAFE ZONE on the ground; defenders show SAFE, the hunter outside cannot catch them", O, 300, { position = { camPos.X, camPos.Y, camPos.Z }, target = { base.Center.X, O.Y + 2, base.Center.Z }, fov = 60 }, { hud = true, width = w, height = h })
+	end
+
+	-- 3. Coéquipier à terre : marqueur HELP, étiquette DOWN, consigne de portage
+	clearStage({ [mate] = true, [hunter] = true })
+	local field = O + Vector3.new(50, 0, -20)
+	place(mate, field, field + Vector3.new(1, 0, 0))
+	place(hunter, field + Vector3.new(30, 0, 18), field)
+	server(function()
+		srv.RescueService.Down(mate, hunter)
+	end)
+	-- Le héros à côté du corps, regard parallèle : la caméra voit le corps
+	local approach = field + Vector3.new(-4.5, 0, -3)
+	place(me, approach, approach + Vector3.new(0.35, 0, 1))
+	Engine.Advance(0.6)
+	addScene(id .. "_teammate_down" .. suffix, "Teammate down: HELP marker, DOWN tag, carry prompt" .. (touchDevice and " and CARRY button" or " (C) and CARRY medallion"), O, 300, robloxCamera(hero), { hud = true, width = w, height = h })
+	if touchDevice then
+		addScene(id .. "_teammate_down_portrait", "Teammate down, phone portrait 390x844: CARRY button and status chip", O, 300, robloxCamera(hero), { hud = true, width = 390, height = 844 })
+	end
+
+	-- 4. Portage : le corps sur l'épaule, flèche vers le camp
+	if touchDevice then
+		hero.PlayerGui.HuntOrHideHUD.TouchActions.Carry.Activated:Fire()
+	else
+		World.PressKey(hero, roblox.Enum.KeyCode.C, true)
+		World.PressKey(hero, roblox.Enum.KeyCode.C, false)
+	end
+	Engine.Advance(0.4)
+	server(function()
+		local root = me.Character.HumanoidRootPart
+		local p = root.Position
+		me.Character:PivotTo(roblox.CFrame.lookAt(p, Vector3.new(base.Center.X, p.Y, base.Center.Z)))
+	end)
+	Engine.Advance(0.3)
+	local root = hero.Character.HumanoidRootPart
+	local cf = root.CFrame
+	addScene(id .. "_carry" .. suffix, "Carrying a teammate home, player camera: status chip, DROP, arrow to the camp", O, 300, robloxCamera(hero), { hud = true, width = w, height = h })
+	if not touchDevice then
+		-- Vue de profil pour lire la pose : corps à plat ventre sur l'épaule droite
+		local side = cf.Position + cf.RightVector * 9 - cf.LookVector * 2 + Vector3.new(0, 2.5, 0)
+		addScene(id .. "_carry_side" .. suffix, "Carry pose seen from the side: teammate face down on the right shoulder, head behind", O, 300, { position = { side.X, side.Y, side.Z }, target = { cf.Position.X, cf.Position.Y + 1.2, cf.Position.Z }, fov = 55 }, { hud = true, width = w, height = h })
+	end
+
+	if not touchDevice then
+		-- 5. Le héros à terre : chrono et consigne, un coéquipier arrive
+		if touchDevice == false then
+			World.PressKey(hero, roblox.Enum.KeyCode.C, true)
+			World.PressKey(hero, roblox.Enum.KeyCode.C, false)
+		end
+		Engine.Advance(0.3)
+		clearStage({ [mate2] = true, [hunter] = true })
+		local lie = O + Vector3.new(-40, 0, -50)
+		place(me, lie, lie + Vector3.new(0, 0, 1))
+		server(function()
+			srv.RescueService.Down(me, hunter)
+		end)
+		if mate2 then
+			place(mate2, lie + Vector3.new(9, 0, 7), lie)
+		end
+		Engine.Advance(3)
+		local body = hero.Character.HumanoidRootPart.Position
+		addScene(id .. "_you_are_down" .. suffix, "You are down: timer chip and gauge, no action buttons, a teammate comes to carry you", O, 300, { position = { body.X - 4, body.Y + 9, body.Z - 11 }, target = { body.X, body.Y, body.Z + 2 }, fov = 65 }, { hud = true, width = w, height = h })
+	end
 end
 
 if group == "all" or group == "maps" then

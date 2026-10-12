@@ -129,7 +129,10 @@ function Export.Parts(center, radius)
 			local p = props(d)
 			local pos = p.CFrame.Position
 			local dx, dz = pos.X - center.X, pos.Z - center.Z
-			if dx * dx + dz * dz <= radius * radius and (p.Transparency or 0) < 0.98 then
+			-- (une pièce invisible qui porte un texte de surface est gardée : Roblox
+			-- affiche le texte, comme « SAFE ZONE » ou le nom du camp au sol)
+			local hasSurfaceText = (p.Transparency or 0) >= 0.98 and d:FindFirstChildOfClass("SurfaceGui") ~= nil
+			if dx * dx + dz * dz <= radius * radius and ((p.Transparency or 0) < 0.98 or hasSurfaceText) then
 				local entry = {
 					name = p.Name,
 					cls = rawget(d, "_class"),

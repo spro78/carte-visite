@@ -79,7 +79,10 @@ local function getTag(model: Model): Tag?
 	gui.LightInfluence = 0
 	gui.AlwaysOnTop = false
 	gui.Enabled = false
-	local row = Theme.New("Frame", { Name = "Row", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, gui)
+	-- Taille plafonnée à l'écran : un joueur tout près de la caméra n'affiche
+	-- pas une étiquette géante qui masquerait la poursuite
+	local row = Theme.New("Frame", { Name = "Row", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, gui)
+	Theme.New("UISizeConstraint", { MaxSize = Vector2.new(230, 36) }, row)
 	Theme.New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0.02, 0), SortOrder = Enum.SortOrder.LayoutOrder }, row)
 	local team = Theme.Label(row, { Name = "Team", Size = UDim2.fromScale(0.34, 0.84), Text = "", BackgroundTransparency = 0, BackgroundColor3 = Theme.Panel, FontFace = Theme.FaceHeavy, LayoutOrder = 1 })
 	Theme.CornerScale(team, 0.5)
@@ -182,9 +185,10 @@ local function update()
 		local hidden = model:GetAttribute("Hidden") == true and not carrier
 		local revealed = distance <= Config.Hiding.RevealDistance or relation == "Ally"
 		local visible = not hidden or revealed
-		-- Le nom Roblox est remplacé par notre étiquette
+		-- Le nom Roblox est remplacé par notre étiquette ; un joueur porté n'a pas
+		-- d'étiquette (celle du porteur suffit, et elle masquerait la vue du porteur)
 		setNameVisible(model, false)
-		updateTag(model, team, relation, visible)
+		updateTag(model, team, relation, visible and model:GetAttribute("CarriedBy") == nil)
 		if def and visible then
 			-- Coéquipiers à terre en priorité : ce sont eux qu'il faut aller chercher
 			local priority = (downed and relation == "Ally") and 1 or 2

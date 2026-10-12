@@ -103,7 +103,7 @@ local function getMarker(model: Model)
 	gui.Name = MARKER_NAME
 	gui.Adornee = anchor
 	gui.Size = UDim2.fromOffset(96, 34)
-	gui.StudsOffset = Vector3.new(0, 3.5, 0)
+	gui.StudsOffset = Vector3.new(0, 5, 0) -- au-dessus de l'étiquette du nom (2,8 studs)
 	gui.AlwaysOnTop = true
 	gui.MaxDistance = 600
 	gui.LightInfluence = 0

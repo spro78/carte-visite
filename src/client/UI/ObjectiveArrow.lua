@@ -3,8 +3,10 @@
 	Flèche discrète vers l'objectif de la map :
 	  - cible = attribut "ObjectiveTarget" de mon personnage (ex : ma base quand je
 	    porte l'œuf), sinon l'objectif de mon équipe (ReplicatedStorage.HoH_Objectives) ;
-	  - cible hors écran : flèche sur le bord de l'écran ;
-	  - cible à l'écran : petit losange au-dessus de la cible avec la distance.
+	  - cible hors écran : flèche sur le bord de l'écran, jamais sur le bloc du
+	    haut (chrono, ruban, pastille d'état) ni sur les boutons du bas ;
+	  - cible à l'écran : petit losange au-dessus de la cible avec la distance ;
+	  - masquée quand on est à terre (plus d'objectif à suivre).
 ]]
 
 local Players = game:GetService("Players")
@@ -50,7 +52,8 @@ local function update()
 	local camera = workspace.CurrentCamera
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if not target or not camera or not root or not root:IsA("BasePart") then
+	local downed = character ~= nil and character:GetAttribute("Downed") == true
+	if downed or not target or not camera or not root or not root:IsA("BasePart") then
 		arrow.Visible = false
 		marker.Visible = false
 		return
@@ -61,7 +64,9 @@ local function update()
 	local inset = 40
 	if onScreen and point.Z > 0 and point.X > inset and point.X < viewport.X - inset and point.Y > inset and point.Y < viewport.Y - inset then
 		arrow.Visible = false
-		marker.Visible = distance > 12
+		-- Cible sur l'horizon, derrière le bloc du haut : on la voit dans le
+		-- monde, le losange ne vient pas recouvrir le chrono ni le ruban
+		marker.Visible = distance > 12 and point.Y - 36 > viewport.Y * 0.18 + 30
 		marker.Position = UDim2.fromOffset(point.X, point.Y - 36)
 		markerText.Text = string.format("%dm", math.floor(distance))
 		return
@@ -81,6 +86,10 @@ local function update()
 	local center = viewport / 2
 	local radius = Vector2.new(viewport.X / 2 - 60, viewport.Y / 2 - 70)
 	local pos = center + Vector2.new(dir.X * radius.X, dir.Y * radius.Y)
+	-- Bande libre entre le bloc du haut et les boutons du bas
+	local top = math.max(viewport.Y * 0.32, 150)
+	local bottom = viewport.Y - math.max(viewport.Y * 0.2, 110)
+	pos = Vector2.new(pos.X, math.clamp(pos.Y, top, bottom))
 	arrow.Position = UDim2.fromOffset(pos.X, pos.Y)
 	arrow.Rotation = math.deg(math.atan2(dir.Y, dir.X)) + 90
 end

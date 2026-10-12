@@ -179,9 +179,11 @@ Ce qui change, et le principe dont chaque changement découle :
 - ville, mine traversable, arche.
 
 Preuves (simulation) :
-- `test_visual` : 14 contrôles sur le Canyon ;
+- `test_visual` : 20 contrôles sur le Canyon (dont contraste des contours et zones sûres) ;
+- `test_rescue` : tranche verticale complète sur le Canyon ;
 - `reference/preuves/` :
-  - planche avant/après à caméra identique ;
-  - vue joueur au spawn et en poursuite ;
-  - téléphone en paysage et en portrait.
-- Chaque image porte « RENDU SIMULÉ ».
+  - planche avant/après à caméra identique (passe du décor) ;
+  - vue joueur au spawn (zone sûre) et pendant une manche simulée ;
+  - téléphone en paysage et en portrait ;
+  - tranche verticale : `canyon_contours_equipes`, `canyon_zone_sure`, `canyon_coequipier_a_terre`, `canyon_portage`, `canyon_portage_profil`, `canyon_joueur_a_terre`, `canyon_telephone_carry`, `canyon_telephone_carry_portrait`, `canyon_telephone_portage`.
+- Chaque image porte « RENDU SIMULÉ ». Aucune n'est une capture de Roblox Studio (protocole : `reference/TEST_STUDIO.md`).
