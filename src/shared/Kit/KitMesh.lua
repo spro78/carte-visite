@@ -131,24 +131,82 @@ function KitMesh.GetGeometry(meshName: string): Geometry?
 end
 
 -- ---------------------------------------------------------------------------
--- MeshPart modèle d'une pièce (client)
+-- Meshes importés dans Studio (chemin recommandé : vrais assets Roblox)
 -- ---------------------------------------------------------------------------
-local templates: { [string]: MeshPart | false } = {}
-local building: { [string]: boolean } = {}
+-- L'import de assets/kit/HoH_Kit.fbx (Import 3D) crée un modèle « HoH_Kit »
+-- dans Workspace. Le serveur le trouve sous l'un de ces noms, où qu'il soit
+-- (Workspace, ServerStorage, ReplicatedStorage), et le range dans
+-- ServerStorage au démarrage (Kit.Init) : rien à renommer.
+KitMesh.ImportedNames = { KitMesh.ImportedFolderName, "HoH_Kit" }
 
--- Mesh importé dans Studio (dossier ReplicatedStorage.HoH_KitMeshes)
-function KitMesh.GetImported(meshName: string): MeshPart?
-	local folder = ReplicatedStorage:FindFirstChild(KitMesh.ImportedFolderName)
-	local found = folder and folder:FindFirstChild(meshName, true)
-	if found and found:IsA("MeshPart") then
-		return found
+function KitMesh.FindImportedRoot(): Instance?
+	local containers: { Instance } = { ReplicatedStorage, workspace }
+	local ok, serverStorage = pcall(function()
+		return game:GetService("ServerStorage")
+	end)
+	if ok and serverStorage then
+		table.insert(containers, 1, serverStorage)
+	end
+	for _, container in containers do
+		for _, name in KitMesh.ImportedNames do
+			local found = container:FindFirstChild(name)
+			if found and found:FindFirstChildWhichIsA("MeshPart", true) then
+				return found
+			end
+		end
 	end
 	return nil
 end
 
-local function buildEditable(geometry: Geometry): any
-	local AssetService = game:GetService("AssetService")
-	local mesh = AssetService:CreateEditableMesh({})
+local importedRoot: Instance? = nil
+local importedIndex: { [string]: MeshPart } = {}
+
+-- Index des MeshParts importés par nom (Asset__Pièce)
+function KitMesh.SetImportedRoot(root: Instance?)
+	importedRoot = root
+	table.clear(importedIndex)
+	if root then
+		for _, item in root:GetDescendants() do
+			if item:IsA("MeshPart") and importedIndex[item.Name] == nil then
+				importedIndex[item.Name] = item
+			end
+		end
+	end
+end
+
+function KitMesh.GetImported(meshName: string): MeshPart?
+	if importedRoot == nil or importedRoot.Parent == nil then
+		local root = KitMesh.FindImportedRoot()
+		if root ~= importedRoot then
+			KitMesh.SetImportedRoot(root)
+		end
+	end
+	return importedIndex[meshName]
+end
+
+-- ---------------------------------------------------------------------------
+-- Meshes construits par le client (EditableMesh), à défaut d'import
+-- ---------------------------------------------------------------------------
+-- Roblox limite la mémoire des EditableMesh côté client (budget propre à
+-- l'appareil) : CreateEditableMesh renvoie nil quand il est épuisé. On
+-- construit donc chaque pièce une seule fois, on la recopie en mesh de taille
+-- fixe (plus économe, recommandé par Roblox) et on libère l'original ; au
+-- premier refus, on s'arrête net : les pièces restantes ne sont pas affichées
+-- (KitController montre alors leurs volumes de collision, jamais un bloc
+-- géant à la place du mesh).
+local templates: { [string]: MeshPart | false } = {}
+local building: { [string]: boolean } = {}
+
+KitMesh.BudgetReached = false
+KitMesh.Built = 0 -- pièces construites par ce client
+KitMesh.BuiltTriangles = 0
+KitMesh.LastError = nil :: string?
+
+local function buildEditable(AssetService: any, geometry: Geometry): any?
+	local mesh = AssetService:CreateEditableMesh()
+	if not mesh then
+		return nil
+	end
 	local ids = table.create(#geometry.Positions)
 	local normals = table.create(#geometry.Positions)
 	for i, p in geometry.Positions do
@@ -165,7 +223,57 @@ local function buildEditable(geometry: Geometry): any
 	return mesh
 end
 
--- Retourne le MeshPart modèle de la pièce (peut attendre la création) ou nil
+local function createTemplate(meshName: string, geometry: Geometry): MeshPart?
+	local AssetService = game:GetService("AssetService")
+	-- (dans une expérience publiée sans l'option « Enable Mesh / Image APIs »,
+	-- la création lève une erreur : on la garde comme raison, sans planter)
+	local built, growable = pcall(buildEditable, AssetService, geometry)
+	if not built then
+		KitMesh.LastError = tostring(growable)
+		return nil
+	end
+	if not growable then
+		KitMesh.BudgetReached = true
+		KitMesh.LastError = "budget mémoire des meshes épuisé"
+		return nil
+	end
+	-- Copie de taille fixe, puis libération de l'original
+	local ok, fixed = pcall(function()
+		return AssetService:CreateEditableMeshAsync(Content.fromObject(growable))
+	end)
+	growable:Destroy()
+	if not ok then
+		KitMesh.LastError = tostring(fixed)
+		return nil
+	end
+	if not fixed then
+		KitMesh.BudgetReached = true
+		KitMesh.LastError = "budget mémoire des meshes épuisé"
+		return nil
+	end
+	local created, part = pcall(function()
+		return AssetService:CreateMeshPartAsync(Content.fromObject(fixed), {
+			CollisionFidelity = Enum.CollisionFidelity.Box,
+			RenderFidelity = Enum.RenderFidelity.Automatic,
+		})
+	end)
+	if not created or not part then
+		fixed:Destroy()
+		KitMesh.LastError = tostring(part)
+		return nil
+	end
+	part.Name = meshName
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	KitMesh.Built += 1
+	KitMesh.BuiltTriangles += #geometry.Triangles // 3
+	return part
+end
+
+-- Retourne le MeshPart modèle de la pièce (peut attendre la création) ou nil.
+-- Les copies d'un même modèle partagent son mesh (multi-référence).
 function KitMesh.GetTemplate(meshName: string): MeshPart?
 	local imported = KitMesh.GetImported(meshName)
 	if imported then
@@ -182,34 +290,24 @@ function KitMesh.GetTemplate(meshName: string): MeshPart?
 	if cached ~= nil then
 		return cached or nil
 	end
-	building[meshName] = true
-	local result: MeshPart | false = false
-	local geometry = KitMesh.GetGeometry(meshName)
-	if geometry then
-		local ok, part = pcall(function()
-			local AssetService = game:GetService("AssetService")
-			local editable = buildEditable(geometry)
-			return AssetService:CreateMeshPartAsync(Content.fromObject(editable), {
-				CollisionFidelity = Enum.CollisionFidelity.Box,
-				RenderFidelity = Enum.RenderFidelity.Automatic,
-			})
-		end)
-		if ok and part then
-			part.Name = meshName
-			part.Anchored = true
-			part.CanCollide = false
-			part.CanQuery = false
-			part.CanTouch = false
-			result = part
-		else
-			KitMesh.LastError = tostring(part)
-		end
+	if KitMesh.BudgetReached then
+		return nil
 	end
-	templates[meshName] = result
+	building[meshName] = true
+	local geometry = KitMesh.GetGeometry(meshName)
+	local result: MeshPart? = nil
+	if geometry then
+		result = createTemplate(meshName, geometry)
+	end
+	-- Un refus de budget n'est pas définitif pour cette pièce en particulier :
+	-- on ne mémorise l'échec que pour les autres causes
+	if result then
+		templates[meshName] = result
+	elseif not KitMesh.BudgetReached then
+		templates[meshName] = false
+	end
 	building[meshName] = nil
-	return result or nil
+	return result
 end
-
-KitMesh.LastError = nil :: string?
 
 return KitMesh

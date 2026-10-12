@@ -6,9 +6,10 @@
 	    décrivent l'asset (KitAsset, KitScale, KitPalette, KitTeam, KitRole_*) ;
 	  - les volumes de collision simples du manifeste (pièces invisibles), qui
 	    sont la seule géométrie physique : identique pour tous les clients ;
-	  - les meshes visibles, copiés depuis ReplicatedStorage.HoH_KitMeshes si
-	    le kit a été importé dans Studio ; sinon le modèle est tagué et chaque
-	    client les construit lui-même (KitController, EditableMesh).
+	  - les meshes visibles, copiés depuis le kit importé dans Studio (modèle
+	    « HoH_Kit » ou « HoH_KitMeshes », voir Kit.Init) ; sinon le modèle est
+	    tagué et chaque client les construit lui-même (KitController,
+	    EditableMesh, limité par le budget mémoire de l'appareil).
 	Un modèle posé dans un mécanisme tournant (MapBase.NewSpinner) tourne avec
 	lui : les pièces visibles sont des descendants du modèle.
 ]]
@@ -33,6 +34,36 @@ export type PlaceOptions = {
 	Movable: boolean?, -- pièces soudées au pivot (objet porté, ex. un œuf)
 	Name: string?,
 }
+
+-- Au démarrage du serveur : repère le kit importé (Import 3D de
+-- assets/kit/HoH_Kit.fbx), le range dans ServerStorage s'il a été déposé
+-- dans le monde, et écrit dans la sortie ce qui sera utilisé
+function Kit.Init()
+	local root = KitMesh.FindImportedRoot()
+	if root and root:IsDescendantOf(workspace) then
+		root.Parent = game:GetService("ServerStorage")
+	end
+	KitMesh.SetImportedRoot(root)
+	local total, found = 0, 0
+	local missing = {}
+	for assetName, def in Manifest do
+		for _, piece in def.Pieces do
+			total += 1
+			if KitMesh.GetImported(piece.Mesh) then
+				found += 1
+			elseif #missing < 5 then
+				table.insert(missing, assetName)
+			end
+		end
+	end
+	if not root then
+		print("[Kit] Pas de kit importé : chaque joueur construira les meshes (limite mémoire possible). Importer assets/kit/HoH_Kit.fbx : reference/TEST_STUDIO.md")
+	elseif found == total then
+		print(string.format("[Kit] Kit importé trouvé (%s) : %d/%d pièces, meshes Roblox utilisés partout", root.Name, found, total))
+	else
+		print(string.format("[Kit] Kit importé incomplet (%s) : %d/%d pièces ; les assets incomplets seront construits par les joueurs (ex. %s)", root.Name, found, total, table.concat(missing, ", ")))
+	end
+end
 
 function Kit.Get(assetName: string): Manifest.AssetDef?
 	return Manifest[assetName]

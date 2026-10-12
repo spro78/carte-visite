@@ -56,24 +56,19 @@ Au premier lancement, le script installe Blender 5.2.2 en module Python (`bpy`) 
 
 ## Dans le jeu : deux façons d'afficher les meshes
 
-1. **Sans rien faire (Studio, Play)**. Chaque client construit les meshes à partir des données (`EditableMesh`, puis `AssetService:CreateMeshPartAsync`) : `src/client/Controllers/KitController.lua`.
-   - Les meshes sont préparés dès le lobby (six à la fois). Quand la carte est posée, le client n'a plus qu'à copier les modèles (`Config.Kit.PiecesPerFrame` par image).
-   - Dans une expérience **publiée**, Roblox refuse ces API par défaut.
-   - Il faut alors activer *Game Settings > Security > Allow Mesh & Image APIs*. Seul un propriétaire de 13 ans ou plus, à l'identité vérifiée, peut le faire.
-   - Si l'API est refusée, le jeu affiche des blocs de remplacement et l'écrit une fois dans la sortie.
-2. **Import dans Studio (recommandé pour publier)**. Le serveur copie les MeshParts importés au lieu de laisser les clients construire.
-   1. Dans Studio, ouvrir *Import 3D* et choisir `assets/kit/HoH_Kit.fbx`.
-   2. Dans la fenêtre d'import :
-      - unité du fichier : **studs** ;
-      - ne pas fusionner les meshes (un MeshPart par objet) ;
-      - pièces ancrées.
-   3. Mettre le modèle importé dans **ReplicatedStorage** et le renommer **`HoH_KitMeshes`**. Les MeshParts gardent leur nom (`TreeOak__Trunk`, `Barn__Walls`...).
-   4. Enregistrer la place.
-      - Avec `rojo serve`, ce dossier n'est pas géré par Rojo et reste dans la place.
-      - Avec `rojo build`, il faut le réimporter, ou l'enregistrer en `.rbxm` (clic droit, *Save to File*).
-   5. Contrôle visuel : l'arbre est debout, la porte du moulin regarde le manège, les portes de la grange s'ouvrent sur les allées. Sinon, l'import a tourné les axes ; il faut réimporter en changeant l'axe avant ou haut.
+1. **Import dans Studio (recommandé, obligatoire pour publier)**. Le serveur copie de vrais MeshParts Roblox : aucun joueur ne construit de mesh, donc aucune limite mémoire.
+   1. Dans Studio, *Import 3D* de `assets/kit/HoH_Kit.fbx`, réglages par défaut, sans fusionner les meshes (un MeshPart par objet).
+   2. Studio crée un modèle **HoH_Kit**. Ne pas le renommer : le serveur le trouve (Workspace, ServerStorage ou ReplicatedStorage), le range dans ServerStorage et écrit `[Kit] Kit importé trouvé (HoH_Kit) : 189/189 pièces` (`Kit.Init`).
+   3. Pour le garder dans toutes les places construites : clic droit > *Save to File…* > `assets/studio/HoH_Kit.rbxm` (Rojo met ce dossier dans ServerStorage).
+   4. Contrôle visuel : l'arbre est debout, la porte du moulin regarde le manège, les portes de la grange s'ouvrent sur les allées. Sinon, l'import a tourné les axes ; réimporter en changeant l'axe avant ou haut.
 
    Taille et position viennent du manifeste : un écart d'échelle à l'import est corrigé par le jeu, pas une rotation.
+2. **Sans import (Studio, Play)**. Chaque joueur construit les meshes (`EditableMesh`) : `src/shared/Kit/KitMesh.lua` et `src/client/Controllers/KitController.lua`.
+   - Roblox limite la mémoire de ces meshes sur chaque appareil ; un mesh « extensible » y est compté au pire cas. Chaque pièce est donc construite une seule fois, recopiée en mesh de taille fixe (`CreateEditableMeshAsync`), et l'original est détruit.
+   - Ordre : camps, objectifs et manège ; puis sol et repères ; couverts ; végétation ; petits décors ; collines en dernier.
+   - Si la mémoire manque, les assets restants sont simplifiés : leurs volumes de collision deviennent visibles, les feuillages deviennent des boules. Jamais de bloc de la taille d'une pièce. Une seule alerte dans la sortie.
+   - Dans une expérience **publiée**, il faut en plus le compte vérifié (13 ans ou plus) et l'option *Enable Mesh / Image APIs*. L'import (1) évite tout cela.
+   - Simulation : `test_kit` (budget limité) et `test_kit_import` (kit importé).
 
 ## Points à vérifier dans Studio (non vérifiés ici)
 

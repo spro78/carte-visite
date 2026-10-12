@@ -414,4 +414,18 @@ for _, name in names do
 end
 check(all3 >= 4, string.format("en trois manches, %d joueurs sur 6 ont joué les trois animaux", all3))
 
+section("Décors du kit chez un joueur qui a assez de mémoire")
+local kitStats
+Engine.Run(alice, function()
+	kitStats = World.Require(alice.PlayerScripts.Client.Controllers.KitController).GetStats()
+end)
+check(kitStats.Assets > 400 and kitStats.Simplified == 0, string.format("tout en meshes : %d assets, %d simplifiés", kitStats.Assets, kitStats.Simplified))
+local kitWarnings = 0
+for _, w in World.Warnings do
+	if string.find(w, "[Kit]", 1, true) then
+		kitWarnings += 1
+	end
+end
+check(kitWarnings == 0, "aucune alerte du kit dans la sortie")
+
 H.finish()

@@ -50,6 +50,10 @@
       "$properties": {
         "Gravity": 196.2
       }
+    },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "$path": "assets/studio"
     }
   }
 }

@@ -10,10 +10,11 @@ Ce protocole couvre ce que la simulation (`tools/check.sh`) ne peut pas prouver 
 1. Télécharger `dist/HuntOrHide.rbxl` depuis la branche `claude/nice-albattani-2x8yqo` (PR #1). Sur GitHub : ouvrir le fichier, puis *Download raw file*.
 2. L'ouvrir dans Studio : double-clic, ou *File > Open from File*. La place est prête : rien à installer, rien à supprimer.
 3. Ouvrir *View > Output*, puis *Test > Play*. On joue seul : les bots complètent les trois équipes.
-4. Dans *Output*, deux lignes disent si la carte marche :
-   - `[Kit] 189/189 meshes du kit prêts en … s (construits par ce client)` : les meshes 3D fonctionnent. La ligne apparaît pendant le lobby.
-   - `[Carousel Valley] carte construite : … assets du kit, … volumes de collision` : la carte est posée. La ligne apparaît à la fin du vote.
-   - Si `[Kit] Meshes non construits (…)` apparaît à la place : la raison est entre parenthèses. Il faut alors importer le kit (§1, étape 5B). En attendant, la carte s'affiche en blocs de remplacement, mais reste jouable.
+4. Dans *Output*, ces lignes disent si la carte marche :
+   - au démarrage, `[Kit] Pas de kit importé…` ou `[Kit] Kit importé trouvé (HoH_Kit) : 189/189 pièces` ;
+   - à la fin du vote, `[Carousel Valley] carte construite : … assets du kit, … volumes de collision` ;
+   - puis `[Kit] Décors affichés par ce joueur : … assets en meshes, … simplifiés`. **0 simplifié** : tout le décor est en meshes ;
+   - si `[Kit] Limite mémoire des meshes atteinte après … pièces` apparaît : l'appareil n'a pas assez de mémoire pour construire tous les meshes. Les décors restants sont simplifiés (volumes de collision visibles, boules de feuillage), jamais en blocs géants. Pour tout afficher, importer le kit (§1, étape 5B).
 5. Jouer une manche : vote, composition des équipes, puis la manche. Regarder la carte (§2), un objectif (§4 : ramener un œuf ou tenir un anneau) et une conversion (§5, ligne 4).
 6. Renvoyer :
    - trois captures de la fenêtre Studio (vote, vue de la carte, une poursuite) ;
@@ -30,8 +31,11 @@ Ce protocole couvre ce que la simulation (`tools/check.sh`) ne peut pas prouver 
 3. Avec `rojo serve` dans une place existante : supprimer `Workspace.Baseplate` et `Workspace.SpawnLocation` s'ils existent.
 4. Ouvrir la fenêtre *Output* : aucune ligne rouge ne doit apparaître pendant les tests.
 5. Meshes du kit 3D, deux possibilités (détails dans `tools/assets/README.md`) :
-   - **A. Rien à faire** : au *Play*, chaque client construit les meshes (EditableMesh). C'est le premier test à faire.
-   - **B. Import** : *Import 3D* de `assets/kit/HoH_Kit.fbx` (unité : studs, sans fusion), modèle renommé `HoH_KitMeshes` dans ReplicatedStorage. À faire avant de publier.
+   - **A. Rien à faire** : au *Play*, chaque joueur construit les meshes (EditableMesh). Roblox limite la mémoire de ces meshes selon l'appareil : sur un appareil modeste, une partie du décor peut être simplifiée.
+   - **B. Import (recommandé, obligatoire avant de publier)** :
+     1. *Import 3D* de `assets/kit/HoH_Kit.fbx` (réglages par défaut, sans fusionner les meshes). Studio crée le modèle **HoH_Kit** : ne pas le renommer, ne pas le déplacer, le jeu le trouve et le range lui-même.
+     2. *Play* : la sortie doit dire `[Kit] Kit importé trouvé (HoH_Kit) : 189/189 pièces`.
+     3. Pour le garder dans toutes les versions suivantes : clic droit sur **HoH_Kit** > *Save to File…* > `assets/studio/HoH_Kit.rbxm`, puis pousser ce fichier (Rojo le met dans ServerStorage).
 6. Pour aller vite (à remettre ensuite), dans `src/shared/Config.lua` :
    - `Config.Debug.ForceMode = "Carousel"` (ou `"EggRun"`, `"Chase"`) pour imposer un mode ;
    - `Config.Rescue.BleedOutSeconds = 30` pour avoir le temps des captures d'écran à terre.

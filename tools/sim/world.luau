@@ -346,9 +346,24 @@ local AssetService = service("AssetService")
 World.EditableMeshes = 0
 World.EditableTriangles = 0
 World.EditableMeshDenied = false -- simule une expérience publiée sans l'option
+-- Budget mémoire d'un appareil (comme Roblox : au-delà, la création renvoie
+-- nil) : nombre d'EditableMesh vivants autorisés
+World.EditableBudget = math.huge
+World.EditableLive = 0
+World.EditableRefused = 0
 local EditableMeshMT = {}
 EditableMeshMT.__index = EditableMeshMT
+local function budgetAllows()
+	if World.EditableLive >= World.EditableBudget then
+		World.EditableRefused += 1
+		return false
+	end
+	World.EditableLive += 1
+	return true
+end
 function EditableMeshMT:AddVertex(p)
+	assert(not self._fixed, "AddVertex : mesh de taille fixe")
+	assert(not self._destroyed, "AddVertex : mesh détruit")
 	self._n += 1
 	local lo, hi = self._min or p, self._max or p
 	self._min = Vector3.new(math.min(lo.X, p.X), math.min(lo.Y, p.Y), math.min(lo.Z, p.Z))
@@ -360,6 +375,7 @@ function EditableMeshMT:AddNormal(_n)
 	return self._normals
 end
 function EditableMeshMT:AddTriangle(a, b, c)
+	assert(not self._fixed, "AddTriangle : mesh de taille fixe")
 	assert(type(a) == "number" and type(b) == "number" and type(c) == "number", "AddTriangle : identifiants de sommets attendus")
 	assert(a <= self._n and b <= self._n and c <= self._n, "AddTriangle : sommet inconnu")
 	self._tris += 1
@@ -369,19 +385,39 @@ end
 function EditableMeshMT:SetFaceNormals(face, ids)
 	assert(face <= self._tris and #ids == 3, "SetFaceNormals : face ou normales invalides")
 end
-function EditableMeshMT:Destroy() end
+function EditableMeshMT:Destroy()
+	if not self._destroyed then
+		self._destroyed = true
+		World.EditableLive -= 1
+	end
+end
 Engine.AddMethods(AssetService, {
 	CreateEditableMesh = function(_, _options)
 		if World.EditableMeshDenied then
 			error("EditableMesh is not allowed in this experience", 2)
 		end
+		if not budgetAllows() then
+			return nil
+		end
 		World.EditableMeshes += 1
 		return setmetatable({ _n = 0, _normals = 0, _tris = 0 }, EditableMeshMT)
+	end,
+	-- Copie d'un EditableMesh : de taille fixe par défaut (comme Roblox)
+	CreateEditableMeshAsync = function(_, content, options)
+		task.wait()
+		local source = content and content._object
+		assert(source and getmetatable(source) == EditableMeshMT and not source._destroyed, "CreateEditableMeshAsync : Content.fromObject(EditableMesh) attendu")
+		if not budgetAllows() then
+			return nil
+		end
+		local fixed = not (type(options) == "table" and options.FixedSize == false)
+		return setmetatable({ _n = source._n, _normals = source._normals, _tris = source._tris, _min = source._min, _max = source._max, _fixed = fixed }, EditableMeshMT)
 	end,
 	CreateMeshPartAsync = function(_, content, _options)
 		task.wait()
 		local mesh = content and content._object
 		assert(mesh and getmetatable(mesh) == EditableMeshMT, "CreateMeshPartAsync : Content.fromObject(EditableMesh) attendu")
+		assert(not mesh._destroyed, "CreateMeshPartAsync : mesh détruit")
 		assert(mesh._tris > 0, "CreateMeshPartAsync : mesh vide")
 		local part = Instance.new("MeshPart")
 		props(part).Size = mesh._max - mesh._min
@@ -1251,7 +1287,17 @@ local warnFn = function(...)
 	end
 end
 
+-- Lignes écrites par print (les dernières), pour les tests qui vérifient la sortie
+World.Prints = {}
 local printFn = function(...)
+	local parts = {}
+	for i = 1, select("#", ...) do
+		parts[i] = tostring((select(i, ...)))
+	end
+	table.insert(World.Prints, table.concat(parts, " "))
+	if #World.Prints > 4000 then
+		table.remove(World.Prints, 1)
+	end
 	if not Engine.Quiet then
 		print(...)
 	end

@@ -34,6 +34,8 @@ local LeaderboardService = require(DataFolder.LeaderboardService)
 local DailySpinService = require(DataFolder.DailySpinService)
 
 LightingSetup.Apply()
+-- Kit 3D : meshes importés dans Studio, s'il y en a (avant toute carte)
+require(script.Parent:WaitForChild("Util"):WaitForChild("Kit")).Init()
 LobbyBuilder.Build()
 MapRegistry.Init(script.Parent:WaitForChild("Maps"))
 
