@@ -17,11 +17,13 @@
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Teams = require(Shared.Teams)
 local MapInfo = require(Shared.MapInfo)
+local ModeInfo = require(Shared.ModeInfo)
 local Types = require(Shared.Types)
 local Theme = require(script.Parent.Theme)
 
@@ -213,21 +215,26 @@ local bottomCenter: Frame = New("Frame", {
 New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 14), HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Bottom, SortOrder = Enum.SortOrder.LayoutOrder }, bottomCenter)
 HUD.BottomRow = bottomCenter
 
--- Panneau de vote (intermission)
+-- Panneau de vote (intermission) : trois cartes « mode + carte » avec la règle
+-- en trois lignes, le nombre de voix et le nom de ceux qui ont choisi chaque
+-- carte ; dessous, la liste de tous les joueurs présents (votants ou non)
 local votePanel: Frame = New("Frame", {
 	Name = "VotePanel",
 	AnchorPoint = Vector2.new(0, 1),
 	Position = UDim2.new(0, 310, 1, -66),
-	Size = UDim2.new(0, 660, 0, 150),
+	Size = UDim2.new(0, 700, 0, 214),
 	BackgroundTransparency = 1,
 	Visible = false,
 }, screen)
-New("UISizeConstraint", { MaxSize = Vector2.new(660, 150) }, votePanel)
-Title(votePanel, { Size = UDim2.new(1, 0, 0, 26), Text = "VOTE FOR THE NEXT MAP" })
-local voteButtonsFrame: Frame = New("Frame", { Position = UDim2.new(0, 0, 0, 32), Size = UDim2.new(1, 0, 1, -32), BackgroundTransparency = 1 }, votePanel)
+local voteTitle = Title(votePanel, { Name = "VoteTitle", Size = UDim2.new(1, 0, 0, 24), Text = "VOTE FOR THE NEXT MODE" })
+local voteButtonsFrame: Frame = New("Frame", { Name = "Cards", Position = UDim2.new(0, 0, 0, 28), Size = UDim2.new(1, 0, 1, -56), BackgroundTransparency = 1 }, votePanel)
 New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, voteButtonsFrame)
+-- Tous les joueurs : ceux qui ont voté (et pour quoi), ceux qu'on attend
+local rosterLabel = Label(votePanel, { Name = "Roster", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 22), Text = "", RichText = true, TextColor3 = Theme.Cream, BackgroundTransparency = 0.15, BackgroundColor3 = Theme.Panel })
+Theme.Corner(rosterLabel, 10)
+Theme.MaxText(rosterLabel, 15)
 
-type VoteButton = { Button: TextButton, Name: TextLabel, Mode: TextLabel, Votes: TextLabel, Stripe: Frame, MapId: string?, Stroke: UIStroke }
+type VoteButton = { Button: TextButton, Name: TextLabel, Map: TextLabel, Rules: TextLabel, Votes: TextLabel, Stripe: Frame, MapId: string?, Stroke: UIStroke }
 local voteButtons: { VoteButton } = {}
 
 function HUD.RefreshVoteHighlight()
@@ -243,7 +250,7 @@ for index = 1, 3 do
 		Name = "Vote" .. index,
 		Size = UDim2.new(0.31, 0, 1, 0),
 		BackgroundColor3 = Theme.Panel,
-		BackgroundTransparency = 0.08,
+		BackgroundTransparency = 0.06,
 		Text = "",
 		AutoButtonColor = true,
 		LayoutOrder = index,
@@ -252,15 +259,18 @@ for index = 1, 3 do
 	local stroke = Theme.Stroke(button, 2, Theme.Cream)
 	local stripe: Frame = New("Frame", { Size = UDim2.new(1, 0, 0, 8), BackgroundColor3 = Theme.Mint, BorderSizePixel = 0 }, button)
 	Theme.Corner(stripe, 6)
-	local nameLabel = Title(button, { Size = UDim2.new(0.9, 0, 0.34, 0), Position = UDim2.fromScale(0.05, 0.12), Text = "?" })
-	local modeLabel = Label(button, { Size = UDim2.new(0.9, 0, 0.2, 0), Position = UDim2.fromScale(0.05, 0.5), Text = "", TextColor3 = Theme.Mint, FontFace = Theme.FaceHeavy })
-	local votesLabel = Label(button, { Size = UDim2.new(0.9, 0, 0.18, 0), Position = UDim2.fromScale(0.05, 0.74), Text = "", TextColor3 = Theme.Muted })
-	local entry: VoteButton = { Button = button, Name = nameLabel, Mode = modeLabel, Votes = votesLabel, Stripe = stripe, MapId = nil, Stroke = stroke }
+	local nameLabel = Title(button, { Name = "ModeName", Size = UDim2.new(0.92, 0, 0.2, 0), Position = UDim2.fromScale(0.04, 0.08), Text = "?" })
+	local mapLabel = Label(button, { Name = "MapName", Size = UDim2.new(0.92, 0, 0.11, 0), Position = UDim2.fromScale(0.04, 0.28), Text = "", TextColor3 = Theme.Mint, FontFace = Theme.FaceHeavy })
+	local rulesLabel = Label(button, { Name = "Rules", Size = UDim2.new(0.92, 0, 0.36, 0), Position = UDim2.fromScale(0.04, 0.41), Text = "", TextColor3 = Theme.Cream, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, TextXAlignment = Enum.TextXAlignment.Left })
+	Theme.MaxText(rulesLabel, 14)
+	local votesLabel = Label(button, { Name = "Votes", Size = UDim2.new(0.92, 0, 0.17, 0), Position = UDim2.fromScale(0.04, 0.8), Text = "", RichText = true, TextColor3 = Theme.Muted, TextXAlignment = Enum.TextXAlignment.Left })
+	Theme.MaxText(votesLabel, 14)
+	local entry: VoteButton = { Button = button, Name = nameLabel, Map = mapLabel, Rules = rulesLabel, Votes = votesLabel, Stripe = stripe, MapId = nil, Stroke = stroke }
 	button.Activated:Connect(function()
-		local mapId = entry.MapId
-		if mapId and voteCallback then
-			myVote = mapId
-			voteCallback(mapId)
+		local option = entry.MapId
+		if option and voteCallback then
+			myVote = option
+			voteCallback(option)
 			HUD.RefreshVoteHighlight()
 		end
 	end)
@@ -352,6 +362,64 @@ local spectatorLabel = Title(screen, {
 	Text = "A round is in progress. You'll join the next one!",
 	Visible = false,
 })
+
+-- Composition des équipes, pendant le décompte (on est figé dans son camp) :
+-- tous les joueurs de la manche, bots compris, colonne par équipe
+local lineup: Frame = New("Frame", {
+	Name = "Lineup",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0.36, 0),
+	Size = UDim2.new(0, 600, 0, 150),
+	BackgroundTransparency = 1,
+	Visible = false,
+}, screen)
+New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, lineup)
+type LineupColumn = { Frame: Frame, Title: TextLabel, Names: TextLabel, Stroke: UIStroke }
+local lineupColumns: { [string]: LineupColumn } = {}
+for index, teamId in Teams.Order do
+	local def = Teams.Get(teamId) :: Teams.TeamDef
+	local column: Frame = panel(lineup, { Name = teamId, Size = UDim2.new(0.31, 0, 1, 0), LayoutOrder = index, BackgroundTransparency = 0.12 })
+	Theme.Corner(column, 14)
+	local stroke = Theme.Stroke(column, 2, def.Color)
+	local title = Title(column, { Name = "TeamName", Size = UDim2.new(0.92, 0, 0, 24), Position = UDim2.new(0.04, 0, 0, 6), Text = def.Plural, TextColor3 = def.Color })
+	local names = Label(column, { Name = "Names", Size = UDim2.new(0.92, 0, 1, -38), Position = UDim2.new(0.04, 0, 0, 32), Text = "", RichText = true, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, TextColor3 = Theme.Cream })
+	Theme.MaxText(names, 15)
+	lineupColumns[teamId] = { Frame = column, Title = title, Names = names, Stroke = stroke }
+end
+
+local function updateLineup()
+	local members: { [string]: { string } } = {}
+	for _, teamId in Teams.Order do
+		members[teamId] = {}
+	end
+	local myCharacter = player.Character
+	for _, model in CollectionService:GetTagged("HoH_Actor") do
+		local team = model:GetAttribute("Team")
+		if type(team) == "string" and members[team] then
+			local name = model:GetAttribute("DisplayName")
+			name = type(name) == "string" and name or model.Name
+			if model == myCharacter then
+				name = "<b>" .. name .. " (you)</b>"
+			end
+			table.insert(members[team], name)
+		end
+	end
+	for teamId, column in lineupColumns do
+		local list = members[teamId]
+		table.sort(list)
+		local shown = {}
+		local limit = compact and 4 or 7
+		for i = 1, math.min(#list, limit) do
+			shown[i] = list[i]
+		end
+		local text = table.concat(shown, "\n")
+		if #list > limit then
+			text ..= string.format("\n+%d more", #list - limit)
+		end
+		column.Names.Text = text
+		column.Title.Text = string.format("%s · %d", (Teams.Get(teamId) :: Teams.TeamDef).Plural, #list)
+	end
+end
 
 local helpPanel: Frame = panel(screen, {
 	Name = "Help",
@@ -614,26 +682,65 @@ function HUD.SetRoundReward(reward: { [string]: any }?)
 	lastReward = reward
 end
 
+-- Liste de noms courte : "Ana, Bo, Cy +2"
+local function nameList(names: { string }, limit: number): string
+	local shown = {}
+	for i = 1, math.min(#names, limit) do
+		shown[i] = names[i]
+	end
+	local text = table.concat(shown, ", ")
+	if #names > limit then
+		text ..= string.format(" +%d", #names - limit)
+	end
+	return text
+end
+
 local function updateVotePanel(state: Types.GameState)
 	local key = table.concat(state.Candidates, "|")
 	if key ~= lastCandidatesKey then
 		lastCandidatesKey = key
 		myVote = nil
 	end
+	-- Qui a voté pour quoi (liste envoyée par le serveur)
+	local voters: { [string]: { string } } = {}
+	local waiting: { string } = {}
+	local roster = state.Roster or {}
+	for _, entry in roster do
+		if entry.Vote then
+			voters[entry.Vote] = voters[entry.Vote] or {}
+			table.insert(voters[entry.Vote], entry.Name)
+		else
+			table.insert(waiting, entry.Name)
+		end
+		if entry.UserId == player.UserId and entry.Vote then
+			myVote = entry.Vote
+		end
+	end
 	for index, entry in voteButtons do
-		local mapId = state.Candidates[index]
-		local def = MapInfo.Get(mapId)
-		entry.MapId = mapId
-		if def and mapId then
+		local option = state.Candidates[index]
+		local mapId, modeId = ModeInfo.Split(option)
+		local mapDef, modeDef = MapInfo.Get(mapId), ModeInfo.Get(modeId)
+		entry.MapId = option
+		if option and mapDef and modeDef then
 			entry.Button.Visible = true
-			entry.Stripe.BackgroundColor3 = def.Color
-			entry.Name.Text = def.DisplayName
-			entry.Mode.Text = def.ModeName
-			local n = state.Votes[mapId] or 0
-			entry.Votes.Text = string.format("%d vote%s", n, n == 1 and "" or "s")
+			entry.Stripe.BackgroundColor3 = modeDef.Color
+			entry.Name.Text = modeDef.DisplayName
+			entry.Map.Text = "on " .. mapDef.DisplayName
+			entry.Rules.Text = compact and modeDef.Rules[1] or table.concat(modeDef.Rules, "\n")
+			local n = state.Votes[option] or 0
+			local names = voters[option] or {}
+			entry.Votes.Text = string.format("<b>%d vote%s</b>%s", n, n == 1 and "" or "s", #names > 0 and (" · " .. nameList(names, compact and 2 or 3)) or "")
 		else
 			entry.Button.Visible = false
 		end
+	end
+	local count = #roster
+	if count == 0 then
+		rosterLabel.Text = ""
+	elseif #waiting == 0 then
+		rosterLabel.Text = string.format("<b>%d player%s</b> · everyone voted · ties: the mode played least recently", count, count == 1 and "" or "s")
+	else
+		rosterLabel.Text = string.format("<b>%d player%s</b> · waiting for: %s", count, count == 1 and "" or "s", nameList(waiting, compact and 3 or 6))
 	end
 	HUD.RefreshVoteHighlight()
 end
@@ -717,7 +824,7 @@ function HUD.UpdateState(state: Types.GameState)
 	else
 		ribbonStroke.Color = Theme.Mint
 		if phase == "Intermission" then
-			mainLabel.Text = "Vote for the next map!"
+			mainLabel.Text = "Vote for the next mode!"
 		elseif phase == "Waiting" then
 			mainLabel.Text = "Waiting for players..."
 		elseif phase == "Results" then
@@ -728,14 +835,17 @@ function HUD.UpdateState(state: Types.GameState)
 	end
 
 	local mapDef = MapInfo.Get(state.MapId)
+	local modeDef = ModeInfo.Get(state.ModeId)
+	local modeName = modeDef and modeDef.DisplayName or (mapDef and mapDef.ModeName) or ""
 	if phase == "Intermission" then
-		subLabel.Text = "Walk onto a plate or tap a card"
+		subLabel.Text = "Walk onto a plate or tap a card · one vote each"
 	elseif phase == "Countdown" then
-		-- Comment gagner sur cette map, lisible pendant le décompte
-		subLabel.Text = mapDef and (mapDef.ModeName .. ": " .. mapDef.Tagline) or ""
+		-- Comment gagner dans ce mode, lisible pendant le décompte
+		local tagline = modeDef and modeDef.Tagline or (mapDef and mapDef.Tagline) or ""
+		subLabel.Text = modeName .. ": " .. tagline
 	elseif phase == "Round" and mapDef then
-		local goal = state.ScoreGoal and string.format(" · first to %d %s", state.ScoreGoal, state.ScoreLabel or "points") or ""
-		subLabel.Text = mapDef.DisplayName .. " · " .. mapDef.ModeName .. goal
+		local goal = state.ScoreGoal and string.format(" · first to %d %s", state.ScoreGoal, state.ScoreLabel or "points") or " · last team standing"
+		subLabel.Text = modeName .. " · " .. mapDef.DisplayName .. goal
 	else
 		subLabel.Text = ""
 	end
@@ -754,6 +864,10 @@ function HUD.UpdateState(state: Types.GameState)
 	votePanel.Visible = phase == "Intermission"
 	if votePanel.Visible then
 		updateVotePanel(state)
+	end
+	lineup.Visible = phase == "Countdown"
+	if lineup.Visible then
+		updateLineup()
 	end
 	-- Dock d'action : seulement en jeu, jamais sous les résultats.
 	-- En tactile, les médaillons sont autour du bouton de saut (ActionBar).
@@ -882,18 +996,26 @@ rescale = function()
 		row.Row.Size = UDim2.new(0.92, 0, 0, small and 21 or 30)
 	end
 	bottomCenter.Position = UDim2.new(0.5, 0, 1, small and -8 or -14)
+	-- Composition des équipes : au milieu, sous la pastille d'état
+	lineup.Size = UDim2.new(0, math.min(600, size.X - 24), 0, small and 104 or 150)
+	lineup.Position = UDim2.new(0.5, 0, 0, portrait and 240 or (small and 124 or 176))
 	-- Vote : à droite des pièces quand l'écran est trop étroit pour le centrer ;
 	-- en portrait, sur toute la largeur au-dessus des pièces
 	local currencyRight = 12 + (small and 150 or 230) + 8
-	local voteWidth = math.min(660, size.X - currencyRight - 12)
+	local voteWidth = math.min(720, size.X - currencyRight - 12)
 	local voteLeft = math.max(currencyRight, (size.X - voteWidth) / 2)
+	local voteHeight = small and 156 or 214
 	if portrait then
 		votePanel.Position = UDim2.new(0, 12, 1, -(12 + (small and 78 or 112) + 10))
-		votePanel.Size = UDim2.new(0, size.X - 24, 0, small and 130 or 150)
+		votePanel.Size = UDim2.new(0, size.X - 24, 0, 214)
 	else
-		votePanel.Position = UDim2.new(0, voteLeft, 1, small and -10 or -66)
-		votePanel.Size = UDim2.new(0, voteWidth, 0, small and 130 or 150)
+		votePanel.Position = UDim2.new(0, voteLeft, 1, small and -10 or -14)
+		votePanel.Size = UDim2.new(0, voteWidth, 0, voteHeight)
 	end
+	voteTitle.Size = UDim2.new(1, 0, 0, small and 18 or 24)
+	voteButtonsFrame.Position = UDim2.new(0, 0, 0, small and 20 or 28)
+	voteButtonsFrame.Size = UDim2.new(1, 0, 1, -(small and 20 or 28) - (small and 22 or 28))
+	rosterLabel.Size = UDim2.new(1, 0, 0, small and 18 or 22)
 end
 HUD.Rescale = rescale
 rescale()

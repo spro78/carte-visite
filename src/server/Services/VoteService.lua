@@ -1,15 +1,21 @@
 --[[
 	VoteService.lua
-	Vote de map pendant l'intermission. Deux moyens de voter :
+	Vote de la prochaine manche pendant l'intermission. On vote pour une
+	OPTION : un mode de jeu sur une carte ("Carte/Mode", Shared/ModeInfo).
+	Deux moyens de voter :
 	  - marcher sur une plaque du lobby (Touched, côté serveur),
-	  - cliquer sur un bouton de l'interface (RemoteEvent VoteMap).
-	Toute intention est validée ici : phase active, mapId candidat, type string.
+	  - cliquer sur une carte de l'interface (RemoteEvent VoteMap).
+	Règle (affichée aux joueurs) : une voix par joueur, on peut changer d'avis ;
+	l'option la plus votée gagne ; en cas d'égalité (ou sans vote), le mode
+	joué il y a le plus longtemps passe (rotation), puis le hasard.
+	Toute intention est validée ici : phase active, option candidate, type.
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
+local ModeInfo = require(Shared.ModeInfo)
 local MapInfo = require(Shared.MapInfo)
 
 local MapRegistry = require(script.Parent.MapRegistry)
@@ -27,17 +33,22 @@ local function refreshLobby()
 	end
 end
 
+local function isValidOption(option: any): boolean
+	local mapId, modeId = ModeInfo.Split(option)
+	return mapId ~= nil and MapInfo.IsValid(mapId) and ModeInfo.Get(modeId) ~= nil
+end
+
 function VoteService.Init(lobbyBuilder)
 	lobby = lobbyBuilder
 
-	Remotes.Get("VoteMap").OnServerEvent:Connect(function(player: Player, mapId: any)
-		VoteService.CastVote(player, mapId)
+	Remotes.Get("VoteMap").OnServerEvent:Connect(function(player: Player, option: any)
+		VoteService.CastVote(player, option)
 	end)
 
 	lobby.OnVotePlateTouched(function(player: Player, index: number)
-		local mapId = candidates[index]
-		if mapId then
-			VoteService.CastVote(player, mapId)
+		local option = candidates[index]
+		if option then
+			VoteService.CastVote(player, option)
 		end
 	end)
 
@@ -49,8 +60,8 @@ function VoteService.Init(lobbyBuilder)
 	end)
 end
 
-function VoteService.StartVote(mapIds: { string })
-	candidates = table.clone(mapIds)
+function VoteService.StartVote(options: { string })
+	candidates = table.clone(options)
 	votes = {}
 	active = true
 	if lobby then
@@ -68,20 +79,20 @@ function VoteService.IsActive(): boolean
 end
 
 -- Enregistre un vote. Toutes les vérifications sont faites ici.
-function VoteService.CastVote(player: Player, mapId: any)
+function VoteService.CastVote(player: Player, option: any)
 	if not active then
 		return
 	end
-	if typeof(mapId) ~= "string" or not MapInfo.IsValid(mapId) then
+	if typeof(option) ~= "string" or not isValidOption(option) then
 		return
 	end
-	if not table.find(candidates, mapId) then
+	if not table.find(candidates, option) then
 		return
 	end
-	if votes[player] == mapId then
+	if votes[player] == option then
 		return
 	end
-	votes[player] = mapId
+	votes[player] = option
 	refreshLobby()
 end
 
@@ -106,8 +117,20 @@ function VoteService.GetPlayerVote(player: Player): string?
 	return votes[player]
 end
 
--- Map gagnante : la plus votée ; en cas d'égalité (ou sans vote), la map qui
--- attend son tour depuis le plus longtemps (rotation), puis le hasard.
+-- Tous les joueurs présents et leur choix (nil : pas encore voté), par nom
+function VoteService.GetRoster(): { { Name: string, UserId: number, Vote: string? } }
+	local roster = {}
+	for _, player in Players:GetPlayers() do
+		table.insert(roster, { Name = player.DisplayName ~= "" and player.DisplayName or player.Name, UserId = player.UserId, Vote = votes[player] })
+	end
+	table.sort(roster, function(a, b)
+		return a.Name:lower() < b.Name:lower()
+	end)
+	return roster
+end
+
+-- Option gagnante : la plus votée ; en cas d'égalité (ou sans vote), le mode
+-- qui attend son tour depuis le plus longtemps (rotation), puis la carte, puis le hasard.
 function VoteService.GetWinner(): string?
 	if #candidates == 0 then
 		return nil
@@ -127,7 +150,8 @@ function VoteService.GetWinner(): string?
 	local mostStale = {}
 	local staleness = -1
 	for _, id in best do
-		local st = MapRegistry.Staleness(id)
+		local mapId, modeId = ModeInfo.Split(id)
+		local st = (modeId and math.min(MapRegistry.ModeStaleness(modeId), 1e6) or 0) * 1000 + (mapId and math.min(MapRegistry.Staleness(mapId), 999) or 0)
 		if st > staleness then
 			mostStale = { id }
 			staleness = st
@@ -138,7 +162,7 @@ function VoteService.GetWinner(): string?
 	return mostStale[math.random(#mostStale)]
 end
 
--- Map en tête pour l'affichage (nil si aucune voix ou égalité stricte à 0)
+-- Option en tête pour l'affichage (nil si aucune voix ou égalité stricte à 0)
 function VoteService.GetLeader(): string?
 	local counts = VoteService.GetCounts()
 	local leader, leaderCount = nil, 0

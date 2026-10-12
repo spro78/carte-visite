@@ -8,6 +8,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local MapInfo = require(Shared.MapInfo)
+local ModeInfo = require(Shared.ModeInfo)
 local Config = require(Shared.Config)
 
 local MapRegistry = {}
@@ -82,27 +83,90 @@ function MapRegistry.PickRandom(n: number): { string }
 end
 
 -- ---------------------------------------------------------------------------
--- Rotation : les maps jouées récemment passent après les autres
+-- Rotation : les options (mode + carte) jouées récemment passent après les autres
 -- ---------------------------------------------------------------------------
-local lastPlayed: { [string]: number } = {}
+local lastPlayed: { [string]: number } = {} -- carte -> manche
+local lastMode: { [string]: number } = {} -- mode -> manche
 local roundCounter = 0
 
-function MapRegistry.MarkPlayed(id: string)
+-- Option "Carte/Mode" ou carte seule (ancien format)
+function MapRegistry.MarkPlayed(option: string)
 	roundCounter += 1
-	lastPlayed[id] = roundCounter
+	local mapId, modeId = ModeInfo.Split(option)
+	lastPlayed[mapId or option] = roundCounter
+	if modeId then
+		lastMode[modeId] = roundCounter
+	end
 end
 
--- Ancienneté : plus c'est grand, plus la map attend son tour (jamais jouée = très grand)
+-- Ancienneté : plus c'est grand, plus la carte attend son tour (jamais jouée = très grand)
 function MapRegistry.Staleness(id: string): number
 	local last = lastPlayed[id]
 	return last and (roundCounter - last) or math.huge
 end
 
--- Candidats au vote : en priorité les maps qui n'ont pas été jouées depuis
--- longtemps (hasard entre maps d'ancienneté égale). La dernière map jouée
--- n'est proposée que s'il n'y a pas assez d'autres maps.
+function MapRegistry.ModeStaleness(modeId: string): number
+	local last = lastMode[modeId]
+	return last and (roundCounter - last) or math.huge
+end
+
+-- Modes jouables d'une carte (au moins son mode historique)
+function MapRegistry.GetModes(mapId: string): { string }
+	local def = MapInfo.Get(mapId)
+	return def and def.Modes or {}
+end
+
+-- Cartes de la rotation (Config.Round.MapPool), parmi celles qui sont chargées
+function MapRegistry.GetPool(): { string }
+	local pool = {}
+	for _, id in Config.Round.MapPool or orderedIds do
+		if maps[id] then
+			table.insert(pool, id)
+		end
+	end
+	if #pool == 0 then
+		pool = table.clone(orderedIds)
+	end
+	return pool
+end
+
+-- Options du vote : n couples (mode, carte), des modes différents d'abord.
+-- Les modes joués il y a le plus longtemps passent en premier (rotation
+-- équitable), puis les cartes qui attendent leur tour ; le hasard départage.
+function MapRegistry.PickOptions(n: number): { string }
+	local options = {}
+	for _, mapId in MapRegistry.GetPool() do
+		for _, modeId in MapRegistry.GetModes(mapId) do
+			if ModeInfo.Get(modeId) then
+				table.insert(options, {
+					Id = ModeInfo.Option(mapId, modeId),
+					Mode = modeId,
+					Key = math.min(MapRegistry.ModeStaleness(modeId), 1e6) * 1000 + math.min(MapRegistry.Staleness(mapId), 999) + math.random() * 0.5,
+				})
+			end
+		end
+	end
+	table.sort(options, function(a, b)
+		return a.Key > b.Key
+	end)
+	local picked, usedModes = {}, {}
+	for _, option in options do
+		if #picked < n and not usedModes[option.Mode] then
+			usedModes[option.Mode] = true
+			table.insert(picked, option.Id)
+		end
+	end
+	for _, option in options do
+		if #picked < n and not table.find(picked, option.Id) then
+			table.insert(picked, option.Id)
+		end
+	end
+	return picked
+end
+
+-- Ancien vote par carte (compatibilité des outils)
 function MapRegistry.PickRotation(n: number): { string }
-	local pool = table.clone(orderedIds)
+	local pool = MapRegistry.GetPool()
 	local keys = {}
 	for _, id in pool do
 		keys[id] = MapRegistry.Staleness(id) + math.random() * 0.5

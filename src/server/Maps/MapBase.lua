@@ -28,12 +28,15 @@ local Config = require(Shared.Config)
 local Mechanics = require(Shared.Mechanics)
 local Build = require(script.Parent.Parent.Util.Build)
 local Props = require(script.Parent.Parent.Util.Props)
+local Kit = require(script.Parent.Parent.Util.Kit)
 local TerrainKit = require(script.Parent.Parent.Util.TerrainKit)
 local Ground = require(script.Parent.Parent.Util.Ground)
 
 local MapBase = {}
 
 MapBase.HidingTag = "HoH_HidingSpot"
+
+local buildKitCamp: (Model, (number, number, number) -> CFrame, string, Teams.TeamDef, number) -> ()
 
 -- Zone sûre d'un camp, dans le repère du camp (-Z local = vers le centre de la carte)
 export type SafeZone = {
@@ -74,6 +77,7 @@ export type ArenaTheme = {
 }
 
 export type CampTheme = {
+	Kit: boolean?, -- camp construit avec le kit 3D (portail, drapeau, décor de l'animal)
 	Wall: Enum.Material?, -- matière des murets du camp
 	WallColor: Color3?, -- sinon couleur foncée de l'équipe
 	Ground: Enum.Material?, -- aplat sous le camp (matière logique)
@@ -268,6 +272,42 @@ local function buildSafeZoneMarker(model: Instance, at: (number, number, number)
 	Build.SurfaceLabel(label, Enum.NormalId.Top, "SAFE ZONE", { TextColor3 = color, TextStrokeTransparency = 0.4, Font = Enum.Font.FredokaOne })
 end
 
+-- Camp en assets du kit (src/server/Util/Kit) : le portail d'entrée tourné
+-- vers le centre (nom du camp sur le panneau), le drapeau d'équipe visible de
+-- loin, des clôtures de bois et le décor de l'animal derrière la plateforme
+local CAMP_DECOR = { FOX = "FoxDen", CHICKEN = "ChickenCoop", SNAKE = "SnakeHollow" }
+function buildKitCamp(model: Model, at: (number, number, number) -> CFrame, teamId: string, def: Teams.TeamDef, halfPad: number)
+	local front = -halfPad + 1.2
+	local gateCf = at(0, 0, front)
+	Kit.Place(model, "CampGate", gateCf, { Team = teamId, Name = teamId .. "_CampGate" })
+	local sign = Kit.Anchor("CampGate", "Sign", gateCf)
+	if sign then
+		local label = Build.Part({ Name = teamId .. "_CampSign", Size = Vector3.new(13, 2.8, 0.1), CFrame = CFrame.new(sign) * (gateCf - gateCf.Position) * CFrame.new(0, 0, -0.05), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false }, model)
+		Build.SurfaceLabel(label, Enum.NormalId.Front, def.Display .. " CAMP", { TextColor3 = def.DarkColor, TextStrokeTransparency = 1, Font = Enum.Font.FredokaOne })
+	end
+	-- Drapeau d'équipe au fond (balise visible de loin)
+	Kit.Place(model, "CampFlag", at(0, 0, halfPad + 4) * CFrame.Angles(0, math.pi / 2, 0), { Team = teamId, Name = teamId .. "_CampFlag" })
+	-- Clôtures : fond complet, côtés sur l'arrière (on entre par l'avant et les côtés)
+	local back = halfPad + 2
+	local count = math.ceil((halfPad * 2 + 4) / 8)
+	local step = (halfPad * 2 + 4) / count
+	for i = 0, count - 1 do
+		local x = -halfPad - 2 + step * (i + 0.5)
+		Kit.Place(model, "Fence", at(x, 0, back), { Scale = step / 8.6 * 1.05, Name = "CampFence" })
+	end
+	for _, side in { -1, 1 } do
+		for k = 0, 1 do
+			local z = halfPad * 0.15 + k * halfPad * 0.45 + halfPad * 0.2
+			Kit.Place(model, "Fence", at(side * (halfPad + 2), 0, z) * CFrame.Angles(0, math.pi / 2, 0), { Scale = 0.95, Name = "CampFence" })
+		end
+	end
+	-- Décor de l'animal, sur le côté du fond (le drapeau reste dégagé)
+	local decor = CAMP_DECOR[teamId]
+	if decor then
+		Kit.Place(model, decor, at(halfPad * 0.55, 0, halfPad + 12), { Team = teamId, Name = teamId .. "_" .. decor })
+	end
+end
+
 -- Trois camps disposés en triangle. Retourne bases[teamId].
 -- bounds : demi-côté de la zone de jeu (limite la profondeur de la zone sûre)
 function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, padSize: number, camp: CampTheme?, angles: { [string]: number }?, bounds: number?): { [string]: Base }
@@ -301,58 +341,70 @@ function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, p
 			Size = Vector3.new(padSize, 1, padSize),
 			CFrame = at(0, 0.5, 0),
 			Color = def.Color,
-			Studs = true,
+			Studs = not style.Kit,
 			Accent = true,
 		}, model)
 		pad:SetAttribute("Team", teamId)
 		pad:SetAttribute("BasePad", true)
-		Build.Part({ Name = "BaseBorder", Size = Vector3.new(padSize + 3, 0.7, padSize + 3), CFrame = at(0, 0.35, 0), Color = def.DarkColor, Accent = true }, model)
+		if style.Kit then
+			-- La Part reste la surface de collision ; l'aspect vient du kit
+			pad.Transparency = 1
+			Kit.Place(model, "CampPad", at(0, 0, 0), { Team = teamId, Collide = false, Name = teamId .. "_CampPad" })
+		else
+			Build.Part({ Name = "BaseBorder", Size = Vector3.new(padSize + 3, 0.7, padSize + 3), CFrame = at(0, 0.35, 0), Color = def.DarkColor, Accent = true }, model)
+		end
 		-- Emblème au sol : disque clair avec le nom de l'équipe (lisible d'en haut)
 		Build.Part({ Name = "Emblem", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.12, 16, 16), CFrame = at(0, 1.02, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = light, Accent = true, CanCollide = false, CanQuery = false }, model)
 		local label = Build.Part({ Name = "EmblemText", Size = Vector3.new(14, 0.05, 5), CFrame = at(0, 1.1, 0) * CFrame.Angles(0, math.pi, 0), Transparency = 1, CanCollide = false, CanQuery = false }, model)
 		Build.SurfaceLabel(label, Enum.NormalId.Top, def.Display, { TextColor3 = def.DarkColor, TextStrokeTransparency = 1, Font = Enum.Font.GothamBlack })
 
-		-- Arche d'entrée tournée vers le centre, bannière du camp
-		local front = -halfPad + 1.5
-		for _, side in { -1, 1 } do
-			Build.Part({ Name = "ArchPillar", Size = Vector3.new(3, 12, 3), CFrame = at(side * 9.5, 6.5, front), Color = wallColor, Material = wallMaterial, Accent = style.WallColor == nil }, model)
-			Build.Part({ Name = "ArchBase", Size = Vector3.new(4, 1.2, 4), CFrame = at(side * 9.5, 1.1, front), Color = def.DarkColor, Accent = true }, model)
-			Build.Part({ Name = "ArchCap", Size = Vector3.new(4.2, 1.2, 4.2), CFrame = at(side * 9.5, 13.1, front), Color = def.Color, Accent = true }, model)
-			local lamp = Build.Part({ Name = "ArchLamp", Shape = Enum.PartType.Ball, Size = Vector3.new(2, 2, 2), CFrame = at(side * 9.5, 14.6, front), Color = light, Material = Enum.Material.Neon, Accent = true, CanCollide = false }, model)
-			local glow = Instance.new("PointLight")
-			glow.Color = def.Color
-			glow.Range = 14
-			glow.Brightness = 0.8
-			glow.Parent = lamp
-		end
-		local beam = Build.Part({ Name = teamId .. "_ArchBeam", Size = Vector3.new(23, 3.6, 1.6), CFrame = at(0, 11.2, front), Color = def.DarkColor, Accent = true }, model)
-		for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
-			Build.SurfaceLabel(beam, face, def.Display .. " CAMP", { TextColor3 = Color3.new(1, 1, 1), TextStrokeTransparency = 0.3, Font = Enum.Font.GothamBlack })
-		end
-		Props.Bunting(model, (at(-9.5, 9.4, front - 0.4)).Position, (at(9.5, 9.4, front - 0.4)).Position, { def.Color, Color3.new(1, 1, 1) }, 1.4)
+		if style.Kit then
+			-- Camp en assets du kit 3D (Blender) : portail, drapeau, clôtures,
+			-- et un décor propre à l'animal derrière la plateforme
+			buildKitCamp(model, at, teamId, def, halfPad)
+		else
+			-- Arche d'entrée tournée vers le centre, bannière du camp
+			local front = -halfPad + 1.5
+			for _, side in { -1, 1 } do
+				Build.Part({ Name = "ArchPillar", Size = Vector3.new(3, 12, 3), CFrame = at(side * 9.5, 6.5, front), Color = wallColor, Material = wallMaterial, Accent = style.WallColor == nil }, model)
+				Build.Part({ Name = "ArchBase", Size = Vector3.new(4, 1.2, 4), CFrame = at(side * 9.5, 1.1, front), Color = def.DarkColor, Accent = true }, model)
+				Build.Part({ Name = "ArchCap", Size = Vector3.new(4.2, 1.2, 4.2), CFrame = at(side * 9.5, 13.1, front), Color = def.Color, Accent = true }, model)
+				local lamp = Build.Part({ Name = "ArchLamp", Shape = Enum.PartType.Ball, Size = Vector3.new(2, 2, 2), CFrame = at(side * 9.5, 14.6, front), Color = light, Material = Enum.Material.Neon, Accent = true, CanCollide = false }, model)
+				local glow = Instance.new("PointLight")
+				glow.Color = def.Color
+				glow.Range = 14
+				glow.Brightness = 0.8
+				glow.Parent = lamp
+			end
+			local beam = Build.Part({ Name = teamId .. "_ArchBeam", Size = Vector3.new(23, 3.6, 1.6), CFrame = at(0, 11.2, front), Color = def.DarkColor, Accent = true }, model)
+			for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+				Build.SurfaceLabel(beam, face, def.Display .. " CAMP", { TextColor3 = Color3.new(1, 1, 1), TextStrokeTransparency = 0.3, Font = Enum.Font.GothamBlack })
+			end
+			Props.Bunting(model, (at(-9.5, 9.4, front - 0.4)).Position, (at(9.5, 9.4, front - 0.4)).Position, { def.Color, Color3.new(1, 1, 1) }, 1.4)
 
-		-- Murets : arrière complet, côtés partiels (on entre par l'avant et les côtés)
-		local function wall(cf: CFrame, size: Vector3)
-			Build.Part({ Name = "CampWall", Size = size, CFrame = cf, Color = wallColor, Material = wallMaterial, Accent = style.WallColor == nil }, model)
-			Build.Part({ Name = "CampWallCap", Size = size + Vector3.new(0.5, -size.Y + 0.5, 0.5), CFrame = cf * CFrame.new(0, size.Y / 2 + 0.25, 0), Color = def.Color, Accent = true }, model)
-		end
-		wall(at(0, 1.75, halfPad + 1.5), Vector3.new(padSize + 3, 3.5, 2))
-		for _, side in { -1, 1 } do
-			wall(at(side * (halfPad + 1.5), 1.75, halfPad * 0.55), Vector3.new(2, 3.5, padSize * 0.45))
-		end
+			-- Murets : arrière complet, côtés partiels (on entre par l'avant et les côtés)
+			local function wall(cf: CFrame, size: Vector3)
+				Build.Part({ Name = "CampWall", Size = size, CFrame = cf, Color = wallColor, Material = wallMaterial, Accent = style.WallColor == nil }, model)
+				Build.Part({ Name = "CampWallCap", Size = size + Vector3.new(0.5, -size.Y + 0.5, 0.5), CFrame = cf * CFrame.new(0, size.Y / 2 + 0.25, 0), Color = def.Color, Accent = true }, model)
+			end
+			wall(at(0, 1.75, halfPad + 1.5), Vector3.new(padSize + 3, 3.5, 2))
+			for _, side in { -1, 1 } do
+				wall(at(side * (halfPad + 1.5), 1.75, halfPad * 0.55), Vector3.new(2, 3.5, padSize * 0.45))
+			end
 
-		-- Balise visible de loin : grand mât, drapeau, anneau lumineux
-		local beaconCf = at(0, 0, halfPad + 4)
-		Build.Part({ Name = "BeaconBase", Size = Vector3.new(4, 2, 4), CFrame = beaconCf * CFrame.new(0, 1, 0), Color = def.DarkColor, Accent = true }, model)
-		Build.Part({ Name = "BeaconPole", Size = Vector3.new(0.9, 30, 0.9), CFrame = beaconCf * CFrame.new(0, 16, 0), Color = Color3.fromRGB(240, 240, 240), Material = Enum.Material.Metal }, model)
-		Build.Part({ Name = "BeaconFlag", Size = Vector3.new(10, 6, 0.3), CFrame = beaconCf * CFrame.new(5.4, 27.5, 0), Color = def.Color, Material = Enum.Material.Fabric, Accent = true, CanCollide = false }, model)
-		Build.Part({ Name = "BeaconFlagStripe", Size = Vector3.new(10, 1.2, 0.34), CFrame = beaconCf * CFrame.new(5.4, 25.4, 0), Color = Color3.new(1, 1, 1), Accent = true, CanCollide = false }, model)
-		local orb = Build.Part({ Name = "BeaconOrb", Shape = Enum.PartType.Ball, Size = Vector3.new(2.4, 2.4, 2.4), CFrame = beaconCf * CFrame.new(0, 31.6, 0), Color = light, Material = Enum.Material.Neon, Accent = true, CanCollide = false }, model)
-		local orbLight = Instance.new("PointLight")
-		orbLight.Color = def.Color
-		orbLight.Range = 20
-		orbLight.Brightness = 1
-		orbLight.Parent = orb
+			-- Balise visible de loin : grand mât, drapeau, anneau lumineux
+			local beaconCf = at(0, 0, halfPad + 4)
+			Build.Part({ Name = "BeaconBase", Size = Vector3.new(4, 2, 4), CFrame = beaconCf * CFrame.new(0, 1, 0), Color = def.DarkColor, Accent = true }, model)
+			Build.Part({ Name = "BeaconPole", Size = Vector3.new(0.9, 30, 0.9), CFrame = beaconCf * CFrame.new(0, 16, 0), Color = Color3.fromRGB(240, 240, 240), Material = Enum.Material.Metal }, model)
+			Build.Part({ Name = "BeaconFlag", Size = Vector3.new(10, 6, 0.3), CFrame = beaconCf * CFrame.new(5.4, 27.5, 0), Color = def.Color, Material = Enum.Material.Fabric, Accent = true, CanCollide = false }, model)
+			Build.Part({ Name = "BeaconFlagStripe", Size = Vector3.new(10, 1.2, 0.34), CFrame = beaconCf * CFrame.new(5.4, 25.4, 0), Color = Color3.new(1, 1, 1), Accent = true, CanCollide = false }, model)
+			local orb = Build.Part({ Name = "BeaconOrb", Shape = Enum.PartType.Ball, Size = Vector3.new(2.4, 2.4, 2.4), CFrame = beaconCf * CFrame.new(0, 31.6, 0), Color = light, Material = Enum.Material.Neon, Accent = true, CanCollide = false }, model)
+			local orbLight = Instance.new("PointLight")
+			orbLight.Color = def.Color
+			orbLight.Range = 20
+			orbLight.Brightness = 1
+			orbLight.Parent = orb
+		end
 
 		-- (Pas de tente ni de caisses dans le camp : la caméra du joueur qui
 		-- apparaît doit voir la carte, pas le décor ; bible visuelle §4 et §6)
@@ -487,6 +539,9 @@ local function hidingZone(folder: Instance, cframe: CFrame, size: Vector3, kind:
 	CollectionService:AddTag(zone, MapBase.HidingTag)
 	return zone
 end
+
+-- Zone de cachette invisible (taguée pour HideService) autour d'un décor
+MapBase.AddHidingZone = hidingZone
 
 -- Hautes herbes : massif dense de brins effilés (on peut s'y cacher)
 function MapBase.BuildTallGrass(folder: Instance, position: Vector3, radius: number, color: Color3?)

@@ -79,13 +79,93 @@ local function shuffle<T>(list: { T }): { T }
 	return copy
 end
 
--- Répartition équilibrée : mélange puis tour de rôle à partir d'une équipe au hasard.
+-- Historique des rôles joués par chaque joueur pendant la session (clé :
+-- UserId pour un joueur, Id pour un bot) : sert à faire tourner les animaux
+local history: { [any]: { [string]: number } } = {}
+local lastTeam: { [any]: string } = {}
+
+local function historyKey(actor: Actor): any
+	return actor.Player and actor.Player.UserId or actor.Id
+end
+
+-- Répartition équilibrée ET tournante :
+--   - tailles d'équipes égales à un près (les places en plus tombent au hasard) ;
+--   - chacun va de préférence dans l'équipe qu'il a le moins jouée, et jamais
+--     deux fois de suite la même s'il y a le choix ; le hasard départage.
+-- Au fil des manches, tout le monde joue renard, poule et vipère.
 function TeamService.AssignBalanced(actorList: { Actor })
-	local offset = math.random(#Teams.Order) - 1
-	for index, actor in shuffle(actorList) do
-		local teamIndex = ((index - 1 + offset) % #Teams.Order) + 1
-		TeamService.SetTeam(actor, Teams.Order[teamIndex])
+	local n = #actorList
+	local teamCount = #Teams.Order
+	local base = n // teamCount -- taille minimale d'une équipe
+	local extra = n % teamCount -- équipes qui auront une place de plus
+	-- Coût d'une équipe pour un joueur : déjà jouée (x10), jouée la manche
+	-- précédente (+5)
+	local function cost(actor: Actor, team: string): number
+		local key = historyKey(actor)
+		local played = history[key] or {}
+		return (played[team] or 0) * 10 + (lastTeam[key] == team and 5 or 0)
 	end
+	-- 1. Répartition gloutonne (ordre au hasard), tailles égales à un près
+	local filled: { [string]: number } = {}
+	for _, id in Teams.Order do
+		filled[id] = 0
+	end
+	local bigTeams = 0
+	local function open(id: string): boolean
+		return filled[id] < base or (filled[id] == base and bigTeams < extra)
+	end
+	local assigned: { [Actor]: string } = {}
+	local order = shuffle(actorList)
+	for _, actor in order do
+		local best, bestScore = nil, math.huge
+		for _, id in shuffle(Teams.Order) do
+			if open(id) then
+				local score = cost(actor, id)
+				if score < bestScore then
+					best, bestScore = id, score
+				end
+			end
+		end
+		local team = best or Teams.Order[1]
+		if filled[team] == base then
+			bigTeams += 1
+		end
+		filled[team] += 1
+		assigned[actor] = team
+	end
+	-- 2. Échanges deux à deux tant qu'ils réduisent le coût total (les tailles
+	-- ne changent pas) : chacun change d'animal dès que c'est possible
+	local improved = true
+	local guard = 0
+	while improved and guard < 50 do
+		improved = false
+		guard += 1
+		for i = 1, #order do
+			for j = i + 1, #order do
+				local a, b = order[i], order[j]
+				local ta, tb = assigned[a], assigned[b]
+				if ta ~= tb and cost(a, tb) + cost(b, ta) < cost(a, ta) + cost(b, tb) then
+					assigned[a], assigned[b] = tb, ta
+					improved = true
+				end
+			end
+		end
+	end
+	-- 3. Application et mémoire des rôles joués
+	for _, actor in order do
+		local team = assigned[actor]
+		local key = historyKey(actor)
+		local played = history[key] or {}
+		TeamService.SetTeam(actor, team)
+		history[key] = played
+		played[team] = (played[team] or 0) + 1
+		lastTeam[key] = team
+	end
+end
+
+-- Pour les tests : rôles joués par un acteur depuis le début de la session
+function TeamService.GetHistory(actor: Actor): { [string]: number }
+	return history[historyKey(actor)] or {}
 end
 
 -- Équipe la moins nombreuse (égalité tranchée au hasard).

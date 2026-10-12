@@ -16,6 +16,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Teams = require(Shared.Teams)
 local MapInfo = require(Shared.MapInfo)
+local ModeInfo = require(Shared.ModeInfo)
 local Remotes = require(Shared.Remotes)
 local Types = require(Shared.Types)
 
@@ -43,7 +44,9 @@ local state: GameState = {
 	Phase = "Waiting",
 	TimeLeft = 0,
 	MapId = nil,
+	ModeId = nil,
 	Candidates = {},
+	Roster = {},
 	Votes = {},
 	TeamCounts = {},
 	Scores = {},
@@ -164,14 +167,24 @@ local function announceTo(actor: Actor, text: string, color: Color3?)
 end
 
 -- Texte du panneau géant du lobby selon la phase
+local function optionText(option: string?): string?
+	local mapId, modeId = ModeInfo.Split(option)
+	local mapDef, modeDef = MapInfo.Get(mapId), ModeInfo.Get(modeId)
+	if mapDef and modeDef then
+		return modeDef.DisplayName .. " - " .. mapDef.DisplayName
+	end
+	return nil
+end
+
 local function updateLobbyBoard()
 	local mapDef = MapInfo.Get(state.MapId)
-	local mapText = mapDef and (mapDef.DisplayName .. " - " .. mapDef.ModeName) or ""
+	local modeDef = ModeInfo.Get(state.ModeId)
+	local mapText = mapDef and ((modeDef and modeDef.DisplayName or mapDef.ModeName) .. " - " .. mapDef.DisplayName) or ""
 	if state.Phase == "Waiting" then
 		LobbyBuilder.SetBoard("Waiting for players...", "--:--", "")
 	elseif state.Phase == "Intermission" then
-		local leader = MapInfo.Get(VoteService.GetLeader())
-		LobbyBuilder.SetBoard("Next round in", formatTime(state.TimeLeft), leader and ("Leading: " .. leader.DisplayName) or "Vote for a map!")
+		local leader = optionText(VoteService.GetLeader())
+		LobbyBuilder.SetBoard("Next round in", formatTime(state.TimeLeft), leader and ("Leading: " .. leader) or "Vote for a mode!")
 	elseif state.Phase == "Countdown" then
 		LobbyBuilder.SetBoard("Round starting", formatTime(state.TimeLeft), mapText)
 	elseif state.Phase == "Round" then
@@ -186,6 +199,7 @@ local function broadcastState()
 	state.TeamCounts = TeamService.GetCounts(RoundState.GetParticipants())
 	state.Candidates = VoteService.GetCandidates()
 	state.Votes = VoteService.GetCounts()
+	state.Roster = (state.Phase == "Intermission") and VoteService.GetRoster() or {}
 	StateUpdate:FireAllClients(state)
 	updateLobbyBoard()
 end
@@ -370,6 +384,7 @@ local context: Types.MapContext = {
 -- ---------------------------------------------------------------------------
 local function resetResults()
 	state.MapId = nil
+	state.ModeId = nil
 	state.Winner = nil
 	state.WinReason = nil
 	state.WinDetail = nil
@@ -394,8 +409,8 @@ end
 -- Retourne false si l'intermission a été annulée (plus assez de joueurs).
 local function intermission(): boolean
 	setPhase("Intermission")
-	VoteService.StartVote(MapRegistry.PickRotation(Config.Round.VoteCandidates))
-	log("Intermission, candidates:", table.concat(VoteService.GetCandidates(), ", "))
+	VoteService.StartVote(MapRegistry.PickOptions(Config.Round.VoteCandidates))
+	log("Intermission, options:", table.concat(VoteService.GetCandidates(), ", "))
 
 	runTimer(Config.GetIntermissionSeconds(), function()
 		return #Players:GetPlayers() < Config.Round.MinPlayersToStart
@@ -405,18 +420,30 @@ local function intermission(): boolean
 		VoteService.EndVote()
 		return false
 	end
-	state.MapId = VoteService.GetWinner()
+	local winner = VoteService.GetWinner()
+	local mapId, modeId = ModeInfo.Split(winner)
+	-- Réglages de test : carte et/ou mode imposés
 	local forced = Config.Debug.ForceMap
 	if forced and MapRegistry.Get(forced) then
-		state.MapId = forced
+		mapId = forced
 	end
+	local modes = mapId and MapRegistry.GetModes(mapId) or {}
+	local forcedMode = Config.Debug.ForceMode
+	if forcedMode and table.find(modes, forcedMode) then
+		modeId = forcedMode
+	elseif not modeId or not table.find(modes, modeId) then
+		modeId = modes[1]
+	end
+	state.MapId = mapId
+	state.ModeId = modeId
 	VoteService.EndVote()
-	if state.MapId then
-		MapRegistry.MarkPlayed(state.MapId)
+	if mapId and modeId then
+		MapRegistry.MarkPlayed(ModeInfo.Option(mapId, modeId))
 	end
-	local chosen = MapInfo.Get(state.MapId)
-	if chosen then
-		announce("Next map: " .. chosen.DisplayName .. " (" .. chosen.ModeName .. ")", chosen.Color)
+	local chosen = MapInfo.Get(mapId)
+	local mode = ModeInfo.Get(modeId)
+	if chosen and mode then
+		announce("Next: " .. mode.DisplayName .. " on " .. chosen.DisplayName, mode.Color)
 	end
 	return state.MapId ~= nil
 end
@@ -497,11 +524,13 @@ end
 
 local function countdown()
 	setPhase("Countdown")
+	local modeDef = ModeInfo.Get(state.ModeId)
 	local mapDef = MapInfo.Get(state.MapId)
-	if mapDef then
+	local tagline = (modeDef and modeDef.Tagline) or (mapDef and mapDef.Tagline)
+	if tagline then
 		task.delay(1.5, function()
 			if state.Phase == "Countdown" then
-				announce(mapDef.Tagline, Color3.fromRGB(255, 230, 150))
+				announce(tagline, Color3.fromRGB(255, 230, 150))
 			end
 		end)
 	end
@@ -642,9 +671,9 @@ end
 local function playRound()
 	setPhase("Round")
 	roundStartedAt = os.clock()
-	log("Round started on", state.MapId)
+	log("Round started on", state.MapId, "mode", state.ModeId)
 	local map = RoundState.Map
-	map.StartMode(context)
+	map.StartMode(context, state.ModeId)
 	runTimer(Config.GetRoundSeconds(), function()
 		return roundEndRequest ~= nil or checkLastTeamStanding()
 	end)

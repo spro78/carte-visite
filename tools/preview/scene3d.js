@@ -125,6 +125,21 @@ function headGeometry(sx, sy, sz) {
   pts.push(new THREE.Vector2(0, h));
   const g = new THREE.LatheGeometry(pts, 28); g.userData.radius = r; g.userData.half = h; return g;
 }
+// Meshes du kit 3D (données du jeu : sommets int16 normalisés, triangles uint16)
+const kitCache = new Map();
+function b64bytes(s) { const bin = atob(s); const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return u8; }
+function kitGeometry(name, def) {
+  if (kitCache.has(name)) return kitCache.get(name);
+  const v = new Int16Array(b64bytes(def.v).buffer), t = new Uint16Array(b64bytes(def.t).buffer);
+  const pos = new Float32Array(v.length);
+  for (let i = 0; i < v.length; i++) pos[i] = v[i] / 32767 * def.size[i % 3] / 2;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  g.setIndex(new THREE.BufferAttribute(new Uint32Array(t), 1));
+  g.computeVertexNormals();
+  kitCache.set(name, g); return g;
+}
+
 const geoCache = new Map();
 function geometry(p) {
   const shape = p.cls === "WedgePart" || p.shape === "Wedge" ? "Wedge" : p.cls === "CornerWedgePart" || p.shape === "CornerWedge" ? "CornerWedge" : p.shape;
@@ -416,7 +431,18 @@ export async function render3D(data, { W, H, drawGui, layoutChildren }) {
     const t = new THREE.CanvasTexture(studCanvas); t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.repeat.set(Math.max(1, sx / 2), Math.max(1, sz / 2)); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; studCache.set(key, t); return t;
   }
+  const kitDefs = data.meshes || {};
   for (const p of arr(data.parts)) {
+    if (p.mesh && kitDefs[p.mesh]) {
+      const def = kitDefs[p.mesh];
+      const mesh = new THREE.Mesh(kitGeometry(p.mesh, def), partMaterial({ ...p, material: p.material === "Neon" ? "Neon" : "SmoothPlastic" }));
+      const m = p.cf; mesh.matrixAutoUpdate = false;
+      mesh.matrix.set(m[3], m[4], m[5], m[0], m[6], m[7], m[8], m[1], m[9], m[10], m[11], m[2], 0, 0, 0, 1);
+      mesh.matrix.multiply(new THREE.Matrix4().makeScale(p.size[0] / def.size[0], p.size[1] / def.size[1], p.size[2] / def.size[2]));
+      mesh.castShadow = p.t < 0.5 && p.material !== "Neon" && Math.max(...p.size) < 300; mesh.receiveShadow = true;
+      scene.add(mesh);
+      continue;
+    }
     const geo = geometry(p);
     let meshMat = partMaterial(p);
     if (p.studs && p.shape === "Block" && p.cls !== "WedgePart") {

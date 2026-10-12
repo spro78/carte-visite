@@ -12,8 +12,10 @@ export type GameState = {
 	Phase: string,
 	TimeLeft: number, -- secondes restantes dans la phase courante
 	MapId: string?, -- map en cours (ou gagnante du vote)
-	Candidates: { string }, -- maps proposées au vote
-	Votes: { [string]: number }, -- votes par mapId
+	ModeId: string?, -- mode de la manche (Shared/ModeInfo)
+	Candidates: { string }, -- options proposées au vote ("Carte/Mode")
+	Votes: { [string]: number }, -- votes par option
+	Roster: { { Name: string, UserId: number, Vote: string? } }?, -- joueurs présents et leur vote (intermission)
 	TeamCounts: { [string]: number }, -- membres par équipe (joueurs + bots)
 	Scores: { [string]: number }, -- score du mode par équipe
 	ScoreGoal: number?, -- score à atteindre (si le mode en a un)
@@ -69,7 +71,7 @@ export type MapModule = {
 	Id: string,
 	Build: (origin: Vector3, context: MapContext) -> (),
 	GetSpawns: (team: string) -> { CFrame },
-	StartMode: (context: MapContext) -> (),
+	StartMode: (context: MapContext, modeId: string?) -> (),
 	StopMode: () -> (),
 	Cleanup: () -> (),
 	-- Optionnels
@@ -78,6 +80,7 @@ export type MapModule = {
 	ResolveTimeUp: (() -> string?)?, -- vainqueur à la fin du chrono (sinon : équipe la plus nombreuse)
 	GetBotGoal: ((actor: Actor) -> Vector3?)?, -- où un bot doit aller quand il ne chasse/fuit pas
 	IsCarrier: ((actor: Actor) -> boolean)?, -- l'acteur porte-t-il un objectif ?
+	Modes: { string }?, -- modes jouables (sinon : le mode unique de la carte)
 	Lighting: { [string]: any }?, -- propriétés de Lighting appliquées pendant la manche
 }
 

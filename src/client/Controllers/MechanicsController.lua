@@ -39,6 +39,29 @@ local function updateSpinners()
 	end
 end
 
+-- Une pièce ajoutée par le serveur à un mécanisme déjà en rotation arrive dans
+-- le repère de l'angle 0 (le serveur ne fait pas tourner le modèle) : on la
+-- replace dans le repère actuel. Les pièces créées par ce client (KitLocal)
+-- sont déjà à leur place.
+local watched: { [Instance]: boolean } = {}
+local function watchSpinner(model: Instance)
+	if watched[model] or not model:IsA("Model") then
+		return
+	end
+	watched[model] = true
+	model.DescendantAdded:Connect(function(descendant)
+		if not descendant:IsA("BasePart") or descendant:GetAttribute("KitLocal") == true then
+			return
+		end
+		local base = model:GetAttribute("SpinBase")
+		local pivot = (model :: Model).PrimaryPart
+		if typeof(base) ~= "CFrame" or not pivot or descendant == pivot then
+			return
+		end
+		descendant.CFrame = pivot.CFrame * base:Inverse() * descendant.CFrame
+	end)
+end
+
 local function updateFloats()
 	local t = os.clock()
 	for _, part in CollectionService:GetTagged(Mechanics.FloatTag) do
@@ -55,6 +78,13 @@ local function updateFloats()
 end
 
 function MechanicsController.Init()
+	for _, model in CollectionService:GetTagged(Mechanics.SpinnerTag) do
+		watchSpinner(model)
+	end
+	CollectionService:GetInstanceAddedSignal(Mechanics.SpinnerTag):Connect(watchSpinner)
+	CollectionService:GetInstanceRemovedSignal(Mechanics.SpinnerTag):Connect(function(model)
+		watched[model] = nil
+	end)
 	CollectionService:GetInstanceRemovedSignal(Mechanics.FloatTag):Connect(function(part)
 		if part:IsA("BasePart") then
 			floatBase[part] = nil

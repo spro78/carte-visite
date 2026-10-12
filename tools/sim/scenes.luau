@@ -75,6 +75,7 @@ local function addScene(name, caption, center, radius, camera, extra)
 		center = v(center),
 		shadowExtent = radius,
 		parts = data.parts,
+		meshes = data.meshes,
 		highlights = data.highlights,
 		terrain = data.terrain,
 		terrainColors = data.terrainColors,
@@ -437,59 +438,76 @@ if group == "rescue" or group == "rescue_mobile" then
 	end
 end
 
-if group == "all" or group == "maps" then
-	-- Construit chaque map isolément au point d'origine des maps
+-- Construit une map seule au point d'origine des maps, avec son ambiance
+-- (comme RoundService pendant la manche). Retourne la fonction de nettoyage.
+local function buildMapAlone(id)
 	local mapsFolder = World.game.ServerScriptService.Server.Maps
 	local O = Config.World.MapOrigin
-	local ids = { "TheFarm", "TheCarousel", "TheCanyon", "TheSwamp" }
-	for _, id in ids do
-		local module = mapsFolder:FindFirstChild(id)
-		if module then
-			local saved = {}
-			local map
-			Engine.Run("server", function()
-				map = World.Require(module)
-				local ctx = {
-					Origin = O,
-					GetParticipants = function()
-						return {}
-					end,
-					GetTeam = function()
-						return nil
-					end,
-					AddScore = function() end,
-					GetScore = function()
-						return 0
-					end,
-					Announce = function() end,
-					EndRound = function() end,
-					IsRoundActive = function()
-						return true
-					end,
-				}
-				map.Build(O, ctx)
-				-- Ambiance de la map (comme RoundService pendant la manche)
-				local Lighting = World.game:GetService("Lighting")
-				saved = {}
-				for key, value in map.Lighting or {} do
-					if type(value) == "table" then
-						local cls = ({ Atmosphere = "Atmosphere", ColorCorrection = "ColorCorrectionEffect", Bloom = "BloomEffect", SunRays = "SunRaysEffect" })[key]
-						local target = cls and Lighting:FindFirstChildOfClass(cls)
-						if target then
-							saved[target] = saved[target] or {}
-							for k2, v2 in value do
-								saved[target][k2] = target[k2]
-								target[k2] = v2
-							end
-						end
-					else
-						saved[Lighting] = saved[Lighting] or {}
-						saved[Lighting][key] = Lighting[key]
-						Lighting[key] = value
+	local module = mapsFolder:FindFirstChild(id)
+	if not module then
+		return nil
+	end
+	local saved = {}
+	local map
+	Engine.Run("server", function()
+		map = World.Require(module)
+		local ctx = {
+			Origin = O,
+			GetParticipants = function()
+				return {}
+			end,
+			GetTeam = function()
+				return nil
+			end,
+			AddScore = function() end,
+			GetScore = function()
+				return 0
+			end,
+			Announce = function() end,
+			EndRound = function() end,
+			IsRoundActive = function()
+				return true
+			end,
+		}
+		map.Build(O, ctx)
+		local Lighting = World.game:GetService("Lighting")
+		for key, value in map.Lighting or {} do
+			if type(value) == "table" then
+				local cls = ({ Atmosphere = "Atmosphere", ColorCorrection = "ColorCorrectionEffect", Bloom = "BloomEffect", SunRays = "SunRaysEffect" })[key]
+				local target = cls and Lighting:FindFirstChildOfClass(cls)
+				if target then
+					saved[target] = saved[target] or {}
+					for k2, v2 in value do
+						saved[target][k2] = target[k2]
+						target[k2] = v2
 					end
 				end
-			end)
-			Engine.Advance(0.5)
+			else
+				saved[Lighting] = saved[Lighting] or {}
+				saved[Lighting][key] = Lighting[key]
+				Lighting[key] = value
+			end
+		end
+	end)
+	-- (les clients construisent leurs meshes locaux pendant ce temps)
+	Engine.Advance(8)
+	return function()
+		Engine.Run("server", function()
+			map.Cleanup()
+			for target, values in saved do
+				for k2, v2 in values do
+					target[k2] = v2
+				end
+			end
+		end)
+	end
+end
+
+if group == "all" or group == "maps" then
+	local O = Config.World.MapOrigin
+	for _, id in { "TheFarm", "TheCarousel", "TheCanyon", "TheSwamp" } do
+		local cleanup = buildMapAlone(id)
+		if cleanup then
 			local size = Config.Maps[id].GroundSize
 			addScene("map_" .. id, id .. " - overview", O, size, {
 				position = { O.X + size * 0.5, size * 0.42, O.Z + size * 0.62 },
@@ -502,15 +520,37 @@ if group == "all" or group == "maps" then
 				fov = 70,
 			})
 			addScene("map_" .. id .. "_top", id .. " - top-down", O, size, { position = { O.X, 600, O.Z + 0.01 }, target = { O.X, 0, O.Z }, ortho = size * 1.05, up = { 0, 0, -1 } })
-			Engine.Run("server", function()
-				map.Cleanup()
-				for target, values in saved do
-					for k2, v2 in values do
-						target[k2] = v2
-					end
-				end
-			end)
+			cleanup()
 		end
+	end
+end
+
+-- Groupe "hero" : cadrages fixes de la carte héroïque, identiques d'une
+-- version à l'autre (avant/après au même cadrage). Map : 4e argument
+-- (TheCarousel par défaut). Les positions ne dépendent que de l'origine, de la
+-- taille de la carte et de l'emplacement des camps.
+if group == "hero" then
+	local id = forcedMap or "TheCarousel"
+	local O = Config.World.MapOrigin
+	local cfg = Config.Maps[id]
+	local size, r = cfg.GroundSize, cfg.BaseRadius
+	local function polar(degrees, radius, y)
+		local a = math.rad(degrees)
+		return { O.X + math.cos(a) * radius, y, O.Z + math.sin(a) * radius }
+	end
+	local cleanup = buildMapAlone(id)
+	if cleanup then
+		-- Vue d'ensemble aérienne de 3/4
+		addScene("hero_" .. id .. "_overview", id .. " - aerial 3/4 view", O, size, { position = { O.X + size * 0.5, size * 0.42, O.Z + size * 0.62 }, target = { O.X, 0, O.Z }, fov = 50 })
+		-- À hauteur de joueur, depuis l'entrée du camp des renards vers le centre
+		addScene("hero_" .. id .. "_from_fox_camp", id .. " - player height, from the FOX camp entrance towards the centre", O, size, { position = polar(90, r - cfg.BasePadSize / 2 - 4, 8), target = polar(90, 0, 4), fov = 70 })
+		-- Depuis le centre vers le camp des poules
+		addScene("hero_" .. id .. "_to_chicken_camp", id .. " - player height, from the centre towards the CHICKEN camp", O, size, { position = polar(30, 22, 8), target = polar(210, r, 6), fov = 70 })
+		-- Entre deux camps (renards et poules), en hauteur, vers le centre
+		addScene("hero_" .. id .. "_lane", id .. " - between the FOX and CHICKEN camps, looking at the centre", O, size, { position = polar(128, r * 1.25, 20), target = polar(300, r * 0.15, 0), fov = 60 })
+		-- Plan du dessus
+		addScene("hero_" .. id .. "_top", id .. " - top-down", O, size, { position = { O.X, 600, O.Z + 0.01 }, target = { O.X, 0, O.Z }, ortho = size * 1.05, up = { 0, 0, -1 } })
+		cleanup()
 	end
 end
 

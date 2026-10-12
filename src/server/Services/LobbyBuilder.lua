@@ -24,6 +24,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Teams = require(Shared.Teams)
 local MapInfo = require(Shared.MapInfo)
+local ModeInfo = require(Shared.ModeInfo)
 local Style = require(Shared.Style)
 local Mechanics = require(Shared.Mechanics)
 local Build = require(script.Parent.Parent.Util.Build)
@@ -626,13 +627,14 @@ end
 
 function LobbyBuilder.SetVoteCandidates(candidates: { string })
 	for index, plate in votePlates do
-		local mapId = candidates[index]
-		local def = MapInfo.Get(mapId)
-		plate.MapId = mapId
-		if def then
-			plate.Part.Color = def.Color
-			plate.Name.Text = def.DisplayName
-			plate.Mode.Text = def.ModeName
+		local option = candidates[index]
+		local mapId, modeId = ModeInfo.Split(option)
+		local mapDef, modeDef = MapInfo.Get(mapId), ModeInfo.Get(modeId)
+		plate.MapId = option
+		if mapDef and modeDef then
+			plate.Part.Color = modeDef.Color
+			plate.Name.Text = modeDef.DisplayName
+			plate.Mode.Text = mapDef.DisplayName
 			plate.Votes.Text = "0 votes"
 		else
 			plate.Part.Color = P.PadBlue
@@ -645,9 +647,9 @@ end
 
 function LobbyBuilder.SetVoteCounts(counts: { [string]: number })
 	for _, plate in votePlates do
-		local mapId = plate.MapId
-		if mapId then
-			local n = counts[mapId] or 0
+		local option = plate.MapId
+		if option then
+			local n = counts[option] or 0
 			plate.Votes.Text = string.format("%d vote%s", n, n == 1 and "" or "s")
 		end
 	end

@@ -337,6 +337,60 @@ Engine.AddMethods(Debris, {
 Engine.AddMethods(CollectionService, Engine.Collection)
 
 -- ---------------------------------------------------------------------------
+-- AssetService : EditableMesh et MeshPart construits à la volée (kit 3D).
+-- La géométrie n'est pas simulée : on compte sommets et triangles et on
+-- calcule la boîte englobante (taille du MeshPart, comme Roblox).
+-- Le rendu (tools/preview) relit les données du kit par l'attribut KitMesh.
+-- ---------------------------------------------------------------------------
+local AssetService = service("AssetService")
+World.EditableMeshes = 0
+World.EditableTriangles = 0
+World.EditableMeshDenied = false -- simule une expérience publiée sans l'option
+local EditableMeshMT = {}
+EditableMeshMT.__index = EditableMeshMT
+function EditableMeshMT:AddVertex(p)
+	self._n += 1
+	local lo, hi = self._min or p, self._max or p
+	self._min = Vector3.new(math.min(lo.X, p.X), math.min(lo.Y, p.Y), math.min(lo.Z, p.Z))
+	self._max = Vector3.new(math.max(hi.X, p.X), math.max(hi.Y, p.Y), math.max(hi.Z, p.Z))
+	return self._n
+end
+function EditableMeshMT:AddNormal(_n)
+	self._normals += 1
+	return self._normals
+end
+function EditableMeshMT:AddTriangle(a, b, c)
+	assert(type(a) == "number" and type(b) == "number" and type(c) == "number", "AddTriangle : identifiants de sommets attendus")
+	assert(a <= self._n and b <= self._n and c <= self._n, "AddTriangle : sommet inconnu")
+	self._tris += 1
+	World.EditableTriangles += 1
+	return self._tris
+end
+function EditableMeshMT:SetFaceNormals(face, ids)
+	assert(face <= self._tris and #ids == 3, "SetFaceNormals : face ou normales invalides")
+end
+function EditableMeshMT:Destroy() end
+Engine.AddMethods(AssetService, {
+	CreateEditableMesh = function(_, _options)
+		if World.EditableMeshDenied then
+			error("EditableMesh is not allowed in this experience", 2)
+		end
+		World.EditableMeshes += 1
+		return setmetatable({ _n = 0, _normals = 0, _tris = 0 }, EditableMeshMT)
+	end,
+	CreateMeshPartAsync = function(_, content, _options)
+		task.wait()
+		local mesh = content and content._object
+		assert(mesh and getmetatable(mesh) == EditableMeshMT, "CreateMeshPartAsync : Content.fromObject(EditableMesh) attendu")
+		assert(mesh._tris > 0, "CreateMeshPartAsync : mesh vide")
+		local part = Instance.new("MeshPart")
+		props(part).Size = mesh._max - mesh._min
+		rawset(part, "_editable", mesh)
+		return part
+	end,
+})
+
+-- ---------------------------------------------------------------------------
 -- Pathfinding (ligne droite découpée)
 -- ---------------------------------------------------------------------------
 World.PathFailRate = 0
@@ -1098,7 +1152,22 @@ local GLOBAL_NAMES = {
 	"table", "string", "math", "coroutine", "utf8", "bit32", "buffer", "debug", "newproxy", "gcinfo",
 }
 
+-- Content (référence vers un objet ou un asset)
+local ContentType = {
+	none = { _none = true },
+	fromObject = function(object)
+		return { _object = object }
+	end,
+	fromUri = function(uri)
+		return { _uri = uri }
+	end,
+	fromAssetId = function(id)
+		return { _uri = "rbxassetid://" .. tostring(id) }
+	end,
+}
+
 local datatypes = {
+	Content = ContentType,
 	Vector3 = roblox.Vector3,
 	Vector2 = roblox.Vector2,
 	CFrame = roblox.CFrame,

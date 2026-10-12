@@ -16,7 +16,11 @@ Config.Round = {
 	BaseProtectionSeconds = 2, -- protection supplémentaire après le "GO!"
 	RoundSeconds = 240, -- durée maximale d'une manche (4 minutes)
 	ResultsSeconds = 10, -- écran de résultats
-	VoteCandidates = 3, -- nombre de maps proposées au vote
+	VoteCandidates = 3, -- options (mode + carte) proposées au vote
+	-- Cartes de la rotation. Carousel Valley est la carte héroïque refaite avec
+	-- le kit 3D ; les autres reviendront quand elles auront reçu le même
+	-- traitement (elles restent jouables en les ajoutant ici).
+	MapPool = { "TheCarousel" },
 	MinTeamsForLastStanding = 2, -- "dernière équipe debout" seulement si >= 2 équipes au départ
 	StateBroadcastInterval = 1, -- secondes entre deux envois d'état aux clients
 	FreezeDuringCountdown = true, -- les joueurs ne peuvent pas quitter leur base pendant le décompte
@@ -94,6 +98,21 @@ Config.Bots = {
 			Fall = "rbxassetid://507767968",
 		},
 	},
+}
+
+-- ---------------------------------------------------------------------------
+-- Kit d'assets 3D modélisés dans Blender (tools/assets, src/shared/Kit)
+--   Chaque client construit les meshes à la volée (EditableMesh) tant qu'ils
+--   n'ont pas été importés dans Studio (dossier ReplicatedStorage.HoH_KitMeshes,
+--   procédure dans tools/assets/README.md). Les collisions sont des volumes
+--   simples posés par le serveur, identiques dans les deux cas.
+-- ---------------------------------------------------------------------------
+Config.Kit = {
+	-- À passer à true si, dans Studio, les meshes construits à la volée
+	-- apparaissent retournés (faces avant invisibles)
+	FlipWinding = false,
+	-- Pièces construites par image sur le client (lissage du chargement)
+	PiecesPerFrame = 40,
 }
 
 -- ---------------------------------------------------------------------------
@@ -282,18 +301,13 @@ Config.Maps = {
 		RagdollSeconds = 1.6,
 	},
 	TheCarousel = {
+		-- Carte héroïque « Carousel Valley » : disposition dans Kit/Layouts
+		-- (générée depuis Blender ; test_visual vérifie l'égalité)
 		GroundSize = 300,
 		BaseRadius = 110,
 		BasePadSize = 36,
-		-- Mode King of the Wheel
-		PointsToWin = 100,
-		PlatformRadius = 34,
-		PlatformHeight = 2,
-		SpeedSteps = { 0.35, 0.7, 1.15, 1.7 }, -- radians/seconde par palier
-		StepDurationSeconds = 12,
-		EjectSpeed = 95,
-		EjectUpSpeed = 60,
-		PauseAfterEject = 3,
+		AmbientTurnSeconds = 90, -- tour du manège hors mode Carousel
+		NestRadius = 64, -- nids du mode Egg Run : sur la piste, face à chaque lieu
 	},
 	TheCanyon = {
 		GroundSize = 320,
@@ -325,6 +339,28 @@ Config.Maps = {
 		GeyserIntervalSeconds = 10,
 		GeyserWarningSeconds = 1.5,
 		GeyserUpSpeed = 120,
+	},
+}
+
+-- ---------------------------------------------------------------------------
+-- Modes de jeu (src/server/Modes ; textes dans Shared/ModeInfo)
+-- ---------------------------------------------------------------------------
+Config.Modes = {
+	EggRun = {
+		EggsToWin = 5,
+		ActiveEggs = 3, -- œufs en jeu en même temps (un par nid au plus)
+		CarrierSpeedMultiplier = 0.85, -- un porteur d'œuf est plus lent
+		PickupRange = 5,
+		RespawnDelay = 4, -- délai avant qu'un nid vide reçoive un nouvel œuf
+		DropPickupDelay = 1, -- délai avant de pouvoir ramasser un œuf tombé
+		DropReturnSeconds = 20, -- un œuf tombé et laissé seul retourne au nid
+	},
+	Carousel = {
+		PointsToWin = 120,
+		TurnSeconds = 48, -- tour complet des chevaux volants (environ 8 studs/s)
+		ZoneRadius = 10, -- anneau sous chaque cheval
+		ScoreInterval = 1, -- secondes entre deux points
+		ReverseEverySeconds = 60, -- le manège change de sens (0 = jamais)
 	},
 }
 
@@ -453,6 +489,7 @@ Config.Debug = {
 	FastRoundSeconds = 60,
 	FastResultsSeconds = 5,
 	ForceMap = nil :: string?, -- ex : "TheFarm" pour toujours jouer cette map (tests)
+	ForceMode = nil :: string?, -- ex : "EggRun" (avec ForceMap, ou sur la carte gagnante)
 	DisableBots = false, -- true = pas de bots (tests)
 	VerboseLogs = true,
 }

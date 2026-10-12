@@ -28,6 +28,9 @@ end)
 local Config = server.Config
 local Teams = server.Teams
 local Style = H.require(World.game.ReplicatedStorage.Shared.Style)
+local Manifest = H.require(World.game.ReplicatedStorage.Shared.Kit.Manifest)
+local Palettes = H.require(World.game.ReplicatedStorage.Shared.Kit.Palettes)
+local Layouts = H.require(World.game.ReplicatedStorage.Shared.Kit.Layouts)
 local O = Config.World.MapOrigin
 
 -- ---------------------------------------------------------------------------
@@ -227,6 +230,36 @@ for _, id in maps do
 		end
 	end
 
+	-- Pièces du kit 3D (meshes construits par les clients) : relues depuis le
+	-- manifeste et la palette, comme le client les construit
+	local kitPieces = {}
+	local kitModels = 0
+	for _, d in folder:GetDescendants() do
+		local assetName = d:IsA("Model") and d:GetAttribute("KitAsset")
+		local def = assetName and Manifest[assetName]
+		local pivot = def and d:FindFirstChild("KitPivot")
+		if def and pivot then
+			kitModels += 1
+			local scale = d:GetAttribute("KitScale") or 1
+			for _, piece in def.Pieces do
+				table.insert(kitPieces, {
+					Name = piece.Mesh,
+					Role = piece.Role,
+					Color = Palettes.Color(d, piece.Role),
+					Size = piece.Size * scale,
+					CFrame = pivot.CFrame * CFrame.new(piece.Center * scale),
+					Position = (pivot.CFrame * CFrame.new(piece.Center * scale)).Position,
+					Category = def.Category,
+					Model = d,
+					Neon = piece.Material == "Neon",
+				})
+			end
+		end
+	end
+	if kitModels > 0 then
+		check(true, string.format("kit 3D : %d assets posés, %d pièces", kitModels, #kitPieces))
+	end
+
 	-- §1 Couleurs d'équipe réservées
 	local clashes = {}
 	for _, part in parts do
@@ -243,6 +276,19 @@ for _, id in maps do
 			end
 		end
 	end
+	for _, piece in kitPieces do
+		local p = piece.Position
+		local inPlay = math.abs(p.X - O.X) <= half and math.abs(p.Z - O.Z) <= half
+		if inPlay and not piece.Neon and not insideCamp(piece.Model) and piece.Role ~= "Team" and piece.Role ~= "TeamDark" then
+			local sz = piece.Size
+			if math.max(sz.X * sz.Y, sz.Y * sz.Z, sz.X * sz.Z) >= 64 then
+				local team = confusable(piece.Color)
+				if team then
+					table.insert(clashes, string.format("%s (%d,%d,%d ~ %s)", piece.Name, piece.Color.R * 255, piece.Color.G * 255, piece.Color.B * 255, team))
+				end
+			end
+		end
+	end
 	check(#clashes == 0, "aucune grande surface aux couleurs des équipes" .. (#clashes > 0 and (" : " .. table.concat(clashes, ", ")) or ""))
 
 	-- §2 / P3 : contraste des avatars sur le plateau
@@ -255,8 +301,21 @@ for _, id in maps do
 	end
 	local worst, worstName, boardCount = math.huge, "", 0
 	local seen = {}
+	local BOARD_ROLES = { Grass = true, GrassLight = true, GrassDark = true }
+	local PATH_ROLES = { Path = true, PathEdge = true, Cobble = true, CobbleDark = true }
+	local boardParts = {}
 	for _, part in parts do
-		if part.Name == "Board" and not seen[part.Color] then
+		if part.Name == "Board" or part.Name == "ValleyFloor" then
+			table.insert(boardParts, part)
+		end
+	end
+	for _, piece in kitPieces do
+		if BOARD_ROLES[piece.Role] and piece.Category == "Terrain" then
+			table.insert(boardParts, piece)
+		end
+	end
+	for _, part in boardParts do
+		if not seen[part.Color] then
 			seen[part.Color] = true
 			boardCount += 1
 			for _, ref in refs do
@@ -273,9 +332,18 @@ for _, id in maps do
 	-- plateau (ΔE >= 45) et des chemins (ΔE >= 30), sur toute la zone de jeu
 	local grounds = { Board = {}, Path = {} }
 	for _, part in parts do
-		local kind = (part.Name == "Board" and "Board") or ((string.sub(part.Name, 1, 5) == "Path_" or part.Name == "PathJoint") and "Path") or nil
+		local kind = ((part.Name == "Board" or part.Name == "ValleyFloor") and "Board") or ((string.sub(part.Name, 1, 5) == "Path_" or part.Name == "PathJoint") and "Path") or nil
 		if kind then
 			grounds[kind][part.Color] = true
+		end
+	end
+	for _, piece in kitPieces do
+		if piece.Category == "Terrain" then
+			if BOARD_ROLES[piece.Role] then
+				grounds.Board[piece.Color] = true
+			elseif PATH_ROLES[piece.Role] then
+				grounds.Path[piece.Color] = true
+			end
 		end
 	end
 	for _, teamId in Teams.Order do
@@ -350,7 +418,7 @@ for _, id in maps do
 		local length = (O - from).Magnitude - LANE_END[id]
 		local blockers = {}
 		for _, part in parts do
-			if part.CanCollide and part.Transparency < 0.9 and topOf(part) > O.Y + 3 and not insideCamp(part) and not underModel(part, MECHANISMS) then
+			if part.CanCollide and (part.Transparency < 0.9 or part.Name == "KitCollider") and topOf(part) > O.Y + 3 and not insideCamp(part) and not underModel(part, MECHANISMS) then
 				local hit = false
 				for t = 0, length, 2 do
 					for lateral = -5, 5, 2.5 do
@@ -383,8 +451,12 @@ for _, id in maps do
 		if d.Name == "BeaconOrb" then
 			local camp = d.Parent
 			orbs[string.sub(camp.Name, 1, -6)] = d
+		elseif d:IsA("Model") and string.sub(d.Name, -9) == "_CampFlag" and d:FindFirstChild("KitPivot") then
+			-- Camp du kit : le haut du drapeau d'équipe (22 studs)
+			orbs[string.sub(d.Name, 1, -10)] = { Position = d.KitPivot.Position + Vector3.new(0, 21, 0), Parent = d }
 		end
 	end
+	check(next(orbs) ~= nil, "balises des camps trouvées")
 	for _, from in Teams.Order do
 		local base = bases[from]
 		local toCenter = Vector3.new(O.X - base.Center.X, 0, O.Z - base.Center.Z).Unit
@@ -400,6 +472,14 @@ for _, id in maps do
 						end
 					end
 				end
+				-- Meshes du kit (boîtes englobantes ; relief et chevaux tournants exclus)
+				for _, piece in kitPieces do
+					if piece.Category ~= "Terrain" and piece.Category ~= "Ride" and piece.Model ~= orbs[to].Parent then
+						if segmentHitsBox(piece, eye, target) then
+							blockers[piece.Name] = true
+						end
+					end
+				end
 				local names = {}
 				for name in blockers do
 					table.insert(names, name)
@@ -408,6 +488,74 @@ for _, id in maps do
 				check(#names == 0, string.format("depuis le camp %s, la balise %s se voit", from, to) .. (#names > 0 and (" (cachée par " .. table.concat(names, ", ") .. ")") or ""))
 			end
 		end
+	end
+
+	-- Carte au relief modélisé : constantes partagées, collisions qui ne gênent
+	-- ni les apparitions, ni la piste du carrousel, ni les nids
+	if id == "TheCarousel" then
+		local L = Layouts.CarouselValley
+		check(L.GroundSize == cfg.GroundSize and L.BaseRadius == cfg.BaseRadius and L.BasePadSize == cfg.BasePadSize, "Layouts (Blender) = Config.Maps.TheCarousel (taille, camps, plateformes)")
+		local colliders = {}
+		for _, part in parts do
+			if part.Name == "KitCollider" then
+				table.insert(colliders, part)
+			end
+		end
+		check(#colliders > 50, string.format("%d volumes de collision simples (invisibles) pour les meshes", #colliders))
+		local function blockedAt(position, radius)
+			for _, part in colliders do
+				if position.Y < topOf(part) and footprintContains(part, position.X, position.Z, radius) then
+					return part
+				end
+			end
+			return nil
+		end
+		local badSpawns = {}
+		for _, teamId in Teams.Order do
+			for _, spawn in map.GetSpawns(teamId) do
+				local hit = blockedAt(spawn.Position - Vector3.new(0, 2, 0), 1.5)
+				if hit then
+					table.insert(badSpawns, teamId .. ":" .. hit.Parent.Name)
+				end
+			end
+		end
+		check(#badSpawns == 0, "aucun point d'apparition dans une collision" .. (#badSpawns > 0 and (" : " .. table.concat(badSpawns, ", ")) or ""))
+		local trackHits = {}
+		for k = 0, 143 do
+			local a = k / 144 * math.pi * 2
+			for _, dr in { -8, -4, 0, 4, 8 } do
+				local p = O + Vector3.new(math.cos(a), 0, math.sin(a)) * (L.TrackRadius + dr) + Vector3.new(0, 1, 0)
+				local hit = blockedAt(p, 0.5)
+				if hit then
+					trackHits[hit.Parent.Name] = true
+				end
+			end
+		end
+		local trackNames = {}
+		for name in trackHits do
+			table.insert(trackNames, name)
+		end
+		check(#trackNames == 0, "piste des chevaux volants libre de tout obstacle" .. (#trackNames > 0 and (" : " .. table.concat(trackNames, ", ")) or ""))
+		local nests = map.DebugState().Nests
+		local nestHits = {}
+		for _, p in nests do
+			local hit = blockedAt(p + Vector3.new(0, 1, 0), 2)
+			if hit then
+				table.insert(nestHits, hit.Parent.Name)
+			end
+		end
+		check(#nests == 3 and #nestHits == 0, string.format("%d nids accessibles (Egg Run)", #nests) .. (#nestHits > 0 and (" : bloqués par " .. table.concat(nestHits, ", ")) or ""))
+		-- Budget : triangles du kit posés sur la carte (téléphone)
+		local tris = 0
+		for _, piece in kitPieces do
+			local def = Manifest[piece.Model:GetAttribute("KitAsset")]
+			for _, p in def.Pieces do
+				if p.Mesh == piece.Name then
+					tris += p.Tris
+				end
+			end
+		end
+		check(tris < 400000, string.format("triangles du kit posés : %d (budget téléphone 400 000)", tris))
 	end
 
 	H.onServer(function()

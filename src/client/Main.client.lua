@@ -21,6 +21,7 @@ local MovementController = require(Controllers:WaitForChild("MovementController"
 local OutlineController = require(Controllers:WaitForChild("OutlineController"))
 local RescueController = require(Controllers:WaitForChild("RescueController"))
 local MechanicsController = require(Controllers:WaitForChild("MechanicsController"))
+local KitController = require(Controllers:WaitForChild("KitController"))
 local DataController = require(Controllers:WaitForChild("DataController"))
 local EffectsController = require(Controllers:WaitForChild("EffectsController"))
 
@@ -28,6 +29,7 @@ StateController.Init(HUD)
 MovementController.Init()
 OutlineController.Init()
 MechanicsController.Init()
+KitController.Init()
 ObjectiveArrow.Init(HUD.Screen)
 -- Actions : déplacement (dash, stop, capacité) + porter un coéquipier à terre
 local function actionInfo()

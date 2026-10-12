@@ -124,6 +124,7 @@ Export.Gui = exportGui
 -- Exporte toutes les BaseParts visibles dans un rayon (plan XZ) autour de center
 function Export.Parts(center, radius)
 	local parts = {}
+	local usedMeshes = {}
 	for _, d in World.workspace:GetDescendants() do
 		if d:IsA("BasePart") then
 			local p = props(d)
@@ -132,7 +133,10 @@ function Export.Parts(center, radius)
 			-- (une pièce invisible qui porte un texte de surface est gardée : Roblox
 			-- affiche le texte, comme « SAFE ZONE » ou le nom du camp au sol)
 			local hasSurfaceText = (p.Transparency or 0) >= 0.98 and d:FindFirstChildOfClass("SurfaceGui") ~= nil
-			if dx * dx + dz * dz <= radius * radius and ((p.Transparency or 0) < 0.98 or hasSurfaceText) then
+			-- (une grande pièce compte si une partie de sa boîte est dans le rayon :
+			-- collines du kit dont le centre est loin)
+			local reach = radius + math.max(p.Size.X, p.Size.Z) / 2
+			if dx * dx + dz * dz <= reach * reach and ((p.Transparency or 0) < 0.98 or hasSurfaceText) then
 				local entry = {
 					name = p.Name,
 					cls = rawget(d, "_class"),
@@ -145,6 +149,12 @@ function Export.Parts(center, radius)
 					neon = p.Material == Enum.Material.Neon,
 					studs = p.TopSurface == Enum.SurfaceType.Studs,
 				}
+				-- Mesh du kit 3D (géométrie relue dans les données du jeu)
+				local kitMesh = d:GetAttribute("KitMesh")
+				if type(kitMesh) == "string" and rawget(d, "_class") == "MeshPart" then
+					entry.mesh = kitMesh
+					usedMeshes[kitMesh] = true
+				end
 				local guis = {}
 				for _, child in d:GetChildren() do
 					if rawget(child, "_class") == "SurfaceGui" then
@@ -248,8 +258,29 @@ function Export.Parts(center, radius)
 			light.bloom = { intensity = cp.Intensity, size = cp.Size, threshold = cp.Threshold }
 		end
 	end
+	-- Données des meshes utilisés (base64, comme dans src/shared/Kit/Meshes)
+	local meshes = {}
+	if next(usedMeshes) then
+		local kitFolder = World.game.ReplicatedStorage.Shared.Kit
+		local KitMesh = World.Require(kitFolder.KitMesh)
+		local Manifest = World.Require(kitFolder.Manifest)
+		local sizes = {}
+		for _, def in Manifest do
+			for _, piece in def.Pieces do
+				sizes[piece.Mesh] = piece.Size
+			end
+		end
+		for name in usedMeshes do
+			local data = KitMesh.GetData(name)
+			local size = sizes[name]
+			if data and size then
+				meshes[name] = { v = data.V, t = data.T, n = data.N, size = { size.X, size.Y, size.Z } }
+			end
+		end
+	end
 	return {
 		parts = parts,
+		meshes = meshes,
 		highlights = highlights,
 		terrain = terrain,
 		terrainColors = colors,
