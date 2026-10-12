@@ -31,7 +31,7 @@ local TAG = "HoH_Actor"
 local HIGHLIGHT_NAME = "HoH_Outline"
 local BADGE_NAME = "HoH_TeamBadge"
 local RELATION_WORD = { Prey = "PREY", Predator = "HUNTER" }
-local MAX_HIGHLIGHTS = 28
+local MAX_HIGHLIGHTS = math.min(Config.Appearance.MaxOutlines, 31)
 local UPDATE_INTERVAL = 0.2
 
 local tracked: { [Model]: boolean } = {}

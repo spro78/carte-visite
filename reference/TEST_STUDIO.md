@@ -66,7 +66,7 @@ Une capture de la vraie fenêtre Studio pour chaque ligne marquée ✔, plus :
 
 | Domaine | Risque |
 |---|---|
-| Contours (Highlight) | Épaisseur et lisibilité à distance ; vert vif sur sol vert ; limite de 31 Highlights |
+| Contours (Highlight) | Épaisseur et lisibilité à distance ; vert vif sur sol vert ; limite de 31 Highlights ; coût sur téléphone modeste (réglage `Config.Appearance.MaxOutlines`) |
 | Corps à terre | Posé par une racine ancrée ; l'animation d'attente de l'avatar peut bouger les membres |
 | Portage | Corps soudé sur l'épaule, sans animation dédiée ; possibles saccades selon la propriété réseau ; pose à vérifier en R6 et en R15 |
 | Sol sous le joueur | Rayon vers le bas qui ignore les pièces non collidables ; vérifier la mine, l'arche et les buttes du Canyon |

@@ -40,6 +40,10 @@ Config.Appearance = {
 	Mode = "Avatar",
 	ShowTeamBadge = true, -- badge "FOX / CHICKEN / SNAKE" au-dessus de la tête
 	BadgeMaxDistance = 90,
+	-- Contours affichés en même temps (Roblox en rend 31 au plus) : le sien, les
+	-- coéquipiers à terre, puis les plus proches. À baisser si les appareils
+	-- modestes peinent (à mesurer sur appareil).
+	MaxOutlines = 28,
 }
 
 -- ---------------------------------------------------------------------------
