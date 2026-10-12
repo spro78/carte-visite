@@ -2,18 +2,25 @@
 
 Jeu Roblox **« Poule, poule, renard, vipère »** (nom de travail : *Hunt or Hide*).
 - Trois équipes : le renard attrape la poule, la poule attrape la vipère, la vipère attrape le renard.
-- Un joueur attrapé rejoint l'équipe qui l'a attrapé.
-- Quatre cartes, trois camps par carte.
+- Un joueur attrapé est **à terre**. Un coéquipier peut le porter jusqu'à la zone sûre de leur camp, où il se relève.
+- Sans secours en 15 s, ou si plus aucun coéquipier n'est debout, il rejoint l'équipe qui l'a attrapé. Pas de prison.
+- Quatre cartes, trois camps par carte, chacun avec une zone sûre.
+- Règle complète : `README.md`, section « Règles du jeu ».
 
 Pour l'installation et la publication, voir `README.md`.
 
 ## Arborescence
 
-- `src/server` : services de manche, cartes (`Maps/`), bots, données ; outils de construction dans `Util/` :
+- `src/server` : services de manche, cartes (`Maps/`), bots, données ; règles de capture dans `Services/` :
+  - `CaptureService` : capture -> mise à terre ;
+  - `RescueService` : portage, réanimation, conversion faute de secours ;
+  - `SafeZoneService` : zones sûres des camps.
+
+  Outils de construction dans `Util/` :
   - `Build` : pièces ;
   - `Props` : décors ;
   - `Ground` : sol et relief en pièces.
-- `src/client` : contrôleurs (déplacement, contours, effets) et interface (`UI/`, kit dans `Theme.lua`).
+- `src/client` : contrôleurs (déplacement, contours, portage, effets) et interface (`UI/`, kit dans `Theme.lua`).
 - `src/shared` : configuration (`Config.lua`), équipes, remotes, types.
 - `tools/sim` : simulateur Lune qui exécute le vrai code serveur et client ; tests `test*.luau`.
 - `tools/preview` : moteur de rendu three.js des scènes simulées.
@@ -25,7 +32,18 @@ Pour l'installation et la publication, voir `README.md`.
 ## Règles à respecter
 
 - **Langue** : textes vus par le joueur en anglais, commentaires et documentation en français.
-- **Règles de jeu** : on ne change ni la capture en triangle, ni les conditions de victoire, ni les modes des cartes sans une demande explicite de Malcom. La logique de mode vit dans `src/server/Maps/The*.lua` (`StartMode`, `ResolveTimeUp`, etc.) et dans `RoundService`.
+- **Règles de jeu** : on ne change sans une demande explicite de Malcom :
+  - ni la capture en triangle ;
+  - ni la boucle à terre / portage / réanimation / conversion ;
+  - ni les zones sûres ;
+  - ni les conditions de victoire ;
+  - ni les modes des cartes.
+
+  La logique de mode vit dans `src/server/Maps/The*.lua` (`StartMode`, `ResolveTimeUp`, etc.) et dans `RoundService`. Les modes ne voient que les joueurs debout (`context.GetActors`).
+- **Avatars** : l'avatar Roblox de chaque joueur reste intact (corps, vêtements, accessoires, couleurs). L'équipe se lit au contour lumineux seul, sans remplissage, couleurs dans `Teams.lua` :
+  - renards orange ;
+  - poules jaunes ;
+  - vipères vertes (`SNAKE`).
 - **Direction artistique** : suivre `reference/BIBLE_VISUELLE.md`.
   - Plein jour.
   - Sol à tenons d'un ton dominant, sans Terrain.
@@ -46,10 +64,11 @@ tools/check.sh sim      # simulations seulement
 
 Toutes les simulations doivent passer :
 - `test` : boucle de manche, HUD sur 4 écrans de PC ;
+- `test_rescue` : tranche verticale sur le Canyon. Contours, zones sûres, mise à terre, portage à la touche C, lâcher, réanimation, conversion (chrono, sans coéquipier, reset), HUD ;
 - `test_bots`, `test_farm`, `test_carousel`, `test_canyon`, `test_swamp` ;
 - `test_economy` ;
-- `test_mobile` : appareil tactile simulé, paysage et portrait ;
-- `test_visual` : règles chiffrées de la bible sur chaque carte.
+- `test_mobile` : appareil tactile simulé, paysage et portrait, bouton CARRY ;
+- `test_visual` : règles chiffrées de la bible sur chaque carte (dont contraste des contours et zones sûres).
 
 Le simulateur refuse toute propriété qui n'existe pas dans l'API Roblox réelle.
 
@@ -74,7 +93,9 @@ Rendus : `tools/check.sh preview <groupe> [carte]`.
 ## Limites connues
 
 - Rien n'a été vérifié dans Roblox Studio ni sur un vrai appareil :
-  - rendu réel (tenons, ombres, police) ;
+  - rendu réel (tenons, ombres, police, contours Highlight) ;
+  - physique réelle du portage (soudure, ancrage, propriété réseau) ;
   - performance ;
   - contrôles tactiles Roblox.
+- Protocole à suivre dans Studio : `reference/TEST_STUDIO.md`. Les rendus et la simulation ne comptent pas comme test Studio.
 - L'environnement de Claude n'a pas accès à roblox.com, aux vignettes ni à YouTube.

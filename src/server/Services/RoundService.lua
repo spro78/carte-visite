@@ -28,6 +28,7 @@ local RoundState = require(script.Parent.RoundState)
 local CaptureService = require(script.Parent.CaptureService)
 local AbilityService = require(script.Parent.AbilityService)
 local LaunchService = require(script.Parent.LaunchService)
+local RescueService = require(script.Parent.RescueService)
 local MapBase = require(script.Parent.Parent.Maps.MapBase)
 
 type Actor = Types.Actor
@@ -302,7 +303,8 @@ end
 -- ---------------------------------------------------------------------------
 local context: Types.MapContext = {
 	Origin = Config.World.MapOrigin,
-	GetActors = RoundState.GetParticipants,
+	-- Les joueurs à terre ne comptent ni pour les objectifs ni pour les mécanismes
+	GetActors = RoundState.GetPlayingParticipants,
 	GetTeam = function(actor: Actor)
 		return actor.Team
 	end,
@@ -432,6 +434,7 @@ local function setupRound()
 	end
 
 	CaptureService.ResetRound()
+	RescueService.Reset()
 	table.clear(RoundState.Participants)
 	state.Scores = {}
 	for _, id in Teams.Order do
@@ -646,6 +649,9 @@ local function playRound()
 		return roundEndRequest ~= nil or checkLastTeamStanding()
 	end)
 	map.StopMode()
+	-- Les joueurs à terre se relèvent sans changer d'équipe (ils comptaient déjà
+	-- dans leur équipe pour le résultat)
+	RescueService.EndRound()
 	determineWinner()
 	computeBestHunter()
 	log("Round over. Winner:", state.Winner, "Reason:", state.WinReason, "Scores:", state.Scores.FOX, state.Scores.CHICKEN, state.Scores.SNAKE)
@@ -681,6 +687,7 @@ local function cleanup()
 	if not okTerrain then
 		warn("[RoundService] Erreur de nettoyage du terrain : " .. tostring(errTerrain))
 	end
+	RescueService.Reset()
 	RoundState.Map = nil
 	RoundState.MapId = nil
 	applyLighting(nil)
@@ -869,6 +876,21 @@ function RoundService.Init()
 		if rewardHandler and rewardHandler.OnCapture then
 			rewardHandler.OnCapture(hunter, victim)
 		end
+		broadcastState()
+	end)
+
+	-- Sauvetage : objectif récompensé pour le porteur
+	RescueService.Revived:Connect(function(_victim: Actor, rescuer: Actor?)
+		if rescuer and RoundState.IsParticipant(rescuer) then
+			rescuer.RoundObjectives += 1
+			if rewardHandler and rewardHandler.OnObjective then
+				rewardHandler.OnObjective(rescuer, "Rescue")
+			end
+		end
+		broadcastState()
+	end)
+	-- Conversion (personne ne l'a sauvé) : les effectifs changent
+	RescueService.Converted:Connect(function()
 		broadcastState()
 	end)
 

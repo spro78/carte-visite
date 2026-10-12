@@ -1,7 +1,8 @@
 --[[
 	KillFeed.lua
 	Fil des captures, en haut à droite sous le tableau des équipes :
-	"Alice  >  Bob" (couleurs : équipe du chasseur, ancienne équipe de la victime).
+	"Alice  >  Bob" (couleurs : équipe du chasseur, équipe de la victime), puis
+	"Carl saved Bob" (sauvetage) ou "Bob joined the FOXES" (conversion).
 	Les lignes qui te concernent sont surlignées. 4 lignes au maximum, chacune
 	s'efface après quelques secondes. On comprend en un coup d'œil qui attrape qui.
 ]]
@@ -92,6 +93,23 @@ function KillFeed.Push(hunterName: any, victimName: any, hunterTeam: any, victim
 		tostring(victimName or "?")
 	)
 	addLine(text, involvesMe == true)
+end
+
+-- Ligne libre (sauvetage, conversion), déjà en texte riche
+function KillFeed.PushText(richText: string, involvesMe: boolean?)
+	addLine(richText, involvesMe == true)
+end
+
+-- Sauvetage : "Alice saved Bob" (couleur de leur équipe)
+function KillFeed.PushRescue(rescuerName: any, victimName: any, team: any, involvesMe: boolean?)
+	local hex = Theme.Hex(colorOf(team))
+	addLine(string.format('<font color="%s">%s</font>  <font color="#ffffff">saved</font>  <font color="%s">%s</font>', hex, tostring(rescuerName or "?"), hex, tostring(victimName or "?")), involvesMe == true)
+end
+
+-- Conversion : "Bob joined the FOXES" (couleur de la nouvelle équipe)
+function KillFeed.PushJoined(victimName: any, oldTeam: any, newTeam: any, involvesMe: boolean?)
+	local def = Teams.Get(newTeam)
+	addLine(string.format('<font color="%s">%s</font>  <font color="#ffffff">joined the</font>  <font color="%s">%s</font>', Theme.Hex(colorOf(oldTeam)), tostring(victimName or "?"), Theme.Hex(colorOf(newTeam)), def and def.Plural or "?"), involvesMe == true)
 end
 
 function KillFeed.SetVisible(visible: boolean)

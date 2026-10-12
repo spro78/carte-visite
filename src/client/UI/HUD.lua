@@ -4,7 +4,9 @@
 	(reference/BIBLE_VISUELLE.md, §9). Disposition propre au jeu :
 	  - haut centre : capsule chrono (phase + temps), ruban de rôle aux couleurs
 	    de l'équipe ("FOX · catch CHICKENS · avoid SNAKES"), ligne d'objectif ;
-	  - sous le ruban : annonces courtes (petite pastille, le centre reste libre) ;
+	  - sous le ruban : pastille d'état (à terre + chrono, porté, en train de
+	    porter, consigne de secours, protégé dans la zone sûre), puis annonces
+	    courtes (petite pastille) : le centre de l'écran reste libre ;
 	  - haut droite : menus (SHOP / SPIN / HELP), tableau des trois équipes en
 	    manche (les menus passent à sa gauche), fil des captures dessous ;
 	  - bas gauche : pièces et niveau ; bas centre : dock des médaillons d'action
@@ -17,6 +19,7 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Teams = require(Shared.Teams)
 local MapInfo = require(Shared.MapInfo)
 local Types = require(Shared.Types)
@@ -47,6 +50,7 @@ local AWARDS = {
 	{ Key = "Survival", Title = "LONGEST RUN" },
 	{ Key = "Catches", Title = "TOP CATCHER" },
 }
+local PLAYING = { Countdown = true, Round = true }
 
 local voteCallback: ((string) -> ())? = nil
 local compact = false -- petit écran (téléphone)
@@ -203,7 +207,7 @@ local bottomCenter: Frame = New("Frame", {
 	Name = "BottomCenter",
 	AnchorPoint = Vector2.new(0.5, 1),
 	Position = UDim2.new(0.5, 0, 1, -14),
-	Size = UDim2.new(0, 300, 0, 104),
+	Size = UDim2.new(0, 360, 0, 104),
 	BackgroundTransparency = 1,
 }, screen)
 New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 14), HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Bottom, SortOrder = Enum.SortOrder.LayoutOrder }, bottomCenter)
@@ -262,6 +266,43 @@ for index = 1, 3 do
 	end)
 	voteButtons[index] = entry
 end
+
+-- ---------------------------------------------------------------------------
+-- Pastille d'état (RescueController) : une ligne sous le bloc du haut, bord à la
+-- couleur de l'état, petite jauge pour le chrono à terre
+-- ---------------------------------------------------------------------------
+local statusPill: Frame = New("Frame", {
+	Name = "Status",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 128),
+	Size = UDim2.new(0, 460, 0, 34),
+	BackgroundColor3 = Theme.Panel,
+	BackgroundTransparency = 0.12,
+	Visible = false,
+	ZIndex = 6,
+}, screen)
+Theme.CornerScale(statusPill, 0.5)
+local statusStroke = Theme.Stroke(statusPill, 3, Theme.Mint)
+local statusLabel = Title(statusPill, {
+	Name = "Text",
+	Position = UDim2.new(0, 14, 0, 4),
+	Size = UDim2.new(1, -28, 1, -10),
+	Text = "",
+	ZIndex = 6,
+})
+Theme.MaxText(statusLabel, 20)
+local statusBar: Frame = New("Frame", {
+	Name = "Timer",
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 18, 1, -3),
+	Size = UDim2.new(1, -36, 0, 3),
+	BackgroundColor3 = Theme.Dark,
+	BorderSizePixel = 0,
+	Visible = false,
+	ZIndex = 6,
+}, statusPill)
+local statusFill: Frame = New("Frame", { Name = "Fill", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Theme.Bad, BorderSizePixel = 0, ZIndex = 7 }, statusBar)
+local statusText: string? = nil
 
 -- ---------------------------------------------------------------------------
 -- Annonces, notifications, spectateur, aide
@@ -324,9 +365,9 @@ local helpPanel: Frame = panel(screen, {
 Theme.Corner(helpPanel, 22)
 Title(helpPanel, { Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 0, 14), Text = "HOW TO PLAY", TextColor3 = Theme.Mint, ZIndex = 40 })
 -- Règles : la partie "commandes" suit l'appareil (clavier ou tactile)
-local HELP_RULES = "Catch your prey. Run from your hunter.\n\nFOX catches CHICKEN, CHICKEN catches SNAKE, SNAKE catches FOX.\nGreen outline = your prey. Red outline = your hunter.\nCaught? You join the team that caught you and keep playing.\n\n"
-local HELP_KEYS = "Q / E : dash sideways to dodge    F : stop dead to fake out\nR : your animal's ability    Hide in tall grass and bushes!"
-local HELP_TOUCH = "DASH buttons : dodge sideways    STOP : stop dead to fake out\nBig round button : your animal's ability    Hide in tall grass!"
+local HELP_RULES = "Catch your prey. Run from your hunter.\nFOX catches CHICKEN, CHICKEN catches SNAKE, SNAKE catches FOX.\nOutlines show teams: FOX orange, CHICKEN yellow, SNAKE green.\nCaught? You're down. A teammate can carry you to your base to revive you.\nNo rescue in " .. Config.Rescue.BleedOutSeconds .. "s? You join the team that caught you.\nNobody can catch you in your base's SAFE ZONE.\n\n"
+local HELP_KEYS = "Q / E : dash sideways    F : stop dead    R : your animal's ability\nC : carry a downed teammate home    Hide in tall grass and bushes!"
+local HELP_TOUCH = "DASH buttons : dodge sideways    STOP : stop dead    Big button : ability\nCARRY : pick up a downed teammate    Hide in tall grass!"
 local helpText = Label(helpPanel, {
 	Name = "Rules",
 	Size = UDim2.new(1, -44, 1, -76),
@@ -469,8 +510,8 @@ function HUD.SetRole(teamId: string?)
 	end
 end
 
--- Ruban de rôle : animal en couleur, proie en vert, prédateur en rouge
--- (les mêmes couleurs que les contours dans le monde)
+-- Ruban de rôle : chaque équipe à sa couleur, la même que son contour dans le
+-- monde (on sait d'un coup d'œil quelle couleur attraper et laquelle fuir)
 local function roleText(teamId: string): string
 	local def = Teams.Get(teamId)
 	if not def then
@@ -478,10 +519,26 @@ local function roleText(teamId: string): string
 	end
 	local prey = Teams.Defs[def.Prey]
 	local predator = Teams.Defs[def.Predator]
-	return string.format(
-		'<font color="%s">%s</font>  ·  catch <font color="%s">%s</font>  ·  avoid <font color="%s">%s</font>',
-		Theme.Hex(def.Color:Lerp(Color3.new(1, 1, 1), 0.3)), def.Display, Theme.Hex(Teams.PreyOutlineColor), prey.Plural, Theme.Hex(Teams.PredatorOutlineColor), predator.Plural
-	)
+	local function tint(color: Color3): string
+		return Theme.Hex(color:Lerp(Color3.new(1, 1, 1), 0.2))
+	end
+	return string.format('<font color="%s">%s</font>  ·  catch <font color="%s">%s</font>  ·  avoid <font color="%s">%s</font>', tint(def.Color), def.Display, tint(prey.Color), prey.Plural, tint(predator.Color), predator.Plural)
+end
+
+-- Pastille d'état (RescueController) : text nil = masquée ; progress = jauge 0..1
+local rescale: () -> ()
+function HUD.SetStatus(text: string?, color: Color3?, progress: number?)
+	local playing = lastState ~= nil and PLAYING[lastState.Phase] == true
+	local shown = text ~= nil and text ~= "" and playing
+	statusText = text
+	statusLabel.Text = text or ""
+	statusStroke.Color = color or Theme.Mint
+	statusBar.Visible = progress ~= nil
+	statusFill.Size = UDim2.fromScale(math.clamp(progress or 0, 0, 1), 1)
+	if statusPill.Visible ~= shown then
+		statusPill.Visible = shown
+		rescale()
+	end
 end
 
 function HUD.SetCoins(amount: number)
@@ -640,8 +697,6 @@ local function updateResults(state: Types.GameState)
 	end
 end
 
-local rescale: () -> ()
-
 function HUD.UpdateState(state: Types.GameState)
 	local previousPhase = lastState and lastState.Phase
 	lastState = state
@@ -709,6 +764,8 @@ function HUD.UpdateState(state: Types.GameState)
 	if phase ~= "Round" then
 		announcePill.Visible = false
 	end
+	-- La pastille d'état aussi (à terre, portage, zone sûre)
+	statusPill.Visible = PLAYING[phase] == true and myTeam ~= nil and statusText ~= nil and statusText ~= ""
 	-- Menus : à gauche du tableau des équipes quand il est affiché ; en tactile
 	-- pendant la manche, ils s'effacent (le pouce reste sur le jeu)
 	local playing = (phase == "Countdown" or phase == "Round") and myTeam ~= nil
@@ -784,8 +841,18 @@ rescale = function()
 	end
 	subLabel.Position = UDim2.new(0, 0, 0, small and 66 or 90)
 	subLabel.Size = UDim2.new(1, 0, 0, small and 15 or 20)
-	-- Annonce : sous la ligne d'objectif (en portrait, sous les équipes)
-	announcePill.Position = UDim2.new(0.5, 0, 0, portrait and 186 or (small and 88 or 128))
+	-- Pastille d'état puis annonce : sous la ligne d'objectif (en portrait, sous
+	-- les équipes), à la largeur du bloc du haut (jamais sous les panneaux latéraux)
+	local stackY = portrait and 186 or (small and 90 or 128)
+	local statusHeight = small and 26 or 34
+	statusPill.Position = UDim2.new(0.5, 0, 0, stackY)
+	statusPill.Size = UDim2.new(0, math.min(portrait and (size.X - 24) or centerWidth, 520), 0, statusHeight)
+	local statusMax = statusLabel:FindFirstChildOfClass("UITextSizeConstraint")
+	if statusMax then
+		statusMax.MaxTextSize = small and 15 or 20
+	end
+	local announceY = statusPill.Visible and (stackY + statusHeight + (small and 4 or 6)) or (portrait and 186 or (small and 88 or 128))
+	announcePill.Position = UDim2.new(0.5, 0, 0, announceY)
 	announcePill.Size = UDim2.new(0, math.min(small and 300 or 440, portrait and (size.X - 24) or 0.42 * size.X), 0, small and 22 or 30)
 	local announceMax = announceLabel:FindFirstChildOfClass("UITextSizeConstraint")
 	if announceMax then

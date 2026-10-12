@@ -59,6 +59,26 @@ check(not Canyon.IsCarrier(A), "œuf déposé")
 check(Canyon.DebugState().Eggs[A.Team] == 6, "sa base passe à 6 œufs")
 check(server.RoundService.GetState().Scores[A.Team] == 6, "score mis à jour")
 
+section("Voleur qui réapparaît : l'œuf rentre chez lui")
+park()
+Engine.Advance(0.5)
+H.teleport(A, basePos(preyTeam) + Vector3.new(0, 3, 0))
+Engine.Advance(0.4)
+check(Canyon.IsCarrier(A) and Canyon.DebugState().Eggs[preyTeam] == 3, "Alice vole un œuf (3 restent)")
+H.teleport(A, O + Vector3.new(-60, 3, -40))
+H.onServer(function()
+	alice:LoadCharacter() -- réapparition (reset)
+end)
+Engine.Advance(1)
+check(not Canyon.IsCarrier(A) and Canyon.DebugState().Eggs[preyTeam] == 4, "l'œuf rentre dans sa base au lieu de disparaître (4)")
+local lost = 0
+for _, part in Canyon.DebugState().EggParts and Canyon.DebugState().EggParts[preyTeam] or {} do
+	if part.Parent == nil then
+		lost += 1
+	end
+end
+check(lost == 0, "chaque œuf de la base est bien dans la carte")
+
 section("Voleur attrapé : l'œuf retourne chez lui")
 park()
 Engine.Advance(0.5)

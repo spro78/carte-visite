@@ -29,15 +29,15 @@ Config.Round = {
 
 -- ---------------------------------------------------------------------------
 -- Apparence des joueurs
---   "Accessories" : chacun garde son avatar Roblox ; on ajoute les attributs de
---              l'animal (oreilles + queue de renard, crête + plumes de poule,
---              capuche + queue de vipère) et un foulard aux couleurs de l'équipe.
---   "Avatar" : avatar strictement intact ; l'animal se lit par le contour
---              (vert/rouge) et le badge au-dessus de la tête.
+--   "Avatar" (défaut) : l'avatar Roblox reste entièrement intact (corps,
+--              vêtements, accessoires, couleurs). L'équipe se lit au contour
+--              lumineux aux couleurs de l'équipe (renards orange, poules jaunes,
+--              vipères vertes) et à l'étiquette au-dessus de la tête.
+--   "Accessories" : ajoute les attributs de l'animal et un foulard d'équipe.
 --   "Animal" : teinte d'équipe complète + museau/bec (module AnimalAppearance).
 -- ---------------------------------------------------------------------------
 Config.Appearance = {
-	Mode = "Accessories",
+	Mode = "Avatar",
 	ShowTeamBadge = true, -- badge "FOX / CHICKEN / SNAKE" au-dessus de la tête
 	BadgeMaxDistance = 90,
 }
@@ -68,6 +68,9 @@ Config.Bots = {
 	HideChance = 0.35, -- probabilité de filer vers une cachette quand on fuit
 	LeadSeconds = 0.3, -- anticipation de la position de la proie
 	StuckSeconds = 1.5,
+	RescueRange = 120, -- un bot va chercher un coéquipier à terre à moins de X studs
+	RescueChance = 0.8, -- probabilité qu'un bot aille le porter (tirée une fois par mise à terre)
+	SafeZoneRefugeDistance = 60, -- un bot poursuivi près de son camp fuit vers sa zone sûre
 	-- Gabarit des bots : R6 (classique, comme Huss Valley) ou R15
 	RigType = "R6",
 	-- Animations par défaut de Roblox (modifiables)
@@ -102,6 +105,35 @@ Config.Capture = {
 }
 
 -- ---------------------------------------------------------------------------
+-- Mise à terre, portage et réanimation (pas de prison)
+--   Un joueur attrapé est À TERRE : il ne bouge plus et ne peut plus être
+--   attrapé. Un coéquipier peut le PORTER jusqu'à la zone sûre de leur base,
+--   où il se relève dans son équipe. Si personne ne le porte à temps (ou si
+--   aucun coéquipier n'est debout), il rejoint l'équipe qui l'a attrapé.
+-- ---------------------------------------------------------------------------
+Config.Rescue = {
+	BleedOutSeconds = 15, -- temps à terre avant de rejoindre l'équipe du chasseur
+	DropGraceSeconds = 5, -- temps minimum restant quand un porteur lâche son coéquipier
+	PickupRange = 7, -- distance (studs) pour ramasser un coéquipier à terre
+	CarrySpeedMultiplier = 0.8, -- un porteur est un peu plus lent
+	ReviveProtectionSeconds = 2, -- invincibilité après la réanimation
+}
+
+-- ---------------------------------------------------------------------------
+-- Zone sûre de chaque camp : autour et derrière la plateforme. Un défenseur
+-- dans la zone de SON camp ne peut être ni attrapé ni mordu ; les adversaires
+-- peuvent y entrer (vol d'œufs du Raid) mais n'y sont pas protégés.
+-- Distances en studs, dans le repère du camp (l'avant regarde le centre).
+-- ---------------------------------------------------------------------------
+Config.SafeZone = {
+	SideMargin = 8, -- de chaque côté de la plateforme
+	FrontMargin = 4, -- devant la plateforme (vers le centre)
+	BackDepth = 24, -- derrière la plateforme (réduit si la limite de la carte est plus proche)
+	Height = 16, -- hauteur couverte au-dessus du sol
+	CheckInterval = 0.1,
+}
+
+-- ---------------------------------------------------------------------------
 -- Déplacement - sensation à inertie
 -- ---------------------------------------------------------------------------
 Config.Movement = {
@@ -126,6 +158,7 @@ Config.Controls = {
 	DashRight = { Enum.KeyCode.E, Enum.KeyCode.ButtonR1 },
 	Stop = { Enum.KeyCode.F, Enum.KeyCode.ButtonB },
 	Ability = { Enum.KeyCode.R, Enum.KeyCode.ButtonX },
+	Carry = { Enum.KeyCode.C, Enum.KeyCode.ButtonY }, -- porter / lâcher un coéquipier à terre
 }
 
 -- ---------------------------------------------------------------------------
@@ -392,6 +425,8 @@ Config.Sounds = {
 	Coins = "rbxasset://sounds/electronicpingshort.wav",
 	Win = "rbxasset://sounds/victory.wav",
 	Geyser = "rbxasset://sounds/collide.wav",
+	Carry = "rbxasset://sounds/swoosh.wav",
+	Revive = "rbxasset://sounds/electronicpingshort.wav",
 	Volume = 0.5,
 }
 

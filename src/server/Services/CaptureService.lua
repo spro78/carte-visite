@@ -1,11 +1,14 @@
 --[[
 	CaptureService.lua
-	Captures et conversions. Le serveur décide de tout :
+	Captures. Le serveur décide de tout :
 	  - une boucle serveur détecte les contacts chasseur/proie (joueurs et bots),
 	  - un client peut signaler un contact (CaptureAttempt) pour plus de réactivité :
-	    l'intention est revalidée ici (distance, équipes, protections, recharge).
-	Une capture convertit la proie : elle rejoint l'équipe du chasseur et change
-	d'animal sur place, avec quelques secondes d'invincibilité.
+	    l'intention est revalidée ici (distance, équipes, protections, recharge,
+	    zone sûre du camp de la proie, état à terre, mains prises).
+	Une capture met la proie À TERRE (RescueService, branché par SetDownHandler) :
+	un coéquipier peut la porter jusqu'à leur camp ; sinon elle finit par
+	rejoindre l'équipe du chasseur. Sans gestionnaire branché (tests isolés),
+	la capture convertit directement la proie, comme la règle d'origine.
 ]]
 
 local RunService = game:GetService("RunService")
@@ -20,6 +23,7 @@ local TeamService = require(script.Parent.TeamService)
 local AbilityService = require(script.Parent.AbilityService)
 local RoundState = require(script.Parent.RoundState)
 local RateLimiter = require(script.Parent.RateLimiter)
+local SafeZoneService = require(script.Parent.SafeZoneService)
 local Signal = require(script.Parent.Parent.Util.Signal)
 
 type Actor = Types.Actor
@@ -32,6 +36,8 @@ CaptureService.Captured = Signal.new() -- (hunter: Actor, victim: Actor)
 -- est annulée (bouclier, etc.).
 local guards: { (hunter: Actor, victim: Actor) -> boolean } = {}
 local lastCapture: { [string]: number } = {}
+-- Mise à terre de la proie (RescueService.Down) ; nil = conversion directe
+local downHandler: ((hunter: Actor, victim: Actor) -> ())? = nil
 
 -- ---------------------------------------------------------------------------
 -- Protection (invincibilité temporaire, ForceField visible)
@@ -77,6 +83,10 @@ function CaptureService.AddGuard(guard: (hunter: Actor, victim: Actor) -> boolea
 	table.insert(guards, guard)
 end
 
+function CaptureService.SetDownHandler(handler: ((hunter: Actor, victim: Actor) -> ())?)
+	downHandler = handler
+end
+
 -- ---------------------------------------------------------------------------
 -- Règles
 -- ---------------------------------------------------------------------------
@@ -100,6 +110,13 @@ function CaptureService.CanCapture(hunter: Actor, victim: Actor, extraRange: num
 	end
 	local hunterChar = hunter.Character :: Model
 	local victimChar = victim.Character :: Model
+	-- À terre : ni chasseur ni proie. Porteur d'un coéquipier : mains prises.
+	if victimChar:GetAttribute("Downed") == true or hunterChar:GetAttribute("Downed") == true then
+		return false
+	end
+	if hunterChar:GetAttribute("Carrying") ~= nil then
+		return false
+	end
 	if CaptureService.IsProtected(victimChar) then
 		return false
 	end
@@ -123,7 +140,11 @@ function CaptureService.CanCapture(hunter: Actor, victim: Actor, extraRange: num
 		return false
 	end
 	local range = AbilityService.GetCaptureRange(hunter) + (extraRange or 0)
-	return horizontalDistance(a, b) <= range
+	if horizontalDistance(a, b) > range then
+		return false
+	end
+	-- Un défenseur dans la zone sûre de son camp ne peut pas être attrapé
+	return not SafeZoneService.IsSafe(victim)
 end
 
 -- Effectue la capture (les règles doivent avoir été vérifiées).
@@ -140,24 +161,32 @@ local function capture(hunter: Actor, victim: Actor)
 	local def = Teams.Get(newTeam)
 	assert(def)
 
-	TeamService.SetTeam(victim, newTeam)
 	victim.BestSurvival = math.max(victim.BestSurvival or 0, os.clock() - victim.LastCaughtAt)
 	victim.LastCaughtAt = os.clock()
 	hunter.RoundCaptures += 1
 	AbilityService.ClearModifiers(victim)
 	AbilityService.ResetCooldowns(victim)
 	if victim.Character then
-		CaptureService.Protect(victim.Character, Config.Capture.InvincibilitySeconds)
 		victim.Character:SetAttribute("Carrier", nil)
 	end
-
-	-- Messages clairs : qui t'a eu, ce que tu deviens, ce que tu dois faire
-	local announce = Remotes.Get("Announce")
-	local preyDef = Teams.Get(def.Prey)
-	local hint = preyDef and (" Now catch " .. preyDef.Plural .. "!") or ""
-	ActorService.FireClient(victim, announce, hunter.Name .. " caught you! You're a " .. def.Display .. "." .. hint, def.Color)
-	ActorService.FireClient(hunter, announce, "You caught " .. victim.Name .. "!", Teams.PreyOutlineColor)
 	local position = ActorService.GetPosition(victim)
+
+	local handler = downHandler
+	if handler then
+		-- Règle du jeu : la proie est à terre, ses coéquipiers peuvent la sauver
+		handler(hunter, victim)
+	else
+		-- Conversion directe (règle d'origine) : messages clairs sur ce qu'on devient
+		TeamService.SetTeam(victim, newTeam)
+		if victim.Character then
+			CaptureService.Protect(victim.Character, Config.Capture.InvincibilitySeconds)
+		end
+		local announce = Remotes.Get("Announce")
+		local preyDef = Teams.Get(def.Prey)
+		local hint = preyDef and (" Now catch " .. preyDef.Plural .. "!") or ""
+		ActorService.FireClient(victim, announce, hunter.Name .. " caught you! You're a " .. def.Display .. "." .. hint, def.Color)
+		ActorService.FireClient(hunter, announce, "You caught " .. victim.Name .. "!", def.Color)
+	end
 	Remotes.Get("Effect"):FireAllClients("Capture", {
 		Position = position,
 		Team = newTeam,
@@ -166,6 +195,7 @@ local function capture(hunter: Actor, victim: Actor)
 		VictimId = victim.Id,
 		HunterName = hunter.Name,
 		VictimName = victim.Name,
+		Downed = handler ~= nil,
 		CatchEffect = hunter.Character and hunter.Character:GetAttribute("CatchEffect") or "None",
 	})
 	CaptureService.Captured:Fire(hunter, victim)

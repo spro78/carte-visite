@@ -97,6 +97,10 @@ local function isDisabled(): boolean
 	if not character or not humanoid or humanoid.Health <= 0 then
 		return true
 	end
+	-- À terre ou porté : on attend un coéquipier
+	if character:GetAttribute("Downed") == true then
+		return true
+	end
 	return Movement.IsRagdolled(character)
 end
 
@@ -226,8 +230,8 @@ function MovementController.GetCooldowns()
 	local team = myTeam()
 	local info = {}
 	-- Les boutons d'action ne s'affichent qu'en manche (avec une équipe) : au
-	-- lobby, l'écran tactile reste au vote et à la boutique
-	local inRound = char ~= nil and team ~= nil
+	-- lobby, l'écran tactile reste au vote et à la boutique. À terre, aucune action.
+	local inRound = char ~= nil and team ~= nil and char:GetAttribute("Downed") ~= true
 	local function cd(localReady: number, attr: string, total: number)
 		local serverReady = char and char:GetAttribute(attr)
 		local ready = localReady
@@ -263,6 +267,10 @@ local function checkCaptures(dt: number)
 	if not team or not myRoot or isDisabled() then
 		return
 	end
+	-- Mains prises : un porteur de coéquipier n'attrape personne
+	if character and character:GetAttribute("Carrying") ~= nil then
+		return
+	end
 	local prey = Teams.GetPrey(team)
 	local range = character and character:GetAttribute("CaptureRange")
 	if type(range) ~= "number" then
@@ -270,7 +278,8 @@ local function checkCaptures(dt: number)
 	end
 	local now = os.clock()
 	for _, model in CollectionService:GetTagged("HoH_Actor") do
-		if model ~= character and model:IsA("Model") and model:GetAttribute("Team") == prey then
+		-- (une proie à terre ou à l'abri dans sa zone sûre ne peut pas être attrapée)
+		if model ~= character and model:IsA("Model") and model:GetAttribute("Team") == prey and model:GetAttribute("Downed") ~= true and model:GetAttribute("SafeZone") ~= true then
 			local otherRoot = model:FindFirstChild("HumanoidRootPart")
 			if otherRoot and otherRoot:IsA("BasePart") then
 				local delta = otherRoot.Position - myRoot.Position

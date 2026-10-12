@@ -1,12 +1,14 @@
 --[[
 	ActionBar.lua
-	Médaillons d'action (kit du jeu, reference/BIBLE_VISUELLE.md §9) :
-	  - au clavier ou à la manette : un dock en bas au centre avec trois médaillons
+	Médaillons d'action (kit du jeu, reference/BIBLE_VISUELLE.md §8) :
+	  - au clavier ou à la manette : un dock en bas au centre avec les médaillons
 	    ronds (DASH, capacité de l'animal, STOP), recharge en remplissage sombre et
 	    puce de touche (Q E, R, F) ;
 	  - sur écran tactile : les mêmes médaillons, tappables, autour du bouton de saut
 	    de Roblox (sans jamais le couvrir) ; le dock du bas s'efface.
-	Les boutons ne s'affichent qu'en manche (décompte compris).
+	  - CARRY (touche C) n'apparaît que près d'un coéquipier à terre, et devient
+	    DROP quand on le porte (RescueController).
+	Les boutons ne s'affichent qu'en manche (décompte compris), jamais à terre.
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -20,19 +22,20 @@ local Theme = require(script.Parent.Theme)
 
 local ActionBar = {}
 
-export type CooldownInfo = { Remaining: number, Total: number, Available: boolean }
+export type CooldownInfo = { Remaining: number, Total: number, Available: boolean, Label: string? }
 export type Provider = () -> { [string]: CooldownInfo }
 export type Handlers = { [string]: () -> () }
 
 local New, Title = Theme.New, Theme.Title
 
-local TOUCH = { "DashLeft", "DashRight", "Stop", "Ability" }
-local TOUCH_LABELS = { DashLeft = "◀ DASH", DashRight = "DASH ▶", Stop = "STOP", Ability = "ABILITY" }
+local TOUCH = { "DashLeft", "DashRight", "Stop", "Ability", "Carry" }
+local TOUCH_LABELS = { DashLeft = "◀ DASH", DashRight = "DASH ▶", Stop = "STOP", Ability = "ABILITY", Carry = "CARRY" }
 -- Dock clavier : un médaillon par action (le dash couvre les deux côtés)
 local DOCK = {
 	{ Action = "DashLeft", Label = "DASH", Size = 64 },
 	{ Action = "Ability", Label = "ABILITY", Size = 80 },
 	{ Action = "Stop", Label = "STOP", Size = 54 },
+	{ Action = "Carry", Label = "CARRY", Size = 64 },
 }
 
 type Medallion = { Root: GuiObject, Circle: GuiObject, Fill: Frame, Seconds: TextLabel, Main: TextLabel, Key: TextLabel? }
@@ -113,7 +116,8 @@ function ActionBar.JumpButtonGeometry(viewport: Vector2): (number, number, numbe
 end
 
 -- Nos boutons entourent le saut sans jamais le recouvrir : dashs sur la même
--- ligne à sa gauche, capacité au-dessus, stop au-dessus du dash droit.
+-- ligne à sa gauche, capacité au-dessus, stop au-dessus du dash droit, porter
+-- au-dessus du dash gauche.
 local function placeTouch()
 	local camera = workspace.CurrentCamera
 	local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
@@ -127,6 +131,7 @@ local function placeTouch()
 		DashLeft = { dashRightX + dash + gap, jy, dash },
 		Ability = { jx, upperY, ability },
 		Stop = { dashRightX, upperY, stop },
+		Carry = { dashRightX + dash + gap, upperY, ability },
 	}
 	for action, slot in touchSlots do
 		local spec = layout[action]
@@ -148,7 +153,7 @@ local function refreshMode()
 	if dash and dash.Key then
 		dash.Key.Text = keyText("DashLeft") .. " " .. keyText("DashRight")
 	end
-	for _, action in { "Ability", "Stop" } do
+	for _, action in { "Ability", "Stop", "Carry" } do
 		local slot = dockSlots[action]
 		if slot and slot.Key then
 			slot.Key.Text = keyText(action)
@@ -187,6 +192,9 @@ local function setSlot(slot: Medallion, info: CooldownInfo?)
 		return
 	end
 	slot.Root.Visible = true
+	if info.Label then
+		slot.Main.Text = info.Label
+	end
 	local remaining = math.max(0, info.Remaining)
 	if remaining > 0.05 and info.Total > 0 then
 		slot.Fill.Size = UDim2.fromScale(1, math.clamp(remaining / info.Total, 0, 1))

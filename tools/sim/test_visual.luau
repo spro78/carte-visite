@@ -9,6 +9,10 @@
 	      sans obstacle solide de plus de 3 studs (hors mécanismes de jeu)
 	  §6  depuis l'entrée de chaque camp, à hauteur d'yeux, on voit la balise
 	      des deux autres camps
+	  §6  contours lisibles : chaque couleur d'équipe à ΔE >= 45 du plateau et
+	      >= 30 des chemins
+	  §5  zone sûre de chaque camp : repère au sol, dans la carte, couvre les
+	      points d'apparition, sans empiéter sur un autre camp
 	Ce que ce test ne peut pas juger : le rendu réel de Roblox (matières, ombres,
 	tenons), la lisibilité perçue en mouvement et la performance sur appareil.
 ]]
@@ -264,6 +268,65 @@ for _, id in maps do
 		end
 	end
 	check(boardCount > 0 and worst >= 40, string.format("avatars contrastés sur le plateau : écart minimal %.0f (%s), 40 exigé", worst, worstName))
+
+	-- §6 Contours lisibles : la couleur d'équipe (contour lumineux) se détache du
+	-- plateau (ΔE >= 45) et des chemins (ΔE >= 30), sur toute la zone de jeu
+	local grounds = { Board = {}, Path = {} }
+	for _, part in parts do
+		local kind = (part.Name == "Board" and "Board") or ((string.sub(part.Name, 1, 5) == "Path_" or part.Name == "PathJoint") and "Path") or nil
+		if kind then
+			grounds[kind][part.Color] = true
+		end
+	end
+	for _, teamId in Teams.Order do
+		local color = Teams.Get(teamId).Color
+		local worstBoard, worstPath = math.huge, math.huge
+		for c in grounds.Board do
+			worstBoard = math.min(worstBoard, deltaE(color, c))
+		end
+		for c in grounds.Path do
+			worstPath = math.min(worstPath, deltaE(color, c))
+		end
+		check(worstBoard >= 45 and worstPath >= 30, string.format("contour %s lisible : écart %.0f au plateau (45 exigé), %.0f aux chemins (30 exigé)", teamId, worstBoard, worstPath == math.huge and 0 or worstPath))
+	end
+
+	-- Zones sûres des trois camps : repère au sol, dans la carte, plateforme
+	-- et points d'apparition couverts, pas de chevauchement entre camps
+	local MapBase = H.require(World.game.ServerScriptService.Server.Maps.MapBase)
+	local active = MapBase.ActiveBases
+	for _, teamId in Teams.Order do
+		local base = active and active[teamId]
+		local zone = base and base.Safe
+		local camp = folder:FindFirstChild(teamId .. "_Camp")
+		local dashes, label = 0, false
+		for _, d in camp and camp:GetDescendants() or {} do
+			if d.Name == "SafeZoneDash" then
+				dashes += 1
+			elseif d.Name == "SafeZoneLabel" then
+				label = true
+			end
+		end
+		local ok = zone ~= nil and dashes >= 20 and label
+		if ok then
+			for _, corner in { { -zone.HalfWidth, -zone.Front }, { zone.HalfWidth, -zone.Front }, { -zone.HalfWidth, zone.Back }, { zone.HalfWidth, zone.Back } } do
+				local p = base.CFrame:PointToWorldSpace(Vector3.new(corner[1], 0, corner[2]))
+				if math.abs(p.X - O.X) > half or math.abs(p.Z - O.Z) > half then
+					ok = false
+				end
+			end
+			for _, spawn in base.Spawns do
+				if not MapBase.IsInSafeZone(base, spawn.Position) then
+					ok = false
+				end
+			end
+			for _, other in Teams.Order do
+				if other ~= teamId and MapBase.IsInSafeZone(base, active[other].Center + Vector3.new(0, 3, 0)) then
+					ok = false
+				end
+			end
+		end
+		check(ok, string.format("zone sûre %s : %d tirets au sol, mention SAFE ZONE, dans la carte, couvre les apparitions%s", teamId, dashes, zone and string.format(" (±%d, avant %d, arrière %d)", zone.HalfWidth, zone.Front, zone.Back) or ""))
+	end
 
 	-- Bases (MapBase) : relues depuis les points d'apparition
 	bases = {}

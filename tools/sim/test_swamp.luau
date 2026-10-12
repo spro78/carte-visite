@@ -63,7 +63,9 @@ local geysers = Swamp.DebugState().Geysers
 check(#geysers == cfg.GeyserCount, #geysers .. " geysers")
 local gotLaunched = false
 local before = Engine.RemoteCalls["Launch:FireClient"] or 0
-for i = 1, 6 do
+-- (la moitié des geysers environ jaillit à chaque cycle : 10 essais rendent
+-- l'échec par malchance négligeable)
+for i = 1, 10 do
 	-- Alice se tient sur un geyser différent à chaque cycle
 	local g = geysers[(i % #geysers) + 1]
 	for _ = 1, math.ceil(cfg.GeyserIntervalSeconds * 4) do
@@ -95,7 +97,9 @@ for _ = 1, 6 do
 		for _, victim in actors do
 			if server.Teams.CanCatch(hunter.Team, victim.Team) then
 				Engine.Advance(2.5)
-				H.teleport(victim, hunter.Character.HumanoidRootPart.Position + Vector3.new(2, 0, 0))
+				-- En plein champ : une proie dans la zone sûre de son camp est protégée
+				H.teleport(hunter, O + Vector3.new(70, 3, 30))
+				H.teleport(victim, O + Vector3.new(72, 3, 30))
 				Engine.Advance(0.3)
 			end
 		end

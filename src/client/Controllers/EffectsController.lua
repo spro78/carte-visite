@@ -2,8 +2,11 @@
 	EffectsController.lua
 	Réactions visuelles et sonores aux événements du serveur (remote "Effect") :
 	  Capture  : gerbe aux couleurs de l'effet de capture du chasseur (cosmétique),
-	             onde de choc à la couleur de la nouvelle équipe, son, petite
+	             onde de choc à la couleur du chasseur, "DOWN!", son, petite
 	             secousse pour la victime, ligne dans le fil des captures
+	  Carry    : petit nuage de poussière quand un coéquipier est ramassé
+	  Revive   : étincelles de l'équipe, "SAVED!", son, ligne "X saved Y"
+	  Convert  : onde à la couleur de la nouvelle équipe, ligne "Y joined the ..."
 	  Dash / Ability / Bite / Launch / Grab / Geyser : petits effets + sons
 	  Score    : confettis de l'équipe + son
 	  Coins    : "+N" doré qui monte + son
@@ -235,7 +238,7 @@ handlers.Capture = function(data)
 		burst(position + Vector3.new(0, 1, 0), fxDef.Colors, data.CatchEffect == "Lightning" and 40 or 26, data.CatchEffect == "Stars" and 26 or 18, data.CatchEffect == "Hearts" and 0.9 or 0.6)
 		if def then
 			shockwave(position, def.Color, 9)
-			floatingText(position, def.Display .. "!", def.Color)
+			floatingText(position, data.Downed and "DOWN!" or (def.Display .. "!"), def.Color)
 		end
 	end
 	if me ~= nil and me == data.VictimId then
@@ -248,6 +251,48 @@ handlers.Capture = function(data)
 	end
 	if feed then
 		feed.Push(data.HunterName, data.VictimName, data.Team, data.OldTeam, me == data.HunterId or me == data.VictimId)
+	end
+end
+
+handlers.Carry = function(data)
+	if typeof(data.Position) == "Vector3" then
+		burst(data.Position - Vector3.new(0, 2.5, 0), { Color3.fromRGB(235, 225, 205), Color3.fromRGB(200, 190, 170) }, 10, 8, 0.7)
+		playAt("Carry", data.Position, 0.6)
+	end
+end
+
+handlers.Revive = function(data)
+	local def = Teams.Get(data.Team)
+	local position = typeof(data.Position) == "Vector3" and data.Position or nil
+	local me = myActorId()
+	if position and def then
+		burst(position + Vector3.new(0, 1, 0), { def.Color, Color3.new(1, 1, 1) }, 30, 16, 0.6)
+		shockwave(position, def.Color, 10)
+		floatingText(position, "SAVED!", def.Color)
+	end
+	if me ~= nil and (me == data.VictimId or me == data.RescuerId) then
+		EffectsController.Play("Revive", 1, 1.25)
+	elseif position then
+		playAt("Revive", position, 0.6)
+	end
+	if feed and data.RescuerName then
+		feed.PushRescue(data.RescuerName, data.VictimName, data.Team, me == data.VictimId or me == data.RescuerId)
+	end
+end
+
+handlers.Convert = function(data)
+	local def = Teams.Get(data.Team)
+	local position = typeof(data.Position) == "Vector3" and data.Position or nil
+	local me = myActorId()
+	if position and def then
+		shockwave(position, def.Color, 9)
+		floatingText(position, def.Display .. "!", def.Color)
+	end
+	if me ~= nil and me == data.VictimId then
+		shake(0.4, 0.3)
+	end
+	if feed then
+		feed.PushJoined(data.VictimName, data.OldTeam, data.Team, me == data.VictimId)
 	end
 end
 

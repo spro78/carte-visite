@@ -2,10 +2,14 @@
 	BotBrain.lua
 	Intelligence d'un bot, volontairement imparfaite pour qu'un débutant gagne :
 	  1. FUIR le prédateur le plus proche s'il est à moins de FleeDistance studs
-	     (parfois vers une cachette, avec un dash de panique) ;
-	  2. sinon POURSUIVRE la proie la plus proche (anticipation + erreur de visée,
-	     dash et capacité de temps en temps) ;
-	  3. sinon aller vers l'OBJECTIF de la map (Map.GetBotGoal), ou flâner.
+	     (parfois vers une cachette, vers la zone sûre de son camp s'il est
+	     proche, avec un dash de panique) ;
+	  2. PORTER un coéquipier à terre jusqu'au camp (s'il en porte un), ou aller
+	     le RAMASSER s'il est assez près (pas toujours : RescueChance) ;
+	  3. sinon POURSUIVRE la proie la plus proche (anticipation + erreur de visée,
+	     dash et capacité de temps en temps), hors de sa zone sûre ;
+	  4. sinon aller vers l'OBJECTIF de la map (Map.GetBotGoal), ou flâner.
+	Un bot à terre ne fait rien : il attend qu'on le porte.
 	Chaque changement de décision est retardé d'un temps de réaction, et une
 	part des décisions sont des "erreurs" (hésitation, mauvaise direction).
 	Le déplacement utilise PathfindingService pour les cibles lointaines.
@@ -22,6 +26,8 @@ local ActorService = require(script.Parent.Parent.Services.ActorService)
 local RoundState = require(script.Parent.Parent.Services.RoundState)
 local AbilityService = require(script.Parent.Parent.Services.AbilityService)
 local HideService = require(script.Parent.Parent.Services.HideService)
+local RescueService = require(script.Parent.Parent.Services.RescueService)
+local SafeZoneService = require(script.Parent.Parent.Services.SafeZoneService)
 local BotAnimator = require(script.Parent.BotAnimator)
 
 type Actor = Types.Actor
@@ -35,7 +41,7 @@ local random = Random.new()
 export type Brain = {
 	Actor: Actor,
 	Animator: any,
-	Mode: string, -- "Idle" | "Chase" | "Flee" | "Objective" | "Wander" | "Hide" | "Pause"
+	Mode: string, -- "Idle" | "Chase" | "Flee" | "Objective" | "Wander" | "Hide" | "Pause" | "Rescue"
 	Target: Actor?,
 	Goal: Vector3?,
 	FleeDirection: Vector3?,
@@ -55,6 +61,8 @@ export type Brain = {
 	SidestepUntil: number,
 	SidestepDir: Vector3?,
 	AnimAccumulator: number,
+	RescueChoice: { [any]: boolean }, -- décision prise pour chaque mise à terre
+	NextCarryTry: number,
 }
 
 function BotBrain.new(actor: Actor): Brain
@@ -81,6 +89,8 @@ function BotBrain.new(actor: Actor): Brain
 		SidestepUntil = 0,
 		SidestepDir = nil,
 		AnimAccumulator = 0,
+		RescueChoice = setmetatable({}, { __mode = "k" }),
+		NextCarryTry = 0,
 	}, BotBrain)
 	local humanoid = ActorService.GetHumanoid(actor)
 	if humanoid then
@@ -135,8 +145,44 @@ end
 
 local function isProtected(other: Actor): boolean
 	local character = other.Character
+	if character and character:GetAttribute("SafeZone") == true then
+		return true -- à l'abri dans la zone sûre de son camp
+	end
 	local untilTime = character and character:GetAttribute("ProtectedUntil")
 	return type(untilTime) == "number" and untilTime > os.clock()
+end
+
+-- Centre du camp de l'équipe (zone sûre)
+local function homeOf(actor: Actor): Vector3?
+	local base = SafeZoneService.GetBase(actor.Team)
+	return base and base.Center or nil
+end
+
+-- Coéquipier à terre (non porté) que ce bot accepte d'aller chercher
+local function findRescueTarget(self: Brain, position: Vector3): Actor?
+	local team = self.Actor.Team
+	local best, bestDistance = nil, cfg.RescueRange
+	for _, entry in RescueService.GetDowned() do
+		local victim = entry.Actor
+		if entry.Carrier == nil and victim.Team == team and victim ~= self.Actor then
+			local p = ActorService.GetPosition(victim)
+			if p then
+				local distance = flat(p - position).Magnitude
+				if distance < bestDistance then
+					-- Décision tirée une fois par mise à terre (pas d'hésitation)
+					local willing = self.RescueChoice[entry]
+					if willing == nil then
+						willing = random:NextNumber() < cfg.RescueChance
+						self.RescueChoice[entry] = willing
+					end
+					if willing then
+						best, bestDistance = victim, distance
+					end
+				end
+			end
+		end
+	end
+	return best
 end
 
 -- ---------------------------------------------------------------------------
@@ -208,7 +254,9 @@ end
 
 local function setMode(self: Brain, mode: string, data: any)
 	self.Mode = mode
-	if mode == "Chase" then
+	if mode == "Rescue" then
+		self.Target = data
+	elseif mode == "Chase" then
 		self.Target = data
 		self.AimOffset = Vector3.new(random:NextNumber(-1, 1), 0, random:NextNumber(-1, 1)) * cfg.AimError
 	elseif mode == "Flee" then
@@ -287,16 +335,21 @@ function BotBrain.Think(self: Brain)
 	if not position or not actor.Team then
 		return
 	end
-	if not RoundState.IsActive() then
+	if not RoundState.IsActive() or RescueService.IsDown(actor) then
 		setMode(self, "Idle", nil)
+		self.PendingMode = nil
 		return
 	end
 	local perception = perceive(self, position)
-	local carrying = isCarrier(actor)
+	local carryingTeammate = RescueService.GetCarried(actor) ~= nil
+	local carrying = isCarrier(actor) or carryingTeammate
 	local fleeDistance = cfg.FleeDistance * (carrying and 0.6 or 1)
+	local home = homeOf(actor)
+	local rescueTarget = (not carrying) and findRescueTarget(self, position) or nil
 
-	-- Erreur volontaire : hésitation ou fausse piste
-	if random:NextNumber() < cfg.MistakeChance then
+	-- Erreur volontaire : hésitation ou fausse piste (pas pendant un sauvetage)
+	local focused = carryingTeammate or self.Mode == "Rescue"
+	if random:NextNumber() < cfg.MistakeChance and not focused then
 		if random:NextNumber() < 0.5 then
 			decide(self, "Pause", nil)
 		else
@@ -306,19 +359,29 @@ function BotBrain.Think(self: Brain)
 		local predatorPos = ActorService.GetPosition(perception.Predator) or position
 		local away = flat(position - predatorPos)
 		away = away.Magnitude > 0.1 and away.Unit or Vector3.new(1, 0, 0)
-		-- Un porteur fuit en direction de sa base
+		-- Un porteur fuit en direction de sa base ; près de son camp, on se
+		-- réfugie dans la zone sûre
 		local map = RoundState.Map
-		if carrying and map and map.GetBotGoal then
-			local home = map.GetBotGoal(actor)
-			if home then
-				away = (away + flat(home - position).Unit * 1.2).Unit
+		if carryingTeammate and home then
+			away = (away + flat(home - position).Unit * 1.2).Unit
+		elseif carrying and map and map.GetBotGoal then
+			local goal = map.GetBotGoal(actor)
+			if goal then
+				away = (away + flat(goal - position).Unit * 1.2).Unit
 			end
+		elseif home and flat(home - position).Magnitude < cfg.SafeZoneRefugeDistance then
+			away = (away + flat(home - position).Unit * 0.9).Unit
 		end
 		local hideSpot = nil
 		if not carrying and random:NextNumber() < cfg.HideChance then
 			hideSpot = chooseHidingSpot(position, away)
 		end
 		decide(self, "Flee", { Predator = perception.Predator, Direction = away, HideSpot = hideSpot })
+	elseif carryingTeammate and home then
+		-- Ramener le coéquipier porté dans la zone sûre du camp
+		decide(self, "Objective", home)
+	elseif rescueTarget then
+		decide(self, "Rescue", rescueTarget)
 	elseif perception.Prey and perception.PreyDistance < cfg.ChaseDistance and not carrying then
 		decide(self, "Chase", perception.Prey)
 	else
@@ -400,6 +463,14 @@ function BotBrain.Step(self: Brain, dt: number)
 		return
 	end
 	local now = os.clock()
+	-- À terre (ou porté) : immobile, en attendant un coéquipier
+	if character:GetAttribute("Downed") == true then
+		self.Speed = 0
+		self.Mode = "Idle"
+		self.PendingMode = nil
+		humanoid:Move(Vector3.zero, false)
+		return
+	end
 
 	-- Décision en attente (temps de réaction)
 	if self.PendingMode and now >= self.PendingAt then
@@ -431,6 +502,23 @@ function BotBrain.Step(self: Brain, dt: number)
 					direction = delta.Magnitude > 0.1 and delta.Unit or nil
 				else
 					direction, wantJump = pathDirection(self, position, clampToMap(aim))
+				end
+			else
+				self.Mode = "Idle"
+			end
+		elseif self.Mode == "Rescue" and self.Target then
+			local targetPos = ActorService.GetPosition(self.Target)
+			if targetPos and RescueService.IsDown(self.Target) and RescueService.GetCarried(actor) == nil then
+				local distance = flat(targetPos - position).Magnitude
+				if distance <= Config.Rescue.PickupRange - 1 then
+					if now >= self.NextCarryTry then
+						self.NextCarryTry = now + 0.3
+						RescueService.TryCarry(actor)
+					end
+				elseif distance < cfg.DirectChaseDistance then
+					direction = flat(targetPos - position).Unit
+				else
+					direction, wantJump = pathDirection(self, position, targetPos)
 				end
 			else
 				self.Mode = "Idle"

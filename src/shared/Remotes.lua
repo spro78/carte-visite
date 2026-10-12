@@ -27,6 +27,7 @@ Remotes.Names = {
 	RequestDash = "RequestDash", -- (side: -1 | 1)
 	RequestAbility = "RequestAbility", -- ()
 	CaptureAttempt = "CaptureAttempt", -- (target: Model)
+	RequestCarry = "RequestCarry", -- () : porter le coéquipier à terre le plus proche, ou le lâcher
 	ShopPurchase = "ShopPurchase", -- (category: string, itemId: string)
 	ShopEquip = "ShopEquip", -- (category: string, itemId: string)
 	RequestData = "RequestData", -- () : redemande l'état de son profil

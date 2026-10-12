@@ -751,7 +751,13 @@ local function releaseCarry(actor: Actor, returnHome: boolean)
 		weld:Destroy()
 	end
 	if returnHome then
-		table.insert(eggsInBase[entry.From], entry.Part)
+		-- Un œuf porté est rangé dans le personnage : s'il n'a plus de parent, il a
+		-- disparu avec lui (réapparition du porteur) et on en refait un
+		local part = entry.Part
+		if part.Parent == nil then
+			part = newEgg(entry.From)
+		end
+		table.insert(eggsInBase[entry.From], part)
 		layoutBase(entry.From)
 		publishScores()
 	end
@@ -826,7 +832,8 @@ local function updateRaid()
 			if MapBase.IsInBase(bases[team], root.Position) then
 				deposit(actor)
 			end
-		else
+		elseif actor.Character and actor.Character:GetAttribute("Carrying") == nil then
+			-- (un porteur de coéquipier a les mains prises)
 			local preyTeam = Teams.GetPrey(team)
 			if preyTeam and #eggsInBase[preyTeam] > 0 and MapBase.IsInBase(bases[preyTeam], root.Position) then
 				steal(actor, preyTeam)
@@ -1006,7 +1013,7 @@ function Map.DebugState()
 	for teamId, list in eggsInBase do
 		counts[teamId] = #list
 	end
-	return { Eggs = counts, Carrying = carrying, Catapult = catapult }
+	return { Eggs = counts, EggParts = eggsInBase, Carrying = carrying, Catapult = catapult }
 end
 
 return Map

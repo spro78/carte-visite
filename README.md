@@ -2,11 +2,45 @@
 
 Party game Roblox de poursuite à trois équipes, écrit en Luau et synchronisé
 avec Roblox Studio grâce à [Rojo](https://rojo.space). Tout est généré par le
-code : lobby, cartes (relief en Terrain), mécanismes, interface, effets.
+code : lobby, cartes (sol et relief en pièces), mécanismes, interface, effets.
 
 > Règle affichée au joueur : **"Catch your prey. Run from your hunter."**
 > Le RENARD attrape la POULE, la POULE attrape la VIPÈRE, la VIPÈRE attrape le RENARD.
-> Un joueur attrapé rejoint l'équipe qui l'a attrapé et continue de jouer.
+> Un joueur attrapé est **à terre** : un coéquipier peut le porter jusqu'à son camp pour
+> le relever. Sinon, il rejoint l'équipe qui l'a attrapé. Il n'y a pas de prison.
+
+## Règles du jeu (règle retenue)
+
+1. **Capture** : en touchant sa proie, on la met **à terre**. Elle reste couchée là où elle a été attrapée.
+   - Elle ne bouge plus, ne peut plus être attrapée et ne compte plus pour les objectifs.
+   - Elle reste dans son équipe.
+   - La capture compte pour le chasseur : pièces, statistiques, fil des captures.
+   - Si elle portait un œuf, l'œuf tombe (Golden Egg) ou retourne à son camp (Raid).
+2. **Portage** : un coéquipier debout, à moins de 7 studs, peut la porter.
+   - Commandes : touche **C**, bouton **Y** à la manette, bouton **CARRY** en tactile.
+   - Le porteur est ralenti (x0,8), ne peut attraper personne et peut la lâcher (même commande).
+   - Le chrono de la personne portée est suspendu.
+3. **Réanimation** : dès que le porteur entre dans la **zone sûre de leur camp**, la personne portée se relève sur la plateforme.
+   - Elle reste dans son équipe, avec 2 s de protection.
+   - Le porteur gagne un objectif (pièces).
+4. **Pas de secours** : au bout de **15 s** à terre sans être portée, la personne rejoint l'équipe qui l'a attrapée et se relève sur place, protégée 2 s.
+   - C'est la conversion d'origine, appliquée une seule fois, à la fin.
+   - Si plus aucun coéquipier n'est debout, la conversion est immédiate.
+   - Personne ne reste bloqué.
+5. **Cas particuliers** :
+   - Un porteur attrapé lâche son coéquipier, qui garde au moins 5 s de chrono.
+   - Réapparaître (reset) pendant qu'on est à terre vaut abandon : conversion immédiate.
+   - En fin de manche, tout le monde se relève sans changer d'équipe. Les joueurs à terre comptaient déjà dans leur équipe.
+6. **Zones sûres** : chaque camp a une zone autour et derrière sa plateforme, marquée au sol par un liseré pointillé et « SAFE ZONE ».
+   - Un défenseur dans la zone de **son** camp ne peut être ni attrapé ni mordu (vérifié par le serveur).
+   - Les adversaires peuvent y entrer (vol d'œufs du Raid), mais n'y sont pas protégés.
+   - Même règle pour les trois camps et les quatre cartes.
+7. **Victoire** : inchangée.
+   - Objectif de la carte.
+   - Ou dernière équipe debout.
+   - Ou, au chrono, l'équipe la plus nombreuse (ou la règle de la carte).
+
+Réglages : `Config.Rescue` et `Config.SafeZone` dans `src/shared/Config.lua`.
 
 ## Structure
 
@@ -25,7 +59,9 @@ src/server/                -> ServerScriptService.Server
     VoteService.lua        Vote + rotation des cartes
     MapRegistry.lua        Chargement automatique des cartes de Maps/
     TeamService.lua        Équipes équilibrées
-    CaptureService.lua     Captures et conversions (validées par le serveur)
+    CaptureService.lua     Captures (validées par le serveur) -> mise à terre
+    RescueService.lua      À terre, portage, réanimation, conversion faute de secours
+    SafeZoneService.lua    Zones sûres des camps (protection vérifiée par le serveur)
     AbilityService.lua     Dash et capacités (mêmes statistiques pour tous)
     LobbyBuilder.lua       Lobby (place du village, vote, roue, boutique, classements)
     HideService, LaunchService, ActorService (joueurs + bots), ...
@@ -33,11 +69,11 @@ src/server/                -> ServerScriptService.Server
     MapBase.lua            Système commun : arène, camps, chemins, cachettes, mécanismes
     _Template.lua          Modèle commenté pour créer une carte
     TheFarm, TheCarousel, TheCanyon, TheSwamp
-  Util/                    Build (Parts), Props (décors 3D), TerrainKit (relief)
+  Util/                    Build (Parts), Props (décors 3D), Ground (sol et relief en pièces)
   Bots/                    Bots (noms, apparence, cerveau)
   Data/                    Profil sauvegardé, économie, boutique, roue, classements, Robux
 src/client/                -> StarterPlayer.StarterPlayerScripts.Client
-  Controllers/             Mouvement, contours, effets et sons, état, données
+  Controllers/             Mouvement, contours, portage (RescueController), effets et sons, état, données
   UI/                      HUD, barre d'action tactile, boutique, fil des captures
 tools/                     Vérification hors Studio (types, simulation, rendus 3D)
 ```
@@ -92,6 +128,8 @@ Alternative sans serveur : `rojo build -o HuntOrHide.rbxl` puis ouvrir le fichie
 
 ## Tester
 
+- **Protocole de vérification dans Studio** (contours, zones sûres, mise à terre,
+  portage, réanimation, HUD, mobile) : `reference/TEST_STUDIO.md`.
 - **Un joueur** : bouton *Play* dans Studio. Une manche se lance avec un seul
   joueur (`Config.Round.MinPlayersToStart = 1`).
 - **Plusieurs joueurs** : onglet *Test* -> *Clients and Servers* -> choisir
@@ -116,11 +154,16 @@ dans la fenêtre *Output* de Studio.
   - interface en police Fredoka One, panneaux vert-de-gris à bord crème.
 
   Réglages dans `src/shared/Style.lua`, `Map.Lighting` et les thèmes des cartes.
-- **Chacun garde son avatar Roblox.** L'équipe se lit en pleine course grâce aux
-  attributs de l'animal ajoutés par-dessus (oreilles et queue de renard, crête de
-  poule, capuche de vipère), au foulard d'équipe, au contour (vert = ta proie,
-  rouge = ton chasseur) et à l'étiquette au-dessus de la tête.
-  `Config.Appearance.Mode` : "Accessories" (défaut), "Avatar" ou "Animal".
+- **Chacun garde son avatar Roblox, entièrement** : corps, vêtements, accessoires et
+  couleurs. L'équipe se lit à un **contour lumineux seul**, sans remplissage, aux
+  couleurs de l'équipe :
+  - renards orange ;
+  - poules jaunes ;
+  - vipères vertes (l'équipe garde son nom `SNAKE` dans le code).
+
+  L'étiquette au-dessus de la tête complète : équipe, PREY / HUNTER, SAFE, DOWN.
+  `Config.Appearance.Mode` : "Avatar" (défaut). "Accessories" et "Animal" restent
+  disponibles mais ne sont pas utilisés.
 - **Avatars R6** conseillés : *Home > Game Settings > Avatar > Avatar Type = R6*.
 
 ## Ajouter une carte
@@ -156,7 +199,7 @@ automatiquement en fin de manche. La carte entre dans le vote et la rotation.
 1. `rojo build -o HuntOrHide.rbxl`, ouvrir le fichier dans Studio (ou `rojo serve`).
 2. Supprimer la Baseplate et la SpawnLocation d'origine si elles existent.
 3. *Game Settings* : Avatar Type = R6 ; *Security* : activer **Studio Access to
-   API Services** (sauvegarde et classements) ; *Workspace.Terrain.Decoration = true*.
+   API Services** (sauvegarde et classements).
 4. Tester dans Studio : *Play* (1 joueur + bots), puis *Test > Clients and Servers*
    avec 3 joueurs (captures, vote, résultats, boutique, roue) et l'émulateur de
    téléphone (*Test > Device*) pour les boutons tactiles.
@@ -173,5 +216,7 @@ automatiquement en fin de manche. La carte entre dans le vote et la rotation.
 - [x] Bots
 - [x] Pièces, niveaux, boutique de cosmétiques, sauvegarde, classements
 - [x] Effets, sons, fil des captures, résultats expliqués, arrivée en cours de manche
-- [ ] Test en conditions réelles dans Studio (sensations, mobile, performance à 16+ joueurs)
+- [x] Avatars intacts + contour d'équipe, zones sûres, mise à terre / portage / réanimation (simulation)
+- [ ] Test en conditions réelles dans Studio (sensations, mobile, performance à 16+ joueurs) :
+      protocole dans `reference/TEST_STUDIO.md`
 - [ ] Sons d'ambiance par carte et musique (identifiants d'assets à choisir)

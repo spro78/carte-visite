@@ -52,6 +52,8 @@ Les domaines Roblox (pages, vignettes, CDN) et YouTube sont bloqués par la poli
 | Plateau d'un seul ton dominant, bandes à peine visibles (≈ 5 %) | P1 ; bandes = repère de vitesse (P4) | rendus |
 | Au plus 4 couleurs au sol : plateau, chemins, une zone d'accent, abords des camps | P1 | revue |
 | Plateau à ΔE ≥ 40 (Lab) des 3 couleurs d'équipe, d'un avatar blanc (245, 245, 245) et d'un avatar sombre (27, 42, 53) | P3 | `test_visual` |
+| Couleurs d'équipe = couleurs des contours : renard orange (240, 128, 40), poule jaune (250, 222, 90), vipère verte (40, 255, 40), plus claire et plus saturée que les sols verts | P3, C1 | `test_visual` |
+| Chaque couleur d'équipe à ΔE ≥ 45 du plateau et ≥ 30 des chemins, sur chaque carte (contour lisible en poursuite) | P3, P4 | `test_visual` |
 | Aucune surface ≥ 64 studs² confondable avec une couleur d'équipe (teinte < 22°, saturation et luminosité à moins de 0,25) | P3, C1 | `test_visual` |
 | Couleurs d'équipe réservées : joueurs, camps, interface d'équipe | C1 | `test_visual` |
 | Accents saturés seulement sur les repères | P4 | revue |
@@ -88,18 +90,30 @@ Tailles utiles (un joueur mesure 5 studs) :
 | Couloirs de 10 studs dégagés de chaque camp au centre (pas d'obstacle de plus de 3 studs) | P4 | `test_visual` |
 | Obstacles et cachettes entre les couloirs | P4, C1 | `test_visual` |
 | Balises de camp de 32 studs, visibles depuis l'entrée des deux autres camps | P4, C1 | `test_visual` |
+| **Zone sûre** de chaque camp (plateforme + 8 studs sur les côtés, 4 devant, jusqu'à 24 derrière) marquée au sol : liseré pointillé à la couleur de l'équipe éclaircie, « SAFE ZONE » à l'entrée. Plat (0,12 stud), traversable : ne gêne ni la course ni la vue | P4, C1 | `test_visual`, `test_rescue` |
 | Un repère central (le mécanisme) et 3 lieux de zone avec panneau | P4, C1 | rendus |
 
 ## 6. Joueurs à l'écran
 
 - Caméra Roblox par défaut pour tous les contrôles : 12,5 studs derrière le joueur, 15° vers le bas, champ de 70° (P4).
-- Contours au premier plan : proie en vert, chasseur en rouge, porteur en or (P3, C1).
-- **Étiquette d'une ligne** : une puce aux couleurs de l'équipe (animal, ou PREY / HUNTER), puis le pseudo, sans ligne d'infos (P3, P4, C2).
+- **Avatars intacts** : corps, vêtements, accessoires et couleurs de chaque joueur restent ceux de son avatar Roblox. Rien n'est ajouté ni recoloré (P3, C1).
+- **Contour lumineux seul**, à la couleur de l'équipe, pour chaque joueur, le sien compris (P3, C1) :
+  - Highlight sans remplissage, toujours au premier plan ;
+  - il ne voile ni l'avatar ni les effets ;
+  - au plus 28 contours : le sien, les coéquipiers à terre, puis les plus proches ;
+  - un ennemi caché dans les herbes perd son contour, sauf de près.
+- **Étiquette d'une ligne** : une puce aux couleurs de l'équipe, puis le pseudo, sans ligne d'infos (P3, P4, C2). La puce affiche :
+  - PREY / HUNTER pour qui me concerne, sinon l'animal ;
+  - SAFE dans la zone sûre de son camp, bord menthe ;
+  - DOWN quand le joueur est à terre.
+- **À terre** : couché sur le dos, contour qui pulse. Pour les coéquipiers, un marqueur « HELP » visible de loin indique les secondes restantes et la distance (P4).
+- **Porté** : couché à plat ventre sur l'épaule droite du porteur, tête dans son dos (P4).
 
 ## 7. Effets
 
 - Dash : traînée blanche courte et poussière (P4).
-- Capture : gerbe aux couleurs du chasseur, onde au sol, texte bref, secousse de la victime (P4).
+- Capture : gerbe aux couleurs du chasseur, onde au sol, « DOWN! », secousse de la victime (P4).
+- Ramassage : petit nuage de poussière. Réanimation : étincelles de l'équipe, onde, « SAVED! ». Conversion : onde de la nouvelle équipe (P4).
 - Moins de 0,6 s, 24 effets au plus. Rien ne reste au centre de l'écran (P4).
 
 ## 8. Interface : notre kit (C2)
@@ -107,7 +121,9 @@ Tailles utiles (un joueur mesure 5 studs) :
 | Choix | Pourquoi | Preuve |
 |---|---|---|
 | Police Fredoka One, droite ; panneaux vert-de-gris (18, 44, 48) à bord crème ; accent menthe | C2 (ni la police ni les couleurs de la référence) | rendus |
-| Haut centre : **capsule chrono** puis **ruban de rôle** bordé à la couleur de l'équipe, puis ligne d'objectif | C2, P4 | `test.luau`, `test_mobile` |
+| Haut centre : **capsule chrono** puis **ruban de rôle** bordé à la couleur de l'équipe (proie et chasseur écrits à la couleur de leur contour), puis ligne d'objectif | C2, P4 | `test.luau`, `test_mobile` |
+| **Pastille d'état** d'une ligne sous le bloc du haut, bord à la couleur de l'état ; l'annonce passe dessous. Par priorité : à terre (secondes + jauge), porté, en train de porter, consigne de portage (« Press C… » / « Tap CARRY… »), zone sûre, coéquipier à terre ailleurs | P4, C3 | `test_rescue`, `test_mobile` |
+| Médaillon **CARRY** (puce C) dans le dock, ou au-dessus du dash gauche en tactile, seulement près d'un coéquipier à terre ; devient DROP pendant le portage | C2, C3 | `test_rescue`, `test_mobile` |
 | Menus en haut à droite, à gauche du tableau des équipes ; masqués en manche sur tactile | C2, C3 | `test_mobile` |
 | **Médaillons d'action** ronds (dock clavier en bas, autour du saut Roblox en tactile) | C2, C3 | `test_mobile` |
 | Fin de manche : bandeau du vainqueur, colonnes d'équipe, 3 cartes de distinction, puce de niveau. Ni onglets, ni podium | C2 | rendus |
@@ -135,7 +151,10 @@ Tailles utiles (un joueur mesure 5 studs) :
   - tenons, matières, ombres « Future », brume ;
   - Fredoka One telle qu'affichée par Roblox.
 - Sensation de vitesse et lisibilité en vraie partie.
-- Encoches, zones sûres, joystick et saut réels sur appareil.
+- Encoches, zones sûres de l'écran, joystick et saut réels sur appareil.
+- Contours Highlight réels : épaisseur, lisibilité en mouvement, limite de 31.
+- Portage réel : pose du corps soudé, propriété réseau, absence de saccades. Aucune animation dédiée : le corps est posé, pas animé.
+- Lisibilité du liseré « SAFE ZONE » au sol.
 - Performance (nombre de pièces, appareils modestes).
 - Ressemblance réelle avec la référence : l'arène n'a jamais été vue.
 

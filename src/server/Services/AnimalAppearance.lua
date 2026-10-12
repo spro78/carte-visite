@@ -1,8 +1,10 @@
 --[[
 	AnimalAppearance.lua
-	Par défaut (Config.Appearance.Mode = "Accessories"), l'avatar Roblox reste
-	intact et reçoit les attributs de son animal + un foulard d'équipe.
-	En mode "Animal", la teinte d'équipe et le museau/bec s'ajoutent.
+	Par défaut (Config.Appearance.Mode = "Avatar"), l'avatar Roblox reste
+	entièrement intact : on ne pose que l'attribut "Animal" (l'équipe se lit au
+	contour lumineux, OutlineController). Modes optionnels :
+	  "Accessories" : attributs de l'animal + foulard d'équipe par-dessus l'avatar ;
+	  "Animal" : en plus, teinte d'équipe et museau/bec.
 	Pièces soudées par animal :
 	  FOX     : oreilles pointues + grosse queue à bout blanc
 	  CHICKEN : crête rouge + bec + plumes de queue

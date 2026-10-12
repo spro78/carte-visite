@@ -25,6 +25,10 @@ function LaunchService.Launch(actor: Actor, velocity: Vector3, ragdollSeconds: n
 	if not character or not ActorService.IsAlive(actor) then
 		return false
 	end
+	-- Un joueur à terre (ou porté) ne s'envole pas : son porteur l'emmène
+	if character:GetAttribute("Downed") == true then
+		return false
+	end
 	local now = os.clock()
 	if not ignoreCooldown and lastLaunch[actor.Id] and now - lastLaunch[actor.Id] < Config.Launch.Cooldown then
 		return false

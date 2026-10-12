@@ -183,7 +183,7 @@ end
 
 -- Blocs visibles du HUD du jeu qui ne doivent jamais se chevaucher (contenu
 -- réel : pastilles, lignes du bloc du haut, panneaux), puis liste des problèmes
-local TOUCH_ACTIONS = { "DashLeft", "DashRight", "Stop", "Ability" }
+local TOUCH_ACTIONS = { "DashLeft", "DashRight", "Stop", "Ability", "Carry" }
 function Layout.HudBlocks(hud, rects)
 	local blocks = {}
 	local function add(name, gui)
@@ -207,6 +207,7 @@ function Layout.HudBlocks(hud, rects)
 	end
 	add("teams", hud.Teams)
 	add("kill feed", hud:FindFirstChild("KillFeed"))
+	add("status", hud:FindFirstChild("Status"))
 	add("announce", hud.Announce)
 	for _, panel in hud.Currency:GetChildren() do
 		if panel:IsA("Frame") then

@@ -3,6 +3,10 @@
 	Définition des trois équipes et de la chaîne de prédation :
 	FOX attrape CHICKEN, CHICKEN attrape SNAKE, SNAKE attrape FOX.
 	Utilisé par le serveur ET le client.
+	La couleur d'équipe est celle du contour lumineux des joueurs (renards
+	orange, poules jaunes, vipères vertes) : l'avatar Roblox n'est jamais
+	recoloré. Elle doit rester lisible sur le sol de chaque carte (ΔE >= 45,
+	vérifié par tools/sim/test_visual.luau).
 ]]
 
 local Teams = {}
@@ -46,19 +50,14 @@ local defs: { [string]: TeamDef } = {
 		Id = "SNAKE",
 		Display = "SNAKE",
 		Plural = "SNAKES",
-		-- Violet plutôt que vert : le vert est réservé au contour "proie"
-		Color = Color3.fromRGB(145, 90, 220),
-		DarkColor = Color3.fromRGB(75, 40, 130),
+		-- Vert vif : se détache des sols verts (plus clair et plus saturé qu'eux)
+		Color = Color3.fromRGB(40, 255, 40),
+		DarkColor = Color3.fromRGB(16, 112, 40),
 		Prey = "FOX",
 		Predator = "CHICKEN",
 	},
 }
 Teams.Defs = defs
-
--- Couleurs des contours (Highlight) côté client
-Teams.PreyOutlineColor = Color3.fromRGB(60, 235, 95) -- vert : ma proie
-Teams.PredatorOutlineColor = Color3.fromRGB(245, 50, 50) -- rouge : mon prédateur
-Teams.CarrierOutlineColor = Color3.fromRGB(255, 215, 0) -- or : porteur d'objectif (visible par tous)
 
 function Teams.Get(id: any): TeamDef?
 	if type(id) ~= "string" then

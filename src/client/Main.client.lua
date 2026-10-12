@@ -19,6 +19,7 @@ local KillFeed = require(UI:WaitForChild("KillFeed"))
 local StateController = require(Controllers:WaitForChild("StateController"))
 local MovementController = require(Controllers:WaitForChild("MovementController"))
 local OutlineController = require(Controllers:WaitForChild("OutlineController"))
+local RescueController = require(Controllers:WaitForChild("RescueController"))
 local MechanicsController = require(Controllers:WaitForChild("MechanicsController"))
 local DataController = require(Controllers:WaitForChild("DataController"))
 local EffectsController = require(Controllers:WaitForChild("EffectsController"))
@@ -28,6 +29,12 @@ MovementController.Init()
 OutlineController.Init()
 MechanicsController.Init()
 ObjectiveArrow.Init(HUD.Screen)
+-- Actions : déplacement (dash, stop, capacité) + porter un coéquipier à terre
+local function actionInfo()
+	local info: { [string]: any } = MovementController.GetCooldowns()
+	info.Carry = RescueController.GetActionInfo()
+	return info
+end
 ActionBar.Init(HUD.Screen, HUD.BottomRow, {
 	DashLeft = function()
 		MovementController.Dash(-1)
@@ -37,7 +44,9 @@ ActionBar.Init(HUD.Screen, HUD.BottomRow, {
 	end,
 	Stop = MovementController.Stop,
 	Ability = MovementController.Ability,
-}, MovementController.GetCooldowns, HUD.SetTouchMode)
+	Carry = RescueController.Carry,
+}, actionInfo, HUD.SetTouchMode)
+RescueController.Init(HUD)
 HUD.Rescale() -- le dock des médaillons existe maintenant
 ShopUI.Init(HUD.Screen, HUD.Pills.SHOP)
 DataController.Init(HUD, ShopUI)

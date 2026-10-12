@@ -126,8 +126,8 @@ check(alice:GetAttribute("Team") ~= nil, "l'attribut Team du joueur est répliqu
 local aliceChar = alice.Character
 check(aliceChar:GetAttribute("Frozen") == true, "joueurs gelés pendant le décompte")
 check(aliceChar:GetAttribute("Animal") == alice:GetAttribute("Team"), "animal attribué au personnage")
-local parts = aliceChar:FindFirstChild("AnimalParts")
-check(parts ~= nil and parts:FindFirstChild("Scarf") ~= nil, "attributs d'animal et foulard d'équipe ajoutés")
+-- Avatar Roblox entièrement conservé : rien d'ajouté, rien de recoloré
+check(aliceChar:FindFirstChild("AnimalParts") == nil, "avatar intact : aucune pièce d'animal ni foulard ajoutés")
 check(aliceChar.Head:GetAttribute("HoH_OriginalColor") == nil, "l'avatar Roblox garde ses couleurs (aucune teinte)")
 check(aliceChar.HumanoidRootPart.Position.Z > 1500, "Alice est téléportée sur la map")
 
@@ -186,7 +186,7 @@ if alice:GetAttribute("Team") == "FOX" then
 end
 
 -- ---------------------------------------------------------------------------
-section("Capture et conversion")
+section("Capture : à terre, puis conversion faute de coéquipier debout")
 Engine.Advance(3) -- une poule qui vient de planer doit d'abord atterrir
 local actors = server.RoundState.GetParticipants()
 local hunter, victim
@@ -213,7 +213,10 @@ if hunter and victim then
 		victim.Character:PivotTo(root.CFrame * CFrame.new(3, 0, 0))
 	end)
 	Engine.Advance(0.5)
-	check(victim.Team == hunterTeam, victim.Name .. " converti en " .. tostring(hunterTeam))
+	-- Une équipe d'un seul joueur : personne ne peut le porter, la règle d'origine
+	-- s'applique aussitôt (il rejoint l'équipe du chasseur, sur place)
+	check(victim.Team == hunterTeam, victim.Name .. " converti en " .. tostring(hunterTeam) .. " (aucun coéquipier pour le porter)")
+	check(victim.Character:GetAttribute("Downed") == nil and not victim.Character.HumanoidRootPart.Anchored, "il se relève aussitôt (pas de prison)")
 	check(victim.Character:GetAttribute("Team") == hunterTeam, "attribut Team du personnage mis à jour")
 	check(hunter.RoundCaptures == before + 1, "capture comptée pour " .. hunter.Name)
 	check(victim.Character:FindFirstChildOfClass("ForceField") ~= nil, "invincibilité visible après conversion")
@@ -234,31 +237,24 @@ end
 -- ---------------------------------------------------------------------------
 section("Contours côté client")
 Engine.Advance(0.5)
-local myTeam = alice:GetAttribute("Team")
 local okOutline = true
 local seen = 0
+local TeamsDefs
+Engine.Run("server", function()
+	TeamsDefs = World.Require(World.game.ReplicatedStorage.Shared.Teams)
+end)
 for _, actor in server.RoundState.GetParticipants() do
-	if actor.Character and actor.Player ~= alice then
+	if actor.Character then
 		local h = actor.Character:FindFirstChild("HoH_Outline")
-		local Teams
-		Engine.Run("server", function()
-			Teams = World.Require(World.game.ReplicatedStorage.Shared.Teams)
-		end)
-		local relation = Teams.Relation(myTeam, actor.Team)
-		local enabled = h ~= nil and h.Enabled
-		if relation == "Ally" and enabled then
-			okOutline = false
-		end
-		if relation == "Prey" and not (enabled and h.OutlineColor == Teams.PreyOutlineColor) then
-			okOutline = false
-		end
-		if relation == "Predator" and not (enabled and h.OutlineColor == Teams.PredatorOutlineColor) then
+		local def = TeamsDefs.Get(actor.Team)
+		-- Contour lumineux à la couleur de l'équipe (le sien compris), sans remplissage
+		if not (h and h.Enabled and def and h.OutlineColor == def.Color and h.FillTransparency == 1) then
 			okOutline = false
 		end
 		seen += 1
 	end
 end
-check(okOutline, "proie en vert, prédateur en rouge, alliés sans contour (" .. seen .. " vérifiés)")
+check(okOutline, "contour à la couleur de l'équipe, sans remplissage, pour chaque joueur (" .. seen .. " vérifiés)")
 
 -- ---------------------------------------------------------------------------
 section("Fin de manche et retour au lobby")

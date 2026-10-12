@@ -68,7 +68,7 @@ check(voteButton and rects[voteButton] and rects[voteButton].Visible, "les carte
 check(voteButton and rects[voteButton].H >= 44, string.format("carte de vote assez grande pour le doigt (%d px)", voteButton and math.floor(rects[voteButton].H) or 0))
 local help = hud:FindFirstChild("Help")
 local rules = help and help:FindFirstChild("Rules")
-check(rules and not string.find(rules.Text, "Q / E", 1, true) and string.find(rules.Text, "DASH buttons", 1, true) ~= nil, "les règles expliquent les boutons tactiles, pas les touches")
+check(rules and not string.find(rules.Text, "Q / E", 1, true) and string.find(rules.Text, "DASH buttons", 1, true) ~= nil and string.find(rules.Text, "CARRY", 1, true) ~= nil, "les règles expliquent les boutons tactiles (dont CARRY), pas les touches")
 -- Appui sur la première carte de vote : le serveur compte le vote
 local VoteService = H.require(World.game.ServerScriptService.Server.Services.VoteService)
 local candidates = VoteService.GetCandidates()
@@ -177,6 +177,52 @@ Engine.Advance(1 / 30)
 check(before > 5 and hum.WalkSpeed < 3, string.format("STOP : arrêt net (%.1f -> %.1f)", before, hum.WalkSpeed))
 World.SetMoveVector(tess, Vector3.zero)
 local _ = root
+
+-- ---------------------------------------------------------------------------
+section("Coéquipier à terre : bouton CARRY (tactile)")
+do
+	local RescueService = H.require(World.game.ServerScriptService.Server.Services.RescueService)
+	local me = server.ActorService.FromPlayer(tess)
+	local mate, hunter = nil, nil
+	for _, bot in server.ActorService.GetBots() do
+		if bot.Team == me.Team and bot.Character and not mate then
+			mate = bot
+		elseif bot.Team == server.Teams.GetPredator(me.Team) and bot.Character and not hunter then
+			hunter = bot
+		end
+	end
+	check(mate ~= nil and hunter ~= nil, "un bot coéquipier et un bot chasseur pour le scénario")
+	if mate and hunter then
+		H.teleport(mate, char.HumanoidRootPart.Position + Vector3.new(4, 0, 0))
+		H.onServer(function()
+			RescueService.Down(mate, hunter)
+		end)
+		Engine.Advance(0.3)
+		for _, size in { { 844, 390 }, { 390, 844 } } do
+			setScreen(size[1], size[2])
+			local vp = Vector2.new(size[1], size[2])
+			local rr = checkNoOverlap(string.format("coéquipier à terre %dx%d (pastille d'état + CARRY)", size[1], size[2]), vp)
+			local button = touch:FindFirstChild("Carry")
+			local rect = button and rr[button]
+			check(rect ~= nil and rect.Visible, string.format("[%dx%d] bouton CARRY affiché", size[1], size[2]))
+			if rect then
+				check(rect.W >= 44 and Layout.Inside(rect, vp, 0) and Layout.Overlap(rect, robloxJump(vp)) == 0, string.format("[%dx%d] CARRY : %d px, dans l'écran, hors du saut Roblox %s", size[1], size[2], math.floor(rect.W), Layout.Describe(rect)))
+			end
+			local statusPill = hud:FindFirstChild("Status")
+			local label = statusPill and statusPill:FindFirstChild("Text")
+			check(statusPill and statusPill.Visible and label and string.find(label.Text, "Tap CARRY", 1, true) ~= nil, "consigne tactile : " .. tostring(label and label.Text))
+		end
+		setScreen(844, 390)
+		touch.Carry.Activated:Fire()
+		Engine.Advance(0.3)
+		check(char:GetAttribute("Carrying") == mate.Name, "un appui sur CARRY : Tess porte " .. mate.Name .. " (validé par le serveur)")
+		local main = touch.Carry:FindFirstChild("Main")
+		check(main and main.Text == "DROP", "le bouton devient DROP")
+		touch.Carry.Activated:Fire()
+		Engine.Advance(0.3)
+		check(char:GetAttribute("Carrying") == nil and mate.Character:GetAttribute("Downed") == true, "DROP : Tess le repose")
+	end
+end
 
 -- ---------------------------------------------------------------------------
 section("Fin de manche sur téléphone")

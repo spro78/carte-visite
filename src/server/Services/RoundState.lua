@@ -44,12 +44,31 @@ function RoundState.GetParticipants(): { Actor }
 	return list
 end
 
--- Participants vivants avec une équipe et un personnage
+local function isDowned(actor: Actor): boolean
+	local character = actor.Character
+	return character ~= nil and character:GetAttribute("Downed") == true
+end
+
+-- Participants debout (ni à terre ni portés) : ceux que voient les modes de jeu
+-- (objectifs, mécanismes, points). Les joueurs à terre restent dans leur équipe.
+function RoundState.GetPlayingParticipants(): { Actor }
+	local list = {}
+	for id in RoundState.Participants do
+		local actor = ActorService.Get(id)
+		if actor and not isDowned(actor) then
+			table.insert(list, actor)
+		end
+	end
+	return list
+end
+
+-- Participants vivants et debout, avec une équipe et un personnage (captures,
+-- capacités, perception des bots)
 function RoundState.GetActiveParticipants(): { Actor }
 	local list = {}
 	for id in RoundState.Participants do
 		local actor = ActorService.Get(id)
-		if actor and actor.Team and ActorService.IsAlive(actor) then
+		if actor and actor.Team and ActorService.IsAlive(actor) and not isDowned(actor) then
 			table.insert(list, actor)
 		end
 	end

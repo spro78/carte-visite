@@ -91,7 +91,22 @@ local dashes = Engine.RemoteCalls["Effect:FireAllClients"] or 0
 local totalCaptures = 0
 local eggTaken = false
 local Farm = H.require(World.game.ServerScriptService.Server.Maps.TheFarm)
+local RescueService = H.require(World.game.ServerScriptService.Server.Services.RescueService)
 local soloActor = server.ActorService.FromPlayer(solo)
+-- Sauvetages et conversions des bots (règle : à terre -> portage ou conversion)
+local revived, converted, carries = 0, 0, 0
+H.onServer(function()
+	RescueService.Revived:Connect(function(_, rescuer)
+		if rescuer then
+			revived += 1
+		end
+	end)
+	RescueService.Converted:Connect(function()
+		converted += 1
+	end)
+end)
+local downSince = {}
+local longestWait = 0
 -- Le joueur reste immobile dans un coin (spectateur passif)
 H.teleport(soloActor, server.Config.World.MapOrigin + Vector3.new(-140, 3, -140))
 for t = 1, 150 do
@@ -102,14 +117,35 @@ for t = 1, 150 do
 	if Farm.DebugState().State == "Carried" then
 		eggTaken = true
 	end
-	if t >= 60 and eggTaken then
+	-- Temps passé à terre sans être porté (chrono serveur : jamais plus que BleedOutSeconds)
+	local now = Engine.Now()
+	local current = {}
+	for _, entry in RescueService.GetDowned() do
+		if entry.Carrier then
+			carries += 1
+			downSince[entry.Actor.Id] = nil
+		else
+			current[entry.Actor.Id] = true
+			downSince[entry.Actor.Id] = downSince[entry.Actor.Id] or now
+			longestWait = math.max(longestWait, now - downSince[entry.Actor.Id])
+		end
+	end
+	for id in downSince do
+		if not current[id] then
+			downSince[id] = nil
+		end
+	end
+	if t >= 60 and eggTaken and revived > 0 then
 		break
 	end
 end
 for _, actor in server.RoundState.GetParticipants() do
 	totalCaptures += actor.RoundCaptures
 end
-check(totalCaptures > 0, "des bots attrapent et convertissent (" .. totalCaptures .. " captures)")
+check(totalCaptures > 0, "des bots attrapent (" .. totalCaptures .. " captures)")
+print(string.format("    à terre : %d sauvetages par des bots, %d conversions, %d s de portage observées, plus longue attente au sol %.0f s", revived, converted, carries, longestWait))
+check(revived > 0, "des bots portent leurs coéquipiers à terre jusqu'au camp (" .. revived .. " sauvetages)")
+check(longestWait <= server.Config.Rescue.BleedOutSeconds + 1.5, string.format("personne ne reste au sol plus de %d s sans être porté (max %.0f s)", server.Config.Rescue.BleedOutSeconds, longestWait))
 check(eggTaken, "un bot a ramassé l'œuf d'or")
 local st = server.RoundService.GetState()
 local scores = st.Scores

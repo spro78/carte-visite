@@ -194,7 +194,7 @@ function Movement.GetMaxSpeed(character: Model): number
 	if type(mult) ~= "number" then
 		mult = 1
 	end
-	if character:GetAttribute("Frozen") == true then
+	if character:GetAttribute("Frozen") == true or character:GetAttribute("Downed") == true then
 		return 0
 	end
 	return Config.Movement.MaxSpeed * mult

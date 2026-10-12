@@ -265,7 +265,7 @@ local function buildSpawn(parent: Folder, origin: Vector3)
 		buildStatue(parent, origin + Vector3.new(math.cos(a) * 18, 0, math.sin(a) * 18), origin, teamId)
 	end
 	-- Guirlandes de fanions entre les lampadaires de la place
-	local colors = { Color3.fromRGB(240, 128, 40), Color3.fromRGB(250, 222, 90), Color3.fromRGB(145, 90, 220), Color3.new(1, 1, 1) }
+	local colors = { Teams.Defs.FOX.Color, Teams.Defs.CHICKEN.Color, Teams.Defs.SNAKE.Color, Color3.new(1, 1, 1) }
 	for _, x in { -40, 40 } do
 		Props.Lamp(parent, origin + Vector3.new(x, 0, -12), x < 0 and math.rad(90) or math.rad(-90))
 	end

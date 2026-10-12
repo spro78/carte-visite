@@ -1,15 +1,17 @@
 --[[
 	OutlineController.lua
-	Lisibilité immédiate, sans tutoriel (Highlight côté client) :
-	  - ma proie est entourée en VERT,
-	  - mon prédateur est entouré en ROUGE,
-	  - mes coéquipiers n'ont pas de contour,
-	  - un porteur d'objectif est entouré en OR pour tout le monde,
+	Lisibilité immédiate sans toucher aux avatars (Highlight côté client) :
+	  - chaque joueur a un contour lumineux à la couleur de son ÉQUIPE (renards
+	    orange, poules jaunes, vipères vertes), SANS remplissage : corps,
+	    vêtements, accessoires et couleurs de l'avatar restent intacts ;
+	  - le joueur local a aussi le sien (on se repère dans la mêlée) ;
+	  - le contour d'un joueur à terre pulse (il attend un coéquipier) ;
 	  - une étiquette d'une ligne flotte au-dessus de chaque autre acteur : puce
-	    d'équipe (ou PREY / HUNTER) puis pseudo ; l'avatar Roblox reste intact.
-	Un acteur caché (attribut "Hidden") perd son contour et son nom, sauf s'il
-	est tout proche. Roblox limite le nombre de Highlights affichés (31) :
-	on garde les plus proches.
+	    aux couleurs de l'équipe (PREY / HUNTER pour qui me concerne, SAFE dans la
+	    zone sûre de son camp, DOWN à terre), puis le pseudo.
+	Un ennemi caché (attribut "Hidden") perd son contour et son nom, sauf s'il
+	est tout proche. Roblox affiche au plus 31 Highlights : on garde le sien,
+	les coéquipiers à terre, puis les plus proches.
 ]]
 
 local Players = game:GetService("Players")
@@ -43,7 +45,8 @@ local function getHighlight(model: Model): Highlight
 	local highlight = Instance.new("Highlight")
 	highlight.Name = HIGHLIGHT_NAME
 	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	highlight.FillTransparency = 0.82
+	-- Contour seul : aucun voile de couleur sur l'avatar ni sur les effets
+	highlight.FillTransparency = 1
 	highlight.OutlineTransparency = 0
 	highlight.Enabled = false
 	highlight.Adornee = model
@@ -52,8 +55,7 @@ local function getHighlight(model: Model): Highlight
 end
 
 -- Étiquette locale au-dessus de la tête (remplace le nom Roblox), sur une ligne
--- (bible visuelle, §7) : puce aux couleurs de l'équipe à gauche (animal, ou
--- PREY / HUNTER pour qui me concerne, bord vert ou rouge), pseudo à droite.
+-- (bible visuelle, §6) : puce aux couleurs de l'équipe, puis le pseudo.
 type Tag = { Gui: BillboardGui, Team: TextLabel, Name: TextLabel, Stroke: UIStroke }
 local tags: { [Model]: Tag } = {}
 
@@ -103,12 +105,19 @@ local function updateTag(model: Model, team: any, relation: string?, visible: bo
 	tag.Gui.Enabled = true
 	local def = Teams.Get(team)
 	if def and Config.Appearance.ShowTeamBadge then
+		-- État d'abord (à terre, protégé), sinon la relation, sinon l'animal
+		local status: string? = nil
+		if model:GetAttribute("Downed") == true then
+			status = "DOWN"
+		elseif model:GetAttribute("SafeZone") == true then
+			status = "SAFE"
+		end
 		tag.Team.Visible = true
-		tag.Team.Text = RELATION_WORD[relation or ""] or def.Display
+		tag.Team.Text = status or RELATION_WORD[relation or ""] or def.Display
 		tag.Team.BackgroundColor3 = def.Color
 		tag.Team.TextColor3 = Theme.TextOn(def.Color)
-		tag.Stroke.Thickness = (relation == "Prey" or relation == "Predator") and 3 or 0
-		tag.Stroke.Color = relation == "Prey" and Teams.PreyOutlineColor or Teams.PredatorOutlineColor
+		tag.Stroke.Thickness = status and 3 or 0
+		tag.Stroke.Color = status == "SAFE" and Theme.Mint or Theme.White
 	else
 		tag.Team.Visible = false
 	end
@@ -132,13 +141,15 @@ local function myPosition(): Vector3?
 	return nil
 end
 
+type Candidate = { Highlight: Highlight, Color: Color3, Distance: number, Priority: number, Downed: boolean }
+
 local function update()
 	local myTeam = player:GetAttribute("Team")
 	if type(myTeam) ~= "string" then
 		myTeam = nil
 	end
 	local origin = myPosition()
-	local candidates = {}
+	local candidates: { Candidate } = {}
 	for model in tracked do
 		if model.Parent == nil then
 			tracked[model] = nil
@@ -146,11 +157,17 @@ local function update()
 			continue
 		end
 		local highlight = getHighlight(model)
+		local def = Teams.Get(model:GetAttribute("Team"))
+		local downed = model:GetAttribute("Downed") == true
 		if model == player.Character then
-			highlight.Enabled = false
 			local ownTag = tags[model]
 			if ownTag then
 				ownTag.Gui.Enabled = false
+			end
+			if def then
+				table.insert(candidates, { Highlight = highlight, Color = def.Color, Distance = 0, Priority = 0, Downed = downed })
+			else
+				highlight.Enabled = false
 			end
 			continue
 		end
@@ -164,38 +181,32 @@ local function update()
 		local carrier = model:GetAttribute("Carrier") == true
 		local hidden = model:GetAttribute("Hidden") == true and not carrier
 		local revealed = distance <= Config.Hiding.RevealDistance or relation == "Ally"
-
-		local color: Color3? = nil
-		if carrier then
-			color = Teams.CarrierOutlineColor
-		elseif hidden and not revealed then
-			color = nil
-		elseif relation == "Prey" then
-			color = Teams.PreyOutlineColor
-		elseif relation == "Predator" then
-			color = Teams.PredatorOutlineColor
-		end
+		local visible = not hidden or revealed
 		-- Le nom Roblox est remplacé par notre étiquette
 		setNameVisible(model, false)
-		updateTag(model, team, relation, not hidden or revealed)
-		if color then
-			table.insert(candidates, { Highlight = highlight, Color = color, Distance = distance, Carrier = carrier })
+		updateTag(model, team, relation, visible)
+		if def and visible then
+			-- Coéquipiers à terre en priorité : ce sont eux qu'il faut aller chercher
+			local priority = (downed and relation == "Ally") and 1 or 2
+			table.insert(candidates, { Highlight = highlight, Color = def.Color, Distance = distance, Priority = priority, Downed = downed })
 		else
 			highlight.Enabled = false
 		end
 	end
-	-- Les porteurs d'abord, puis les plus proches
 	table.sort(candidates, function(a, b)
-		if a.Carrier ~= b.Carrier then
-			return a.Carrier
+		if a.Priority ~= b.Priority then
+			return a.Priority < b.Priority
 		end
 		return a.Distance < b.Distance
 	end)
+	local pulse = 0.5 + 0.5 * math.sin(os.clock() * 6)
 	for index, entry in candidates do
 		local highlight = entry.Highlight
 		if index <= MAX_HIGHLIGHTS then
 			highlight.OutlineColor = entry.Color
 			highlight.FillColor = entry.Color
+			highlight.FillTransparency = 1
+			highlight.OutlineTransparency = entry.Downed and (0.1 + 0.55 * pulse) or 0
 			highlight.Enabled = true
 		else
 			highlight.Enabled = false

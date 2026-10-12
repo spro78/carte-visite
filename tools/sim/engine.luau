@@ -1150,6 +1150,10 @@ function Methods:GetScale()
 	return rawget(self, "_props")._scale or 1
 end
 function Methods:SetNetworkOwner(owner)
+	-- Même refus que Roblox pour une pièce ancrée
+	if rawget(self, "_props").Anchored then
+		error("Network Ownership API cannot be called on Anchored parts or parts welded to Anchored parts.", 2)
+	end
 	rawget(self, "_props")._networkOwner = owner
 end
 function Methods:GetNetworkOwner()
@@ -1408,9 +1412,36 @@ function Methods:AdjustSpeed(s)
 end
 function Methods:AdjustWeight() end
 
+-- Soudures (Weld) entre deux personnages : un personnage porté suit son
+-- porteur (Part1 = sa HumanoidRootPart, placée en Part0.CFrame * C0 * C1:Inverse())
+local welds = setmetatable({}, { __mode = "k" })
+Engine._classHooks.Weld = function(w)
+	welds[w] = true
+end
+
+local function carriedRoots()
+	local carried = {}
+	for w in welds do
+		if rawget(w, "_destroyed") then
+			welds[w] = nil
+			continue
+		end
+		local wp = rawget(w, "_props")
+		local p0, p1 = wp.Part0, wp.Part1
+		if wp.Enabled ~= false and p0 and p1 and not rawget(p0, "_destroyed") and not rawget(p1, "_destroyed") and w:IsDescendantOf(Engine.workspace) then
+			local model = rawget(p1, "_props").Parent
+			if model and model:FindFirstChildOfClass("Humanoid") and model:FindFirstChild("HumanoidRootPart") == p1 and not p0:IsDescendantOf(model) then
+				carried[p1] = w
+			end
+		end
+	end
+	return carried
+end
+
 -- Pas de physique de simulation : déplace les Humanoid et intègre la balistique.
 local GRAVITY = 196.2
 function Engine.PhysicsStep(dt)
+	local carried = carriedRoots()
 	for h in humanoids do
 		if rawget(h, "_destroyed") then
 			humanoids[h] = nil
@@ -1426,7 +1457,7 @@ function Engine.PhysicsStep(dt)
 			continue
 		end
 		local rp = rawget(root, "_props")
-		if rp.Anchored then
+		if rp.Anchored or carried[root] then
 			continue
 		end
 		local pos = rp.CFrame.Position
@@ -1499,6 +1530,13 @@ function Engine.PhysicsStep(dt)
 		local look = (horizontal.Magnitude > 0.1 and hp.AutoRotate) and CFrame.lookAt(newPos, newPos + horizontal) or (CFrame.new(newPos) * (rp.CFrame - rp.CFrame.Position))
 		model:PivotTo(look * (model:GetPivot():Inverse() * rp.CFrame):Inverse())
 		-- Simulation du Touched entre personnages (utilisé par certains systèmes)
+	end
+	-- Personnages portés : placés sur leur porteur après son déplacement
+	for root, w in carried do
+		local wp = rawget(w, "_props")
+		local target = rawget(wp.Part0, "_props").CFrame * (wp.C0 or CFrame.new()) * (wp.C1 or CFrame.new()):Inverse()
+		local model = rawget(root, "_props").Parent
+		model:PivotTo(target * rawget(root, "_props").CFrame:Inverse() * model:GetPivot())
 	end
 end
 

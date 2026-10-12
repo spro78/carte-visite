@@ -9,7 +9,7 @@
 	    - terrasses de blocs autour (fond du décor) et arbres en cubes dessus
 	    - limites invisibles + clôture décorative du thème
 	    - trois camps d'équipe en triangle (couleurs d'équipe, balise visible
-	      de loin, points d'apparition)
+	      de loin, points d'apparition) et leur zone sûre (liseré au sol)
 	    - chemins des camps vers le centre et anneau de course
 	  MapBase.ClearArena(origin)   -> efface un éventuel ancien Terrain de la map
 	                                  (appelé par RoundService au nettoyage)
@@ -35,6 +35,14 @@ local MapBase = {}
 
 MapBase.HidingTag = "HoH_HidingSpot"
 
+-- Zone sûre d'un camp, dans le repère du camp (-Z local = vers le centre de la carte)
+export type SafeZone = {
+	HalfWidth: number, -- demi-largeur (X local)
+	Front: number, -- étendue devant le centre du camp (vers le centre de la carte)
+	Back: number, -- étendue derrière le centre du camp
+	Height: number, -- hauteur couverte au-dessus du sol
+}
+
 export type Base = {
 	Team: string,
 	Center: Vector3, -- centre de la base (au niveau du sol)
@@ -42,6 +50,7 @@ export type Base = {
 	Pad: Part,
 	Spawns: { CFrame },
 	Radius: number, -- demi-côté de la plateforme
+	Safe: SafeZone, -- zone où les défenseurs sont protégés (Config.SafeZone)
 }
 
 -- Thème d'une map (voir BuildArena et la bible visuelle)
@@ -72,6 +81,10 @@ export type CampTheme = {
 
 -- Angles (degrés) des trois bases autour du centre
 MapBase.BaseAngles = { FOX = 90, CHICKEN = 210, SNAKE = 330 }
+
+-- Camps de la carte en cours (lus par SafeZoneService et RescueService) ;
+-- remis à nil au nettoyage de l'arène
+MapBase.ActiveBases = nil :: { [string]: Base }?
 
 local random = Random.new()
 
@@ -106,6 +119,7 @@ local ARENA_EXTENT = 1600
 local ARENA_HEIGHT = 320
 
 function MapBase.ClearArena(origin: Vector3)
+	MapBase.ActiveBases = nil
 	TerrainKit.Clear(origin + Vector3.new(0, ARENA_HEIGHT / 2 - 40, 0), Vector3.new(ARENA_EXTENT, ARENA_HEIGHT, ARENA_EXTENT))
 	TerrainKit.ApplyPalette()
 end
@@ -182,8 +196,81 @@ function MapBase.BasePosition(origin: Vector3, teamId: string, radius: number, a
 	return MapBase.Polar(origin, list[teamId] or MapBase.BaseAngles[teamId], radius)
 end
 
+-- Distance (studs) de p jusqu'au bord du carré de demi-côté "half" centré sur
+-- origin, en avançant dans la direction d (horizontale, unitaire)
+local function distanceToEdge(origin: Vector3, p: Vector3, d: Vector3, half: number): number
+	local best = math.huge
+	local rx, rz = p.X - origin.X, p.Z - origin.Z
+	if math.abs(d.X) > 1e-6 then
+		local t = ((d.X > 0 and half or -half) - rx) / d.X
+		if t >= 0 then
+			best = math.min(best, t)
+		end
+	end
+	if math.abs(d.Z) > 1e-6 then
+		local t = ((d.Z > 0 and half or -half) - rz) / d.Z
+		if t >= 0 then
+			best = math.min(best, t)
+		end
+	end
+	return best
+end
+
+-- Zone sûre d'un camp : la plateforme, une marge sur les côtés et devant, et
+-- une bande derrière, raccourcie si la limite de la carte est plus proche
+local function safeZoneFor(origin: Vector3, facing: CFrame, halfPad: number, bounds: number?): SafeZone
+	local cfg = Config.SafeZone
+	local halfWidth = halfPad + cfg.SideMargin
+	local back = halfPad + cfg.BackDepth
+	if bounds then
+		local backDir = -Vector3.new(facing.LookVector.X, 0, facing.LookVector.Z).Unit
+		local side = Vector3.new(facing.RightVector.X, 0, facing.RightVector.Z).Unit
+		local room = math.huge
+		for _, offset in { -halfWidth, 0, halfWidth } do
+			room = math.min(room, distanceToEdge(origin, facing.Position + side * offset, backDir, bounds - 3))
+		end
+		back = math.clamp(room - 1, halfPad + 6, back)
+	end
+	return { HalfWidth = halfWidth, Front = halfPad + cfg.FrontMargin, Back = back, Height = cfg.Height }
+end
+
+-- Repère au sol de la zone sûre : liseré pointillé aux couleurs de l'équipe et
+-- mention "SAFE ZONE" à l'entrée (visible en approchant du camp)
+local function buildSafeZoneMarker(model: Instance, at: (number, number, number) -> CFrame, zone: SafeZone, def: Teams.TeamDef)
+	local color = def.Color:Lerp(Color3.new(1, 1, 1), 0.25)
+	local w, f, b = zone.HalfWidth, zone.Front, zone.Back
+	local corners = { { -w, -f }, { w, -f }, { w, b }, { -w, b } }
+	local DASH, GAP = 3, 1.6
+	for i = 1, 4 do
+		local a, c = corners[i], corners[i % 4 + 1]
+		local dx, dz = c[1] - a[1], c[2] - a[2]
+		local length = math.sqrt(dx * dx + dz * dz)
+		local count = math.max(1, math.floor((length + GAP) / (DASH + GAP)))
+		local step = length / count
+		for k = 0, count - 1 do
+			local t = (k + 0.5) * step / length
+			local x, z = a[1] + dx * t, a[2] + dz * t
+			local along = math.abs(dx) > math.abs(dz)
+			Build.Part({
+				Name = "SafeZoneDash",
+				Size = along and Vector3.new(DASH, 0.12, 0.8) or Vector3.new(0.8, 0.12, DASH),
+				CFrame = at(x, 0.5, z),
+				Color = color,
+				Accent = true,
+				CanCollide = false,
+				CanQuery = false,
+				CanTouch = false,
+				CastShadow = false,
+			}, model)
+		end
+	end
+	local label = Build.Part({ Name = "SafeZoneLabel", Size = Vector3.new(14, 0.05, 2.6), CFrame = at(0, 0.6, -(f - 1.5)) * CFrame.Angles(0, math.pi, 0), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false }, model)
+	Build.SurfaceLabel(label, Enum.NormalId.Top, "SAFE ZONE", { TextColor3 = color, TextStrokeTransparency = 0.4, Font = Enum.Font.FredokaOne })
+end
+
 -- Trois camps disposés en triangle. Retourne bases[teamId].
-function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, padSize: number, camp: CampTheme?, angles: { [string]: number }?): { [string]: Base }
+-- bounds : demi-côté de la zone de jeu (limite la profondeur de la zone sûre)
+function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, padSize: number, camp: CampTheme?, angles: { [string]: number }?, bounds: number?): { [string]: Base }
 	local bases = {}
 	local style: CampTheme = camp or {}
 	for _, teamId in Teams.Order do
@@ -280,6 +367,10 @@ function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, p
 			table.insert(spawns, CFrame.lookAt(position, Vector3.new(origin.X, position.Y, origin.Z)))
 		end
 
+		-- Zone sûre autour et derrière le camp, et son repère au sol
+		local zone = safeZoneFor(origin, facing, halfPad, bounds)
+		buildSafeZoneMarker(model, at, zone, def)
+
 		model.Parent = folder
 		bases[teamId] = {
 			Team = teamId,
@@ -288,8 +379,10 @@ function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, p
 			Pad = pad,
 			Spawns = spawns,
 			Radius = halfPad,
+			Safe = zone,
 		}
 	end
+	MapBase.ActiveBases = bases
 	return bases
 end
 
@@ -298,6 +391,13 @@ function MapBase.IsInBase(base: Base, position: Vector3, margin: number?): boole
 	local localPos = base.CFrame:PointToObjectSpace(position)
 	local limit = base.Radius + (margin or 0)
 	return math.abs(localPos.X) <= limit and math.abs(localPos.Z) <= limit and localPos.Y < 12
+end
+
+-- Vrai si la position est dans la zone sûre du camp (autour et derrière la plateforme)
+function MapBase.IsInSafeZone(base: Base, position: Vector3): boolean
+	local zone = base.Safe
+	local p = base.CFrame:PointToObjectSpace(position)
+	return math.abs(p.X) <= zone.HalfWidth and p.Z >= -zone.Front and p.Z <= zone.Back and p.Y > -4 and p.Y < zone.Height
 end
 
 -- Chemins de terrain des camps vers le centre (+ anneau de course)
@@ -352,7 +452,7 @@ function MapBase.BuildArena(folder: Instance, origin: Vector3, cfg: ArenaConfig,
 	Ground.Terraces(origin, size, theme.Backdrop, random)
 	MapBase.BuildBoundary(folder, origin, size, cfg.BoundaryHeight or 90)
 	MapBase.BuildPerimeter(folder, origin, size, theme.Perimeter, theme.PerimeterColor)
-	local bases = MapBase.BuildBases(folder, origin, cfg.BaseRadius, cfg.BasePadSize, theme.Camp, cfg.BaseAngles)
+	local bases = MapBase.BuildBases(folder, origin, cfg.BaseRadius, cfg.BasePadSize, theme.Camp, cfg.BaseAngles, size / 2)
 	MapBase.BuildPaths(origin, bases, theme)
 	local trees = Instance.new("Folder")
 	trees.Name = "Surroundings"

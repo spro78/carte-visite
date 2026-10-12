@@ -49,6 +49,7 @@ local egg: Part? = nil
 local eggWeld: WeldConstraint? = nil
 local eggState = "None" -- "Center" | "Carried" | "Dropped" | "Waiting"
 local carrier: Actor? = nil
+local carrierLastPosition: Vector3? = nil -- dernière position connue du porteur
 local pickupAllowedAt = 0
 local eggTick = 0
 
@@ -692,6 +693,12 @@ local function dropEgg(position: Vector3, reason: string)
 		return
 	end
 	clearCarrier()
+	-- L'œuf porté est rangé dans le personnage : s'il n'a plus de parent, il a
+	-- disparu avec lui (réapparition du porteur) et on en refait un
+	if egg and egg.Parent == nil then
+		egg = createEgg()
+		eggWeld = nil
+	end
 	placeEggOnGround(position)
 	eggState = "Dropped"
 	pickupAllowedAt = os.clock() + cfg.EggDropPickupDelay
@@ -725,6 +732,7 @@ local function pickUp(actor: Actor)
 	eggWeld = weld
 
 	carrier = actor
+	carrierLastPosition = head.Position
 	eggState = "Carried"
 	ctx.SetCarrier(actor, true)
 	ctx.SetSpeedModifier(actor, "EggCarrier", cfg.CarrierSpeedMultiplier)
@@ -787,9 +795,10 @@ local function updateEgg()
 		local current = carrier
 		local root = current and ctx.GetRoot(current)
 		if not current or not root or not current.Team then
-			dropEgg(egg and egg.Position or origin, "lost")
+			dropEgg(carrierLastPosition or (egg and egg.Position) or origin, "lost")
 			return
 		end
+		carrierLastPosition = root.Position
 		-- Objectifs : les autres équipes chassent le porteur
 		for _, teamId in Teams.Order do
 			ctx.SetObjective(teamId, teamId == current.Team and bases[teamId].Center or root.Position)
@@ -802,7 +811,8 @@ local function updateEgg()
 		local best, bestDistance = nil, cfg.EggPickupRange
 		for _, actor in ctx.GetActors() do
 			local root = ctx.GetRoot(actor)
-			if root and actor.Team and actor.Character and actor.Character:GetAttribute("Ragdoll") ~= true then
+			-- Un porteur de coéquipier a les mains prises
+			if root and actor.Team and actor.Character and actor.Character:GetAttribute("Ragdoll") ~= true and actor.Character:GetAttribute("Carrying") == nil then
 				local d = (root.Position - eggPos).Magnitude
 				if d <= bestDistance then
 					best, bestDistance = actor, d
@@ -927,8 +937,8 @@ end
 
 function Map.OnActorRemoved(actor: Actor)
 	if actor == carrier then
-		local root = context and context.GetRoot(actor)
-		dropEgg(root and root.Position or (egg and egg.Position) or origin, "lost")
+		-- Là où était le porteur (et non à son point de réapparition)
+		dropEgg(carrierLastPosition or (egg and egg.Position) or origin, "lost")
 	end
 end
 

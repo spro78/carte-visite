@@ -150,6 +150,31 @@ H.teleport(B, grassPos + Vector3.new(20, 3, 0))
 Engine.Advance(0.5)
 check(bob.Character:GetAttribute("Hidden") == nil, "Bob n'est plus caché en sortant")
 
+section("Porteur qui réapparaît : l'œuf n'est pas perdu")
+park()
+check(H.advanceUntil(function()
+	return Farm.DebugState().State == "Center" or Farm.DebugState().State == "Dropped"
+end, 10), "œuf disponible")
+local eggAt = Farm.DebugState().Egg.Position
+H.teleport(B, Vector3.new(eggAt.X, 3, eggAt.Z))
+Engine.Advance(0.3)
+check(Farm.DebugState().Carrier == B, "Bob porte l'œuf")
+H.onServer(function()
+	bob:LoadCharacter() -- réapparition (reset) : l'ancien personnage et ce qu'il porte disparaissent
+end)
+Engine.Advance(1)
+debug = Farm.DebugState()
+check(debug.State == "Dropped" and debug.Egg ~= nil and debug.Egg.Parent ~= nil, "l'œuf retombe au sol au lieu de disparaître avec le personnage")
+check(debug.Egg and (Vector3.new(debug.Egg.Position.X, 0, debug.Egg.Position.Z) - Vector3.new(eggAt.X, 0, eggAt.Z)).Magnitude < 8, "là où était le porteur, pas à son point de réapparition")
+park()
+Engine.Advance(1.5)
+local again = Farm.DebugState().Egg.Position
+H.teleport(A, Vector3.new(again.X, 3, again.Z))
+Engine.Advance(0.3)
+check(Farm.DebugState().Carrier == A, "on peut le ramasser de nouveau")
+H.teleport(A, bases[A.Team] + Vector3.new(0, 4, 0))
+Engine.Advance(0.3)
+
 section("Victoire par objectif")
 local team = A.Team
 local function bring()

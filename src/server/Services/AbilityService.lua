@@ -19,6 +19,7 @@ local Types = require(Shared.Types)
 local ActorService = require(script.Parent.ActorService)
 local RoundState = require(script.Parent.RoundState)
 local RateLimiter = require(script.Parent.RateLimiter)
+local SafeZoneService = require(script.Parent.SafeZoneService)
 
 type Actor = Types.Actor
 
@@ -113,7 +114,7 @@ local function canMove(actor: Actor): boolean
 	if not character or not ActorService.IsAlive(actor) then
 		return false
 	end
-	if character:GetAttribute("Frozen") == true or Movement.IsRagdolled(character) then
+	if character:GetAttribute("Frozen") == true or character:GetAttribute("Downed") == true or Movement.IsRagdolled(character) then
 		return false
 	end
 	return true
@@ -142,6 +143,8 @@ end
 -- ---------------------------------------------------------------------------
 -- Capacités d'animal
 -- ---------------------------------------------------------------------------
+-- Ennemi le plus proche que l'on peut viser : ni à terre (exclus des
+-- participants actifs) ni à l'abri dans la zone sûre de son camp
 local function closestEnemy(actor: Actor, range: number): Actor?
 	local origin = ActorService.GetPosition(actor)
 	if not origin then
@@ -149,7 +152,7 @@ local function closestEnemy(actor: Actor, range: number): Actor?
 	end
 	local best, bestDistance = nil, range
 	for _, other in RoundState.GetActiveParticipants() do
-		if other ~= actor and other.Team ~= actor.Team then
+		if other ~= actor and other.Team ~= actor.Team and not SafeZoneService.IsSafe(other) then
 			local position = ActorService.GetPosition(other)
 			if position then
 				local distance = (position - origin).Magnitude
