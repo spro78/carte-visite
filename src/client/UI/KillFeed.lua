@@ -10,6 +10,7 @@
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Teams = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Teams"))
+local Lang = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Lang"))
 local Theme = require(script.Parent.Theme)
 
 local KillFeed = {}
@@ -103,13 +104,13 @@ end
 -- Sauvetage : "Alice saved Bob" (couleur de leur équipe)
 function KillFeed.PushRescue(rescuerName: any, victimName: any, team: any, involvesMe: boolean?)
 	local hex = Theme.Hex(colorOf(team))
-	addLine(string.format('<font color="%s">%s</font>  <font color="#ffffff">saved</font>  <font color="%s">%s</font>', hex, tostring(rescuerName or "?"), hex, tostring(victimName or "?")), involvesMe == true)
+	addLine(string.format('<font color="%s">%s</font>  <font color="#ffffff">%s</font>  <font color="%s">%s</font>', hex, tostring(rescuerName or "?"), Lang.T("saved"), hex, tostring(victimName or "?")), involvesMe == true)
 end
 
 -- Conversion : "Bob joined the FOXES" (couleur de la nouvelle équipe)
 function KillFeed.PushJoined(victimName: any, oldTeam: any, newTeam: any, involvesMe: boolean?)
 	local def = Teams.Get(newTeam)
-	addLine(string.format('<font color="%s">%s</font>  <font color="#ffffff">joined the</font>  <font color="%s">%s</font>', Theme.Hex(colorOf(oldTeam)), tostring(victimName or "?"), Theme.Hex(colorOf(newTeam)), def and def.Plural or "?"), involvesMe == true)
+	addLine(string.format('<font color="%s">%s</font>  <font color="#ffffff">%s</font>  <font color="%s">%s</font>', Theme.Hex(colorOf(oldTeam)), tostring(victimName or "?"), Lang.T("joined the"), Theme.Hex(colorOf(newTeam)), def and def.Plural or "?"), involvesMe == true)
 end
 
 function KillFeed.SetVisible(visible: boolean)

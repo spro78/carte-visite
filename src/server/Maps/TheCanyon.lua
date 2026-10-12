@@ -17,6 +17,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Teams = require(Shared.Teams)
+local Lang = require(Shared.Lang)
 local Mechanics = require(Shared.Mechanics)
 local Remotes = require(Shared.Remotes)
 local Types = require(Shared.Types)
@@ -375,7 +376,7 @@ local function buildWaterTower(parent: Instance, ground: Vector3)
 	Build.VerticalCylinder(ground + Vector3.new(0, 27.6, 0), 5.8, 1, { Name = "TankRoof", Color = Color3.fromRGB(170, 70, 50) }, parent)
 	Build.VerticalCylinder(ground + Vector3.new(0, 28.6, 0), 3, 1.2, { Name = "TankRoofTop", Color = Color3.fromRGB(170, 70, 50) }, parent)
 	local board = Build.Part(deco({ Name = "TownName", Size = Vector3.new(9, 2.2, 0.3), CFrame = CFrame.lookAt(ground + Vector3.new(0, 22.5, 0), Vector3.new(origin.X, ground.Y + 22.5, origin.Z)) * CFrame.new(0, 0, -5.3), Color = CREAM }), parent)
-	Build.SurfaceLabel(board, Enum.NormalId.Front, "RED ROCK", { TextColor3 = Color3.fromRGB(170, 70, 50), TextStrokeTransparency = 1, Font = Enum.Font.GothamBlack })
+	Build.SurfaceLabel(board, Enum.NormalId.Front, Lang.T("RED ROCK"), { TextColor3 = Color3.fromRGB(170, 70, 50), TextStrokeTransparency = 1, Font = Enum.Font.GothamBlack })
 end
 
 -- Lit de rivière à sec qui serpente (sable clair, galets) et pont de bois
@@ -784,7 +785,7 @@ local function steal(actor: Actor, fromTeam: string)
 		local thief = Teams.Get(actor.Team)
 		local victim = Teams.Get(fromTeam)
 		if thief and victim then
-			ctx.Announce(string.format("%s stole an egg from the %s!", thief.Display, victim.Plural), thief.Color)
+			ctx.Announce(Lang.F("%s stole an egg from the %s!", thief.Plural, victim.Plural), thief.Color)
 		end
 	end
 	publishScores()
@@ -807,7 +808,7 @@ local function deposit(actor: Actor)
 		local root = ctx.GetRoot(actor)
 		Remotes.Get("Effect"):FireAllClients("Score", { Position = root and root.Position, Team = team })
 		if def then
-			ctx.Announce(string.format("%s team now has %d eggs!", def.Display, #eggsInBase[team]), def.Color)
+			ctx.Announce(Lang.F("%s now have %d eggs!", def.Plural, #eggsInBase[team]), def.Color)
 		end
 		-- Tous les œufs réunis : victoire immédiate
 		if #eggsInBase[team] >= cfg.EggsPerBase * #Teams.Order then
@@ -961,7 +962,7 @@ function Map.OnCapture(_hunter: Actor, victim: Actor)
 		local ctx = context
 		local def = Teams.Get(entry.From)
 		if ctx and def then
-			ctx.Announce("The egg went back to the " .. def.Plural .. "!", def.Color)
+			ctx.Announce(Lang.F("The egg went back to the %s!", def.Plural), def.Color)
 		end
 	end
 end

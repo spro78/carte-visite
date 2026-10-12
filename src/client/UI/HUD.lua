@@ -25,6 +25,7 @@ local Teams = require(Shared.Teams)
 local MapInfo = require(Shared.MapInfo)
 local ModeInfo = require(Shared.ModeInfo)
 local Types = require(Shared.Types)
+local Lang = require(Shared.Lang)
 local Theme = require(script.Parent.Theme)
 
 local HUD = {}
@@ -34,23 +35,23 @@ local playerGui = player:WaitForChild("PlayerGui")
 local New, Label, Title = Theme.New, Theme.Label, Theme.Title
 
 local PHASE_LABELS = {
-	Waiting = "LOBBY",
-	Intermission = "LOBBY",
-	Countdown = "READY",
-	Round = "ROUND",
-	Results = "END",
+	Waiting = Lang.T("LOBBY"),
+	Intermission = Lang.T("LOBBY"),
+	Countdown = Lang.T("READY"),
+	Round = Lang.T("ROUND"),
+	Results = Lang.T("END"),
 }
 local REASONS = {
-	Objective = "Objective completed",
-	LastStanding = "Last team standing",
-	TimeUp = "Time's up",
-	Draw = "No winner this time",
+	Objective = Lang.T("Objective completed"),
+	LastStanding = Lang.T("Last team standing"),
+	TimeUp = Lang.T("Time's up"),
+	Draw = Lang.T("No winner this time"),
 }
 -- Cartes de distinction de fin de manche (clé du podium serveur -> titre)
 local AWARDS = {
-	{ Key = "MVP", Title = "ROUND STAR" },
-	{ Key = "Survival", Title = "LONGEST RUN" },
-	{ Key = "Catches", Title = "TOP CATCHER" },
+	{ Key = "MVP", Title = Lang.T("ROUND STAR") },
+	{ Key = "Survival", Title = Lang.T("LONGEST RUN") },
+	{ Key = "Catches", Title = Lang.T("TOP CATCHER") },
 }
 local PLAYING = { Countdown = true, Round = true }
 
@@ -101,7 +102,7 @@ local pillRow: Frame = New("Frame", {
 New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, pillRow)
 HUD.Pills = {}
 for index, name in { "SHOP", "SPIN", "HELP" } do
-	local pill = Theme.Pill(pillRow, name, { Name = name, Size = UDim2.new(0, 104, 1, 0), LayoutOrder = index })
+	local pill = Theme.Pill(pillRow, Lang.T(name), { Name = name, Size = UDim2.new(0, 104, 1, 0), LayoutOrder = index })
 	HUD.Pills[name] = pill
 end
 local spinBadge = Theme.Badge(HUD.Pills.SPIN)
@@ -123,7 +124,7 @@ local clock: Frame = panel(topCenter, {
 	Size = UDim2.new(0, 176, 0, 46),
 }, 3)
 Theme.CornerScale(clock, 0.5)
-local phaseLabel = Title(clock, { Name = "Phase", Position = UDim2.new(0.06, 0, 0.22, 0), Size = UDim2.new(0.36, 0, 0.56, 0), Text = "LOBBY", TextColor3 = Theme.Mint })
+local phaseLabel = Title(clock, { Name = "Phase", Position = UDim2.new(0.06, 0, 0.22, 0), Size = UDim2.new(0.36, 0, 0.56, 0), Text = Lang.T("LOBBY"), TextColor3 = Theme.Mint })
 local timerLabel = Title(clock, { Name = "Timer", Position = UDim2.new(0.42, 0, 0.1, 0), Size = UDim2.new(0.52, 0, 0.8, 0), Text = "", TextColor3 = Theme.White })
 local mainLabel = Title(topCenter, {
 	Name = "Main",
@@ -195,7 +196,7 @@ local bottomLeft: Frame = New("Frame", {
 New("UIListLayout", { Padding = UDim.new(0, 8), VerticalAlignment = Enum.VerticalAlignment.Bottom, SortOrder = Enum.SortOrder.LayoutOrder }, bottomLeft)
 local coinsPanel, coinsValue, coinsCaption = currencyPanel("Coins", 1, Theme.Coin)
 coinsPanel.Parent = bottomLeft
-coinsCaption.Text = "COINS"
+coinsCaption.Text = Lang.T("COINS")
 local levelPanel, levelValue, levelCaption = currencyPanel("Level", 2, Theme.Mint)
 levelPanel.Parent = bottomLeft
 local levelBar: Frame = New("Frame", { Position = UDim2.new(0, 48, 1, -9), Size = UDim2.new(1, -66, 0, 4), BackgroundColor3 = Theme.PanelLight, BorderSizePixel = 0 }, levelPanel)
@@ -226,7 +227,7 @@ local votePanel: Frame = New("Frame", {
 	BackgroundTransparency = 1,
 	Visible = false,
 }, screen)
-local voteTitle = Title(votePanel, { Name = "VoteTitle", Size = UDim2.new(1, 0, 0, 24), Text = "VOTE FOR THE NEXT MODE" })
+local voteTitle = Title(votePanel, { Name = "VoteTitle", Size = UDim2.new(1, 0, 0, 24), Text = Lang.T("VOTE FOR THE NEXT MODE") })
 local voteButtonsFrame: Frame = New("Frame", { Name = "Cards", Position = UDim2.new(0, 0, 0, 28), Size = UDim2.new(1, 0, 1, -56), BackgroundTransparency = 1 }, votePanel)
 New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, voteButtonsFrame)
 -- Tous les joueurs : ceux qui ont voté (et pour quoi), ceux qu'on attend
@@ -359,7 +360,7 @@ local spectatorLabel = Title(screen, {
 	AnchorPoint = Vector2.new(0.5, 1),
 	Position = UDim2.new(0.5, 0, 1, -170),
 	Size = UDim2.new(0.6, 0, 0, 26),
-	Text = "A round is in progress. You'll join the next one!",
+	Text = Lang.T("A round is in progress. You'll join the next one!"),
 	Visible = false,
 })
 
@@ -399,7 +400,7 @@ local function updateLineup()
 			local name = model:GetAttribute("DisplayName")
 			name = type(name) == "string" and name or model.Name
 			if model == myCharacter then
-				name = "<b>" .. name .. " (you)</b>"
+				name = "<b>" .. Lang.F("%s (you)", name) .. "</b>"
 			end
 			table.insert(members[team], name)
 		end
@@ -416,7 +417,7 @@ local function updateLineup()
 		end
 		local text = table.concat(shown, "\n")
 		if #list > limit then
-			text ..= string.format("\n+%d more", #list - limit)
+			text ..= "\n" .. Lang.F("+%d more", #list - limit)
 		end
 		column.Names.Text = text
 		column.Title.Text = string.format("%s · %d", (Teams.Get(teamId) :: Teams.TeamDef).Plural, #list)
@@ -436,11 +437,12 @@ local helpPanel: Frame = panel(screen, {
 	ZIndex = 40,
 }, 4)
 Theme.Corner(helpPanel, 22)
-Title(helpPanel, { Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 0, 14), Text = "HOW TO PLAY", TextColor3 = Theme.Mint, ZIndex = 40 })
+Title(helpPanel, { Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 0, 14), Text = Lang.T("HOW TO PLAY"), TextColor3 = Theme.Mint, ZIndex = 40 })
 -- Règles : la partie "commandes" suit l'appareil (clavier ou tactile)
-local HELP_RULES = "Catch your prey. Run from your hunter.\nFOX catches CHICKEN, CHICKEN catches SNAKE, SNAKE catches FOX.\nOutlines show teams: FOX orange, CHICKEN yellow, SNAKE green.\nCaught? You're down. A teammate can carry you to your base to revive you.\nNo rescue in " .. Config.Rescue.BleedOutSeconds .. "s? You join the team that caught you.\nNobody can catch you in your base's SAFE ZONE.\n\n"
-local HELP_KEYS = "Q / E : dash sideways    F : stop dead    R : your animal's ability\nC : carry a downed teammate home    Hide in tall grass and bushes!"
-local HELP_TOUCH = "DASH buttons : dodge sideways    STOP : stop dead    Big button : ability\nCARRY : pick up a downed teammate    Hide in tall grass!"
+local HELP_RULES = Lang.T("Catch your prey. Run from your hunter.\nFOX catches CHICKEN, CHICKEN catches SNAKE, SNAKE catches FOX.\nOutlines show teams: FOX orange, CHICKEN yellow, SNAKE green.\nCaught? You're down. A teammate can carry you to your base to revive you.\n")
+	.. Lang.F("No rescue in %ds? You join the team that caught you.\nNobody can catch you in your base's SAFE ZONE.\n\n", Config.Rescue.BleedOutSeconds)
+local HELP_KEYS = Lang.T("Q / E : dash sideways    F : stop dead    R : your animal's ability\nC : carry a downed teammate home    Hide in tall grass and bushes!")
+local HELP_TOUCH = Lang.T("DASH buttons : dodge sideways    STOP : stop dead    Big button : ability\nCARRY : pick up a downed teammate    Hide in tall grass!")
 local helpText = Label(helpPanel, {
 	Name = "Rules",
 	Size = UDim2.new(1, -44, 1, -76),
@@ -521,13 +523,13 @@ for index, award in AWARDS do
 	local valueLabel = Title(card, { Size = UDim2.new(0.9, 0, 0, 26), Position = UDim2.new(0.05, 0, 0, 160), Text = "", TextColor3 = Theme.Cream, ZIndex = 22 })
 	awardCards[award.Key] = { Frame = card, Portrait = portrait, Initial = initial, Name = nameLabel, Value = valueLabel }
 end
-local readyLabel = Title(results, { Size = UDim2.new(1, -60, 0, 26), Position = UDim2.new(0, 30, 0, 388), Text = "Next round soon", TextColor3 = Theme.Cream, ZIndex = 20 })
+local readyLabel = Title(results, { Size = UDim2.new(1, -60, 0, 26), Position = UDim2.new(0, 30, 0, 388), Text = Lang.T("Next round soon"), TextColor3 = Theme.Cream, ZIndex = 20 })
 local coinsLine = Title(results, { Size = UDim2.new(1, -60, 0, 20), Position = UDim2.new(0, 30, 0, 420), Text = "", TextColor3 = Theme.Coin, ZIndex = 20 })
 -- Puce de niveau : pastille "LV n", jauge menthe, XP dans la jauge
 local xpRow: Frame = New("Frame", { Name = "LevelChip", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -22), Size = UDim2.new(0, 440, 0, 40), BackgroundTransparency = 1, ZIndex = 20 }, results)
 local xpBadge: Frame = New("Frame", { Size = UDim2.new(0, 72, 1, 0), BackgroundColor3 = Theme.Mint, ZIndex = 21 }, xpRow)
 Theme.CornerScale(xpBadge, 0.5)
-local xpLevelLeft = Label(xpBadge, { Size = UDim2.fromScale(0.8, 0.6), Position = UDim2.fromScale(0.1, 0.2), Text = "LV 1", TextColor3 = Theme.Dark, FontFace = Theme.FaceHeavy, ZIndex = 22 })
+local xpLevelLeft = Label(xpBadge, { Size = UDim2.fromScale(0.8, 0.6), Position = UDim2.fromScale(0.1, 0.2), Text = Lang.F("LV %d", 1), TextColor3 = Theme.Dark, FontFace = Theme.FaceHeavy, ZIndex = 22 })
 local xpBar: Frame = New("Frame", { Position = UDim2.new(0, 84, 0.18, 0), Size = UDim2.new(1, -84, 0.64, 0), BackgroundColor3 = Theme.Dark, ZIndex = 21 }, xpRow)
 Theme.CornerScale(xpBar, 0.5)
 Theme.Stroke(xpBar, 2, Theme.Cream, 0.2)
@@ -595,7 +597,7 @@ local function roleText(teamId: string): string
 	local function tint(color: Color3): string
 		return Theme.Hex(color:Lerp(Color3.new(1, 1, 1), 0.2))
 	end
-	return string.format('<font color="%s">%s</font>  ·  catch <font color="%s">%s</font>  ·  avoid <font color="%s">%s</font>', tint(def.Color), def.Display, tint(prey.Color), prey.Plural, tint(predator.Color), predator.Plural)
+	return Lang.F('<font color="%s">%s</font>  ·  catch <font color="%s">%s</font>  ·  avoid <font color="%s">%s</font>', tint(def.Color), def.Display, tint(prey.Color), prey.Plural, tint(predator.Color), predator.Plural)
 end
 
 -- Pastille d'état (RescueController) : text nil = masquée ; progress = jauge 0..1
@@ -629,9 +631,9 @@ function HUD.SetProfile(data: { [string]: any })
 	end
 	helpShownOnce = true
 	HUD.SetCoins(data.Coins or 0)
-	coinsCaption.Text = player:GetAttribute("VIP") and "COINS  [2X]" or "COINS"
+	coinsCaption.Text = player:GetAttribute("VIP") and Lang.T("COINS  [2X]") or Lang.T("COINS")
 	local level = data.Level or 1
-	levelValue.Text = "LEVEL " .. level
+	levelValue.Text = Lang.F("LEVEL %d", level)
 	local needed = data.XPNeeded or 100
 	levelCaption.Text = string.format("%d / %d XP", data.XP or 0, needed)
 	levelFill.Size = UDim2.fromScale(math.clamp((data.XP or 0) / needed, 0, 1), 1)
@@ -730,12 +732,12 @@ local function updateVotePanel(state: Types.GameState)
 			entry.Button.Visible = true
 			entry.Stripe.BackgroundColor3 = modeDef.Color
 			entry.Name.Text = modeDef.DisplayName
-			entry.Map.Text = "on " .. mapDef.DisplayName
+			entry.Map.Text = Lang.F("on %s", mapDef.DisplayName)
 			-- Une règle par ligne (puce) ; sur petit écran, la première seulement
 			entry.Rules.Text = compact and modeDef.Rules[1] or ("· " .. table.concat(modeDef.Rules, "\n· "))
 			local n = state.Votes[option] or 0
 			local names = voters[option] or {}
-			entry.Votes.Text = string.format("<b>%d vote%s</b>%s", n, n == 1 and "" or "s", #names > 0 and (" · " .. nameList(names, compact and 2 or 3)) or "")
+			entry.Votes.Text = string.format("<b>%d %s</b>%s", n, Lang.Plural(n, "vote", "votes"), #names > 0 and (" · " .. nameList(names, compact and 2 or 3)) or "")
 		else
 			entry.Button.Visible = false
 		end
@@ -744,9 +746,9 @@ local function updateVotePanel(state: Types.GameState)
 	if count == 0 then
 		rosterLabel.Text = ""
 	elseif #waiting == 0 then
-		rosterLabel.Text = string.format("<b>%d player%s</b> · everyone voted · ties: the mode played least recently", count, count == 1 and "" or "s")
+		rosterLabel.Text = string.format("<b>%d %s</b> · ", count, Lang.Plural(count, "player", "players")) .. Lang.T("everyone voted · ties: the mode played least recently")
 	else
-		rosterLabel.Text = string.format("<b>%d player%s</b> · waiting for: %s", count, count == 1 and "" or "s", nameList(waiting, compact and 3 or 6))
+		rosterLabel.Text = string.format("<b>%d %s</b> · ", count, Lang.Plural(count, "player", "players")) .. Lang.F("waiting for: %s", nameList(waiting, compact and 3 or 6))
 	end
 	HUD.RefreshVoteHighlight()
 end
@@ -754,11 +756,11 @@ end
 local function updateResults(state: Types.GameState)
 	local winnerDef = Teams.Get(state.Winner)
 	if winnerDef then
-		resultsTitle.Text = winnerDef.Plural .. " WIN!"
+		resultsTitle.Text = Lang.F("%s WIN!", winnerDef.Plural)
 		resultsTitle.TextColor3 = winnerDef.Color
 		banner.BackgroundColor3 = winnerDef.DarkColor
 	else
-		resultsTitle.Text = "DRAW!"
+		resultsTitle.Text = Lang.T("DRAW!")
 		resultsTitle.TextColor3 = Theme.White
 		banner.BackgroundColor3 = Theme.PanelLight
 	end
@@ -766,7 +768,7 @@ local function updateResults(state: Types.GameState)
 	local reason = state.WinDetail or REASONS[state.WinReason or ""] or ""
 	local myTeam = player:GetAttribute("Team")
 	if winnerDef and myTeam then
-		reason = (myTeam == winnerDef.Id and "Your team won! " or "Your team lost. ") .. reason
+		reason = (myTeam == winnerDef.Id and Lang.T("Your team won! ") or Lang.T("Your team lost. ")) .. reason
 	end
 	resultsReason.Text = reason
 	-- Colonnes des équipes : effectif final (et score du mode)
@@ -782,31 +784,33 @@ local function updateResults(state: Types.GameState)
 	if reward and type(reward.Total) == "number" then
 		local parts = {}
 		for _, item in reward.Lines or {} do
-			table.insert(parts, string.format("%s +%d", item[1], item[2]))
+			table.insert(parts, string.format("%s +%d", Lang.T(tostring(item[1])), item[2]))
 		end
-		coinsLine.Text = string.format("+%d coins   (%s)", reward.Total, table.concat(parts, ", "))
+		coinsLine.Text = Lang.F("+%d coins   (%s)", reward.Total, table.concat(parts, ", "))
 		local needed = reward.XPNeeded or 100
-		xpLevelLeft.Text = "LV " .. (reward.Level or 1)
+		xpLevelLeft.Text = Lang.F("LV %d", reward.Level or 1)
 		xpText.Text = string.format("%d/%d XP", reward.XP or 0, needed)
 		xpFill.Size = UDim2.fromScale(math.clamp((reward.XP or 0) / needed, 0, 1), 1)
 		local leveledUp = reward.LevelBefore and reward.Level and reward.Level > reward.LevelBefore
 		local unlocks = type(reward.Unlocks) == "table" and reward.Unlocks or {}
 		if leveledUp then
 			local extra = #unlocks > 0 and ("  ·  " .. unlocks[#unlocks]) or ""
-			readyLabel.Text = "LEVEL UP! Level " .. reward.Level .. extra
+			readyLabel.Text = Lang.F("LEVEL UP! Level %d", reward.Level) .. extra
 		else
 			-- Ta manche en chiffres
 			local survival = tonumber(reward.Survival) or 0
-			readyLabel.Text = string.format("You: %d catch%s  ·  %ds longest survival%s", reward.Catches or 0, (reward.Catches or 0) == 1 and "" or "es", survival,
-				(reward.Objectives or 0) > 0 and string.format("  ·  %d objective%s", reward.Objectives, reward.Objectives == 1 and "" or "s") or "")
+			local catches = reward.Catches or 0
+			local objectives = reward.Objectives or 0
+			readyLabel.Text = Lang.F("You: %d %s  ·  %ds longest survival", catches, Lang.Plural(catches, "catch", "catches"), survival)
+				.. (objectives > 0 and string.format("  ·  %d %s", objectives, Lang.Plural(objectives, "objective", "objectives")) or "")
 		end
 	else
 		coinsLine.Text = ""
 		local level = profile.Level or 1
-		xpLevelLeft.Text = "LV " .. level
+		xpLevelLeft.Text = Lang.F("LV %d", level)
 		xpText.Text = string.format("%d/%d XP", profile.XP or 0, profile.XPNeeded or 100)
 		xpFill.Size = UDim2.fromScale(math.clamp((profile.XP or 0) / (profile.XPNeeded or 100), 0, 1), 1)
-		readyLabel.Text = "Next round soon"
+		readyLabel.Text = Lang.T("Next round soon")
 	end
 end
 
@@ -830,11 +834,11 @@ function HUD.UpdateState(state: Types.GameState)
 	else
 		ribbonStroke.Color = Theme.Mint
 		if phase == "Intermission" then
-			mainLabel.Text = "Vote for the next mode!"
+			mainLabel.Text = Lang.T("Vote for the next mode!")
 		elseif phase == "Waiting" then
-			mainLabel.Text = "Waiting for players..."
+			mainLabel.Text = Lang.T("Waiting for players...")
 		elseif phase == "Results" then
-			mainLabel.Text = "Back to the lobby soon"
+			mainLabel.Text = Lang.T("Back to the lobby soon")
 		else
 			mainLabel.Text = Teams.Rule
 		end
@@ -844,13 +848,13 @@ function HUD.UpdateState(state: Types.GameState)
 	local modeDef = ModeInfo.Get(state.ModeId)
 	local modeName = modeDef and modeDef.DisplayName or (mapDef and mapDef.ModeName) or ""
 	if phase == "Intermission" then
-		subLabel.Text = "Walk onto a plate or tap a card · one vote each"
+		subLabel.Text = Lang.T("Walk onto a plate or tap a card · one vote each")
 	elseif phase == "Countdown" then
 		-- Comment gagner dans ce mode, lisible pendant le décompte
 		local tagline = modeDef and modeDef.Tagline or (mapDef and mapDef.Tagline) or ""
-		subLabel.Text = modeName .. ": " .. tagline
+		subLabel.Text = Lang.F("%s: %s", modeName, tagline)
 	elseif phase == "Round" and mapDef then
-		local goal = state.ScoreGoal and string.format(" · first to %d %s", state.ScoreGoal, state.ScoreLabel or "points") or " · last team standing"
+		local goal = state.ScoreGoal and (" · " .. Lang.F("first to %d %s", state.ScoreGoal, Lang.T(state.ScoreLabel or "points"))) or (" · " .. Lang.T("last team standing"))
 		subLabel.Text = modeName .. " · " .. mapDef.DisplayName .. goal
 	else
 		subLabel.Text = ""

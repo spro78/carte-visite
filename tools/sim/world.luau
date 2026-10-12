@@ -1346,7 +1346,10 @@ makeEnv = function(scriptInst)
 	env._G = env
 	return env
 end
-World.Shared = {}
+-- Table « shared » des scripts. HoH_Language impose la langue des textes
+-- (Shared/Lang) : les scénarios vérifient les textes anglais, test_langue et
+-- les rendus (scenes.luau) gardent la langue du jeu (Config.Language)
+World.Shared = { HoH_Language = "en" }
 
 local function nodeToInstance(node, parent)
 	local inst

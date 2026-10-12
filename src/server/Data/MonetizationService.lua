@@ -12,6 +12,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Lang = require(Shared.Lang)
 local Remotes = require(Shared.Remotes)
 local DataService = require(script.Parent.DataService)
 
@@ -79,7 +80,7 @@ local function processReceipt(receipt): Enum.ProductPurchaseDecision
 	if not DataService.Save(player, false) then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
-	Remotes.Get("Notify"):FireClient(player, "Thanks for your purchase!", false)
+	Remotes.Get("Notify"):FireClient(player, Lang.T("Thanks for your purchase!"), false)
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 

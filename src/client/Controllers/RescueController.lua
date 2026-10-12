@@ -23,6 +23,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Teams = require(Shared.Teams)
+local Lang = require(Shared.Lang)
 
 local UI = script.Parent.Parent:WaitForChild("UI")
 local Theme = require(UI:WaitForChild("Theme"))
@@ -80,9 +81,9 @@ end
 
 local function carryHint(name: string): string
 	if ActionBar.IsTouch() then
-		return "Tap CARRY to save " .. name
+		return Lang.F("Tap CARRY to save %s", name)
 	end
-	return "Press " .. carryKey() .. " to carry " .. name
+	return Lang.F("Press %s to carry %s", carryKey(), name)
 end
 
 -- ---------------------------------------------------------------------------
@@ -110,7 +111,7 @@ local function getMarker(model: Model)
 	local pill = Theme.New("Frame", { Name = "Pill", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Theme.Panel, BackgroundTransparency = 0.1 }, gui)
 	Theme.CornerScale(pill, 0.5)
 	local stroke = Theme.Stroke(pill, 3, Theme.Bad)
-	local text = Theme.Title(pill, { Name = "Text", Size = UDim2.new(1, -12, 1, -8), Position = UDim2.fromOffset(6, 4), Text = "HELP", RichText = true })
+	local text = Theme.Title(pill, { Name = "Text", Size = UDim2.new(1, -12, 1, -8), Position = UDim2.fromOffset(6, 4), Text = Lang.T("HELP!"), RichText = true })
 	Theme.MaxText(text, 18)
 	gui.Parent = anchor
 	local marker = { Gui = gui, Text = text, Stroke = stroke }
@@ -168,7 +169,7 @@ local function update()
 		if marker then
 			marker.Gui.Enabled = true
 			local left = secondsLeft(model)
-			marker.Text.Text = string.format("HELP %s<font color=\"%s\">· %dm</font>", left and string.format("%ds ", math.ceil(left)) or "", Theme.Hex(Theme.Cream), math.floor(distance))
+			marker.Text.Text = Lang.T("HELP!") .. " " .. string.format("%s<font color=\"%s\">· %dm</font>", left and string.format("%ds ", math.ceil(left)) or "", Theme.Hex(Theme.Cream), math.floor(distance))
 			marker.Stroke.Color = def.Color
 		end
 		if distance < closestDistance then
@@ -191,19 +192,19 @@ local function update()
 	if downed then
 		local carrier = character:GetAttribute("CarriedBy")
 		if type(carrier) == "string" then
-			hud.SetStatus(string.format("CARRIED HOME by %s · hold on!", carrier), def.Color, nil)
+			hud.SetStatus(Lang.F("CARRIED HOME by %s · hold on!", carrier), def.Color, nil)
 		else
 			local left = secondsLeft(character) or 0
-			hud.SetStatus(string.format("YOU'RE DOWN · %ds · a teammate can carry you home", math.ceil(left)), Theme.Bad, left / Config.Rescue.BleedOutSeconds)
+			hud.SetStatus(Lang.F("YOU'RE DOWN · %ds · a teammate can carry you home", math.ceil(left)), Theme.Bad, left / Config.Rescue.BleedOutSeconds)
 		end
 	elseif type(carrying) == "string" then
-		hud.SetStatus(string.format("CARRYING %s · run to your base!", carrying), def.Color, nil)
+		hud.SetStatus(Lang.F("CARRYING %s · run to your base!", carrying), def.Color, nil)
 	elseif nearest then
 		hud.SetStatus(carryHint(displayName(nearest :: Model)), Theme.Mint, nil)
 	elseif character:GetAttribute("SafeZone") == true then
-		hud.SetStatus("SAFE ZONE · nobody can catch you here", Theme.Mint, nil)
+		hud.SetStatus(Lang.T("SAFE ZONE · nobody can catch you here"), Theme.Mint, nil)
 	elseif closest then
-		hud.SetStatus(string.format("%s is down · %dm · carry them home", displayName(closest), math.floor(closestDistance)), def.Color, nil)
+		hud.SetStatus(Lang.F("%s is down · %dm · carry them home", displayName(closest), math.floor(closestDistance)), def.Color, nil)
 	else
 		hud.SetStatus(nil)
 	end
@@ -217,9 +218,9 @@ function RescueController.GetActionInfo(): { Remaining: number, Total: number, A
 	local character = player.Character
 	local carrying = character and character:GetAttribute("Carrying")
 	if type(carrying) == "string" then
-		return { Remaining = 0, Total = 1, Available = true, Label = "DROP" }
+		return { Remaining = 0, Total = 1, Available = true, Label = Lang.T("DROP") }
 	end
-	return { Remaining = 0, Total = 1, Available = nearest ~= nil, Label = "CARRY" }
+	return { Remaining = 0, Total = 1, Available = nearest ~= nil, Label = Lang.T("CARRY") }
 end
 
 -- Intention : porter le coéquipier à portée, ou lâcher celui qu'on porte

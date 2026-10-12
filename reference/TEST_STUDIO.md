@@ -17,6 +17,7 @@ Ce protocole couvre ce que la simulation (`tools/check.sh`) ne peut pas prouver 
    - puis `[Kit] Décors affichés par ce joueur : … assets en meshes, … simplifiés`. **0 simplifié** : tout le décor est en meshes ;
    - si `[Kit] Limite mémoire des meshes atteinte après … pièces` apparaît : l'appareil n'a pas assez de mémoire pour construire tous les meshes. Les décors restants sont simplifiés (volumes de collision visibles, boules de feuillage), jamais en blocs géants. Pour tout afficher, importer le kit (§1, étape 5B).
 5. Jouer une manche : vote, composition des équipes, puis la manche. Regarder la carte (§2), un objectif (§4 : ramener un œuf ou tenir un anneau) et une conversion (§5, ligne 4).
+   - Le jeu est en français (`Config.Language`) : l'aide s'ouvre au premier passage au lobby (bouton **AIDE** ensuite), les équipes s'appellent RENARDS, POULES, VIPÈRES. Vérifier que les accents (É, È, À, Û, Œ) s'affichent bien dans les menus, le ruban et les panneaux au sol.
 6. Renvoyer :
    - trois captures de la fenêtre Studio (vote, vue de la carte, une poursuite) ;
    - le texte de *Output*, copié-collé ;
@@ -57,47 +58,47 @@ Ce protocole couvre ce que la simulation (`tools/check.sh`) ne peut pas prouver 
 
 | # | Action | Résultat attendu | Capture |
 |---|---|---|---|
-| 1 | Pendant l'intermission | Trois cartes : CHASE, EGG RUN, CAROUSEL « on Carousel Valley », chacune avec sa règle en trois lignes. Une ligne en dessous liste les joueurs et ceux qu'on attend. Écrans du lobby : nom du mode et de la carte | ✔ |
-| 2 | Joueur 1 clique EGG RUN, joueur 2 marche sur la plaque EGG RUN, joueur 3 vote CAROUSEL | Carte EGG RUN : « 2 votes · noms ». Le panneau géant indique le mode en tête | |
-| 3 | Fin du vote | Annonce « Next: EGG RUN on Carousel Valley » ; c'est bien ce mode qui est joué | |
+| 1 | Pendant l'intermission | Trois cartes : POURSUITE, COURSE AUX ŒUFS, MANÈGE « sur Vallée du Manège », chacune avec sa règle en trois lignes. Une ligne en dessous liste les joueurs et ceux qu'on attend. Écrans du lobby : nom du mode et de la carte | ✔ |
+| 2 | Joueur 1 clique COURSE AUX ŒUFS, joueur 2 marche sur la plaque COURSE AUX ŒUFS, joueur 3 vote MANÈGE | Carte COURSE AUX ŒUFS : « 2 votes · noms ». Le panneau géant indique le mode en tête | |
+| 3 | Fin du vote | Annonce « Prochain : COURSE AUX ŒUFS sur Vallée du Manège » ; c'est bien ce mode qui est joué | |
 | 4 | Décompte | Panneau des trois équipes avec tous les joueurs (bots compris) | ✔ |
 | 5 | Manche suivante sans voter | Le mode joué il y a le plus longtemps est choisi | |
 | 6 | Trois manches de suite | Personne ne garde le même animal deux fois de suite | |
 
 ## 4. Les modes
 
-### EGG RUN
+### COURSE AUX ŒUFS (EGG RUN)
 | # | Action | Résultat attendu |
 |---|---|---|
 | 1 | Début | Trois œufs peints (blanc, bande lilas) flottent dans trois nids, un entre chaque paire de camps ; la flèche montre l'œuf le plus proche |
-| 2 | Toucher un œuf | L'œuf se pose au-dessus de la tête ; « You have an egg! » ; ralenti ; flèche vers son camp |
+| 2 | Toucher un œuf | L'œuf se pose au-dessus de la tête ; « Tu as un œuf ! Cours le poser dans ton camp ! » ; ralenti ; flèche vers son camp |
 | 3 | Entrer dans la zone sûre de son camp | +1 œuf ; un nouvel œuf réapparaît dans un nid après 4 s |
 | 4 | Se faire attraper en portant | L'œuf tombe au sol ; ramassable après 1 s ; retourne seul dans un nid après 20 s |
 | 5 | 5 œufs | Victoire de l'équipe |
 
-### CAROUSEL
+### MANÈGE (CAROUSEL)
 | # | Action | Résultat attendu | Capture |
 |---|---|---|---|
 | 1 | Début | Les trois chevaux volants accélèrent (un tour en 48 s) ; un anneau au sol suit chacun | ✔ |
 | 2 | Rester dans un anneau | 1 point par seconde pour son équipe ; l'anneau prend sa couleur | ✔ |
 | 3 | Un adversaire entre à égalité | Plus de point ; anneau gris | |
-| 4 | Après 60 s | Annonce « The carousel turns the other way! », sens inversé | |
+| 4 | Après 60 s | Annonce « Le manège change de sens ! », sens inversé | |
 | 5 | Fluidité | L'anneau et le cheval glissent sans saccade (animation côté client) ; l'anneau ne passe jamais dans une zone sûre | |
 
-### CHASE
+### POURSUITE (CHASE)
 | # | Action | Résultat attendu |
 |---|---|---|
-| 1 | Toute la manche | Pas de score ; sous le ruban : « last team standing » ; pas d'anneau au sol |
+| 1 | Toute la manche | Pas de score ; sous le ruban : « dernière équipe debout » ; pas d'anneau au sol |
 
 ## 5. Règles qui ne changent pas (à revérifier sur cette carte)
 
 | # | Contrôle | Résultat attendu |
 |---|---|---|
 | 1 | Avatars | Intacts ; contour lumineux seul : renards orange, poules jaunes, vipères vertes |
-| 2 | Zone sûre de son camp | Liseré pointillé, « SAFE ZONE » ; impossible d'y être attrapé ou mordu |
-| 3 | Mise à terre et portage (C, bouton CARRY) | Comme dans la version précédente : porté jusqu'à la zone sûre, relevé sur la plateforme |
+| 2 | Zone sûre de son camp | Liseré pointillé, « ZONE SÛRE » ; pastille « ZONE SÛRE · personne ne peut t'attraper ici » ; impossible d'y être attrapé ou mordu |
+| 3 | Mise à terre et portage (C, bouton PORTER) | Comme dans la version précédente : porté jusqu'à la zone sûre, relevé sur la plateforme |
 | 4 | Conversion : se faire attraper, puis rester à terre 15 s sans secours | On se relève dans l'équipe du chasseur : contour, ruban et tableau des équipes changent ; pas de prison |
-| 5 | Téléphone (*Test > Device*, paysage et portrait) | Vote lisible (une règle par carte en petit écran), composition des équipes, pastille d'état, bouton CARRY |
+| 5 | Téléphone (*Test > Device*, paysage et portrait) | Vote lisible (une règle par carte en petit écran), composition des équipes, pastille d'état, bouton PORTER |
 
 ## 6. Captures à envoyer
 
@@ -131,3 +132,4 @@ Une capture de la vraie fenêtre Studio pour chaque ligne marquée ✔, plus :
 | Chevaux volants | Anneaux suivis par le serveur au calcul (pas de collision) ; vérifier que le point compte bien quand on est dedans |
 | Contours (Highlight) | Lisibles sur le vert de la vallée ; limite de 31 Highlights (`Config.Appearance.MaxOutlines`) |
 | Lumière | `Map.Lighting` de Carousel Valley (ombres douces, brume légère) : rendu réel à juger |
+| Textes français | Police réelle : accents (É, È, À, Û, Œ) et longueur des textes ; la simulation n'estime la taille qu'à partir du nombre de caractères |

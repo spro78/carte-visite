@@ -6,10 +6,15 @@ avec Roblox Studio grâce à [Rojo](https://rojo.space).
   original modélisé dans Blender** (`tools/assets`, `assets/kit/HoH_Kit.fbx`).
 - Le reste est généré par le code : lobby, autres cartes, mécanismes, interface, effets.
 
-> Règle affichée au joueur : **"Catch your prey. Run from your hunter."**
+> Règle affichée au joueur : **« Attrape ta proie. Fuis ton chasseur. »**
 > Le RENARD attrape la POULE, la POULE attrape la VIPÈRE, la VIPÈRE attrape le RENARD.
 > Un joueur attrapé est **à terre** : un coéquipier peut le porter jusqu'à son camp pour
 > le relever. Sinon, il rejoint l'équipe qui l'a attrapé. Il n'y a pas de prison.
+
+**Langue** : le jeu est en français (équipes RENARDS, POULES, VIPÈRES).
+- `Config.Language = "en"` remet l'anglais.
+- Les textes passent par `src/shared/Lang.lua` : le code les écrit en anglais, le dictionnaire donne le français.
+- Un nouveau joueur voit l'aide au lobby : la règle, qui attrape qui, la zone sûre, le portage et les commandes. Elle reste ouverte au bouton **AIDE**.
 
 ## Règles du jeu (règle retenue)
 
@@ -19,7 +24,7 @@ avec Roblox Studio grâce à [Rojo](https://rojo.space).
    - La capture compte pour le chasseur : pièces, statistiques, fil des captures.
    - Si elle portait un œuf, l'œuf tombe (Golden Egg) ou retourne à son camp (Raid).
 2. **Portage** : un coéquipier debout, à moins de 7 studs, peut la porter.
-   - Commandes : touche **C**, bouton **Y** à la manette, bouton **CARRY** en tactile.
+   - Commandes : touche **C**, bouton **Y** à la manette, bouton **PORTER** en tactile.
    - Le porteur est ralenti (x0,8), ne peut attraper personne et peut la lâcher (même commande).
    - Le chrono de la personne portée est suspendu.
 3. **Réanimation** : dès que le porteur entre dans la **zone sûre de leur camp**, la personne portée se relève sur la plateforme.
@@ -33,9 +38,9 @@ avec Roblox Studio grâce à [Rojo](https://rojo.space).
    - Un porteur attrapé lâche son coéquipier, qui garde au moins 5 s de chrono.
    - Réapparaître (reset) pendant qu'on est à terre vaut abandon : conversion immédiate.
    - En fin de manche, tout le monde se relève sans changer d'équipe. Les joueurs à terre comptaient déjà dans leur équipe.
-6. **Zones sûres** : chaque camp a une zone autour et derrière sa plateforme, marquée au sol par un liseré pointillé et « SAFE ZONE ».
+6. **Zones sûres** : chaque camp a une zone autour et derrière sa plateforme, marquée au sol par un liseré pointillé et « ZONE SÛRE » (« SAFE ZONE » en anglais).
    - Un défenseur dans la zone de **son** camp ne peut être ni attrapé ni mordu (vérifié par le serveur).
-   - La protection dure encore une demi-seconde après la sortie de la zone : tant que la pastille « SAFE ZONE » est affichée chez le joueur, malgré le décalage du réseau, il ne peut pas être attrapé.
+   - La protection dure encore une demi-seconde après la sortie de la zone : tant que la pastille « ZONE SÛRE » est affichée chez le joueur, malgré le décalage du réseau, il ne peut pas être attrapé.
    - Les adversaires peuvent y entrer (vol d'œufs du Raid), mais n'y sont pas protégés.
    - Même règle pour les trois camps et les quatre cartes.
 7. **Victoire** : inchangée.

@@ -24,6 +24,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Teams = require(Shared.Teams)
+local Lang = require(Shared.Lang)
 
 local EffectsController = {}
 
@@ -242,9 +243,9 @@ handlers.Capture = function(data)
 			-- lointaine ne doit pas faire croire qu'on est soi-même à terre
 			local victimName = type(data.VictimName) == "string" and data.VictimName or ""
 			if me ~= nil and me == data.VictimId then
-				floatingText(position, data.Downed and "DOWN!" or (def.Display .. "!"), def.Color)
+				floatingText(position, data.Downed and Lang.T("DOWN!") or (def.Display .. "!"), def.Color)
 			else
-				floatingText(position, victimName .. (data.Downed and " DOWN!" or (" → " .. def.Display)), def.Color, 60)
+				floatingText(position, data.Downed and Lang.F("%s DOWN!", victimName) or (victimName .. " → " .. def.Display), def.Color, 60)
 			end
 		end
 	end
@@ -275,7 +276,7 @@ handlers.Revive = function(data)
 	if position and def then
 		burst(position + Vector3.new(0, 1, 0), { def.Color, Color3.new(1, 1, 1) }, 30, 16, 0.6)
 		shockwave(position, def.Color, 10)
-		floatingText(position, "SAVED!", def.Color)
+		floatingText(position, Lang.T("SAVED!"), def.Color)
 	end
 	if me ~= nil and (me == data.VictimId or me == data.RescuerId) then
 		EffectsController.Play("Revive", 1, 1.25)
@@ -333,7 +334,7 @@ handlers.Bite = function(data)
 	local position = actorPosition(data.To)
 	if position then
 		burst(position, { Color3.fromRGB(170, 255, 120), Color3.fromRGB(90, 200, 70) }, 16, 10, 0.5)
-		floatingText(position, "SLOWED", Color3.fromRGB(170, 255, 120))
+		floatingText(position, Lang.T("SLOWED"), Color3.fromRGB(170, 255, 120))
 		if data.To == myActorId() then
 			shake(0.3, 0.25)
 		end
@@ -353,7 +354,7 @@ handlers.Score = function(data)
 	if def and position then
 		burst(position + Vector3.new(0, 2, 0), { def.Color, Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 215, 60) }, 40, 28, 0.8)
 		shockwave(position, def.Color, 14)
-		floatingText(position, def.Display .. " SCORE!", def.Color)
+		floatingText(position, Lang.F("%s SCORE!", def.Plural), def.Color)
 	end
 	EffectsController.Play("Score", 1, 0.9)
 end

@@ -14,6 +14,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Lang = require(Shared.Lang)
 local Remotes = require(Shared.Remotes)
 local Types = require(Shared.Types)
 local Services = script.Parent.Parent.Services
@@ -73,17 +74,17 @@ local function purchase(player: Player, category: any, itemId: any)
 	end
 	local profile = DataService.Get(player)
 	if not profile then
-		notify(player, "Your profile is still loading.", true)
+		notify(player, Lang.T("Your profile is still loading."), true)
 		return
 	end
 	local fields = DataService.CosmeticFields[category]
 	local owned = (profile :: any)[fields.Owned]
 	if owned[itemId] then
-		notify(player, "You already own " .. def.Name .. ".", true)
+		notify(player, Lang.F("You already own %s.", Lang.T(def.Name)), true)
 		return
 	end
 	if profile.Coins < def.Price then
-		notify(player, string.format("Not enough coins! %s costs %d.", def.Name, def.Price), true)
+		notify(player, Lang.F("Not enough coins! %s costs %d.", Lang.T(def.Name), def.Price), true)
 		return
 	end
 	profile.Coins -= def.Price
@@ -92,7 +93,7 @@ local function purchase(player: Player, category: any, itemId: any)
 	;(profile :: any)[fields.Equipped] = itemId
 	DataService.MarkChanged(player)
 	applyCosmetics(player)
-	notify(player, "Unlocked " .. def.Name .. "!")
+	notify(player, Lang.F("Unlocked %s!", Lang.T(def.Name)))
 end
 
 local function equip(player: Player, category: any, itemId: any)

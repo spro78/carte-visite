@@ -19,6 +19,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Lang = require(Shared.Lang)
 local Remotes = require(Shared.Remotes)
 local Signal = require(script.Parent.Parent.Util.Signal)
 
@@ -90,11 +91,11 @@ function DataService.AddXP(player: Player, amount: number): (number, number, { s
 	local unlocks = {}
 	for level = before + 1, profile.Level do
 		profile.Coins += Config.Economy.CoinsPerLevelUp
-		table.insert(unlocks, string.format("Level %d: +%d coins", level, Config.Economy.CoinsPerLevelUp))
+		table.insert(unlocks, Lang.F("Level %d: +%d coins", level, Config.Economy.CoinsPerLevelUp))
 		local reward = Config.Economy.LevelRewards[level]
 		if reward and DataService.GrantCosmetic(player, reward.Category, reward.Item) then
 			local def = (Config.Shop :: any)[reward.Category][reward.Item]
-			table.insert(unlocks, "Unlocked " .. def.Name .. " (free)")
+			table.insert(unlocks, Lang.F("Unlocked %s (free)", Lang.T(def.Name)))
 		end
 	end
 	DataService.MarkChanged(player)
@@ -273,7 +274,7 @@ local function load(player: Player)
 	end
 	if not profile then
 		profile = DataService.DefaultProfile()
-		Remotes.Get("Notify"):FireClient(player, "Your data couldn't be loaded. Progress won't be saved this session.", true)
+		Remotes.Get("Notify"):FireClient(player, Lang.T("Your data couldn't be loaded. Progress won't be saved this session."), true)
 		log("Session seulement pour", player.Name)
 	end
 	sessions[player] = {

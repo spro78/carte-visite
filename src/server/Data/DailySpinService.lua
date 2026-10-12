@@ -8,6 +8,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Lang = require(Shared.Lang)
 local Remotes = require(Shared.Remotes)
 local DataService = require(script.Parent.DataService)
 
@@ -34,9 +35,9 @@ local function formatWait(seconds: number): string
 	local h = math.floor(seconds / 3600)
 	local m = math.floor((seconds % 3600) / 60)
 	if h > 0 then
-		return string.format("%dh %02dm", h, m)
+		return Lang.F("%dh %02dm", h, m)
 	end
-	return string.format("%dm", math.max(1, m))
+	return Lang.F("%dm", math.max(1, m))
 end
 
 function DailySpinService.Spin(player: Player, lobby: any)
@@ -50,13 +51,13 @@ function DailySpinService.Spin(player: Player, lobby: any)
 	local now = os.time()
 	local nextAt = profile.LastSpin + Config.DailySpin.CooldownHours * 3600
 	if now < nextAt then
-		Remotes.Get("Notify"):FireClient(player, "Next free spin in " .. formatWait(nextAt - now), true)
+		Remotes.Get("Notify"):FireClient(player, Lang.F("Next free spin in %s", formatWait(nextAt - now)), true)
 		return
 	end
 	busy[player] = true
 	local index, reward = pickReward()
 	profile.LastSpin = now
-	local label = reward.Label
+	local label = Lang.T(reward.Label)
 	local coins = 0
 	if reward.Kind == "Coins" then
 		coins = reward.Amount
@@ -66,7 +67,7 @@ function DailySpinService.Spin(player: Player, lobby: any)
 		-- Déjà possédé : on donne des pièces à la place
 		if not DataService.GrantCosmetic(player, reward.Category, reward.Item) then
 			coins = reward.Fallback or 100
-			label = reward.Label .. " (owned: +" .. coins .. " coins)"
+			label = Lang.F("%s (owned: +%d coins)", Lang.T(reward.Label), coins)
 		end
 	end
 	profile.Coins += coins
@@ -77,7 +78,7 @@ function DailySpinService.Spin(player: Player, lobby: any)
 	task.delay(Config.DailySpin.SpinSeconds, function()
 		busy[player] = nil
 		if player.Parent then
-			Remotes.Get("Notify"):FireClient(player, "Daily Spin: you won " .. label .. "!", false)
+			Remotes.Get("Notify"):FireClient(player, Lang.F("Daily Spin: you won %s!", label), false)
 			Remotes.Get("Effect"):FireClient(player, "Coins", { Amount = coins })
 		end
 	end)

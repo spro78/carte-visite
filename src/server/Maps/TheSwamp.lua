@@ -17,6 +17,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Teams = require(Shared.Teams)
+local Lang = require(Shared.Lang)
 local Mechanics = require(Shared.Mechanics)
 local Remotes = require(Shared.Remotes)
 local Types = require(Shared.Types)
@@ -480,7 +481,7 @@ local function releaseTowardRandomCamp(actor: Actor)
 	ctx.Launch(actor, velocity, 1.2)
 	local def = Teams.Get(campTeam)
 	if def then
-		ctx.AnnounceTo(actor, "Flying to the " .. def.Display .. " camp!", def.Color)
+		ctx.AnnounceTo(actor, Lang.F("Flying to the %s camp!", def.Display), def.Color)
 	end
 end
 

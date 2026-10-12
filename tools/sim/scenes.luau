@@ -10,6 +10,7 @@ local fs = require("@lune/fs")
 local serde = require("@lune/serde")
 local World = require("./world")
 local Export = require("./export")
+World.Shared.HoH_Language = nil -- rendus dans la langue du jeu (Config.Language)
 local Engine = World.Engine
 local roblox = Engine.Roblox
 local Vector3 = roblox.Vector3

@@ -12,7 +12,7 @@
 
 local robloxLib = require("@lune/roblox")
 
--- Correctif : CFrame.lookAt de Lune 0.8.9 renvoie une orientation miroir
+-- Correctif : CFrame.lookAt de Lune 0.8.9 renvoyait une orientation miroir
 -- (composante Z du LookVector inversée). On le remplace par un calcul exact
 -- (même convention que Roblox : -Z vers la cible, Y vers le haut).
 local function lookAt(pos, target, up)

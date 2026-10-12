@@ -32,6 +32,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Teams = require(Shared.Teams)
+local Lang = require(Shared.Lang)
 local Types = require(Shared.Types)
 local ActorService = require(script.Parent.ActorService)
 local TeamService = require(script.Parent.TeamService)
@@ -313,7 +314,7 @@ function RescueService.Down(victim: Actor, hunter: Actor)
 	}
 	downed[victim.Id] = entry
 	local theirs = Teams.Get(hunter.Team)
-	announceTo(hunter, "You caught " .. victim.Name .. "!", theirs and theirs.Color)
+	announceTo(hunter, Lang.F("You caught %s!", victim.Name), theirs and theirs.Color)
 	RescueService.Downed:Fire(victim, hunter)
 	-- Plus aucun coéquipier debout : personne ne pourra le porter, la règle
 	-- d'origine s'applique tout de suite (il ne reste pas couché pour rien)
@@ -328,7 +329,7 @@ function RescueService.Down(victim: Actor, hunter: Actor)
 	character:SetAttribute("SafeZone", nil)
 	publishTimer(entry)
 	local mine = Teams.Get(victim.Team)
-	announceTo(victim, hunter.Name .. " caught you! A teammate can carry you home.", mine and mine.Color)
+	announceTo(victim, Lang.F("%s caught you! A teammate can carry you home.", hunter.Name), mine and mine.Color)
 end
 
 -- Vrai si l'acteur peut ramasser un coéquipier maintenant
@@ -412,7 +413,7 @@ function RescueService.TryCarry(carrier: Actor): boolean
 	AbilityService.SetSpeedModifier(carrier, "Carry", Config.Rescue.CarrySpeedMultiplier)
 	Remotes.Get("Effect"):FireAllClients("Carry", { Position = carrierRoot.Position, CarrierId = carrier.Id, VictimId = entry.Actor.Id })
 	local def = Teams.Get(carrier.Team)
-	announceTo(entry.Actor, carrier.Name .. " is carrying you home!", def and def.Color)
+	announceTo(entry.Actor, Lang.F("%s is carrying you home!", carrier.Name), def and def.Color)
 	return true
 end
 
@@ -450,10 +451,10 @@ function RescueService.Revive(entry: Entry)
 	local def = Teams.Get(victim.Team)
 	local color = def and def.Color
 	if rescuer then
-		announceTo(victim, rescuer.Name .. " saved you! Back in the game!", color)
-		announceTo(rescuer, "You saved " .. victim.Name .. "!", color)
+		announceTo(victim, Lang.F("%s saved you! Back in the game!", rescuer.Name), color)
+		announceTo(rescuer, Lang.F("You saved %s!", victim.Name), color)
 	else
-		announceTo(victim, "You're safe at your base. Back in the game!", color)
+		announceTo(victim, Lang.T("You're safe at your base. Back in the game!"), color)
 	end
 	local position = ActorService.GetPosition(victim)
 	Remotes.Get("Effect"):FireAllClients("Revive", {
@@ -469,9 +470,9 @@ end
 
 -- Pas de secours : le joueur rejoint l'équipe qui l'a attrapé, sur place
 local REASONS = {
-	BleedOut = "Nobody carried you home in time.",
-	NoRescuer = "No teammate left to carry you.",
-	Reset = "You left the ground.",
+	BleedOut = Lang.T("Nobody carried you home in time."),
+	NoRescuer = Lang.T("No teammate left to carry you."),
+	Reset = Lang.T("You left the ground."),
 }
 function RescueService.Convert(entry: Entry, reason: string)
 	local victim = entry.Actor
@@ -499,8 +500,8 @@ function RescueService.Convert(entry: Entry, reason: string)
 	local def = Teams.Get(newTeam)
 	if def then
 		local prey = Teams.Get(def.Prey)
-		local hint = prey and (" Now catch " .. prey.Plural .. "!") or ""
-		announceTo(victim, (REASONS[reason] or "") .. " You're a " .. def.Display .. " now." .. hint, def.Color)
+		local hint = prey and (" " .. Lang.F("Now catch %s!", prey.Plural)) or ""
+		announceTo(victim, (REASONS[reason] or "") .. " " .. Lang.F("You're %s now.", def.WithArticle) .. hint, def.Color)
 	end
 	Remotes.Get("Effect"):FireAllClients("Convert", {
 		Position = ActorService.GetPosition(victim),
@@ -614,7 +615,7 @@ function RescueService.Init()
 			if RoundState.IsInRound() and Teams.IsValid(entry.CatcherTeam) and actor.Team ~= entry.CatcherTeam then
 				TeamService.SetTeam(actor, entry.CatcherTeam)
 				local def = Teams.Get(entry.CatcherTeam) :: Teams.TeamDef
-				announceTo(actor, REASONS.Reset .. " You're a " .. def.Display .. " now.", def.Color)
+				announceTo(actor, REASONS.Reset .. " " .. Lang.F("You're %s now.", def.WithArticle), def.Color)
 				RescueService.Converted:Fire(actor, entry.CatcherTeam, "Reset")
 			end
 		end

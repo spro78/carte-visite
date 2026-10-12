@@ -25,6 +25,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Teams = require(Shared.Teams)
 local Config = require(Shared.Config)
+local Lang = require(Shared.Lang)
 local Mechanics = require(Shared.Mechanics)
 local Build = require(script.Parent.Parent.Util.Build)
 local Props = require(script.Parent.Parent.Util.Props)
@@ -349,7 +350,7 @@ local function buildSafeZoneMarker(model: Instance, at: (number, number, number)
 		end
 	end
 	local label = Build.Part({ Name = "SafeZoneLabel", Size = Vector3.new(14, 0.05, 2.6), CFrame = at(0, 0.6, -(f - 1.5)) * CFrame.Angles(0, math.pi, 0), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false }, model)
-	Build.SurfaceLabel(label, Enum.NormalId.Top, "SAFE ZONE", { TextColor3 = color, TextStrokeTransparency = 0.4, Font = Enum.Font.FredokaOne })
+	Build.SurfaceLabel(label, Enum.NormalId.Top, Lang.T("SAFE ZONE"), { TextColor3 = color, TextStrokeTransparency = 0.4, Font = Enum.Font.FredokaOne })
 end
 
 -- Camp en assets du kit (src/server/Util/Kit) : le portail d'entrée tourné
@@ -363,7 +364,7 @@ function buildKitCamp(model: Model, at: (number, number, number) -> CFrame, team
 	local sign = Kit.Anchor("CampGate", "Sign", gateCf)
 	if sign then
 		local label = Build.Part({ Name = teamId .. "_CampSign", Size = Vector3.new(13, 2.8, 0.1), CFrame = CFrame.new(sign) * (gateCf - gateCf.Position) * CFrame.new(0, 0, -0.05), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false }, model)
-		Build.SurfaceLabel(label, Enum.NormalId.Front, def.Display .. " CAMP", { TextColor3 = def.DarkColor, TextStrokeTransparency = 1, Font = Enum.Font.FredokaOne })
+		Build.SurfaceLabel(label, Enum.NormalId.Front, Lang.F("%s CAMP", def.Display), { TextColor3 = def.DarkColor, TextStrokeTransparency = 1, Font = Enum.Font.FredokaOne })
 	end
 	-- Drapeau d'équipe au fond (balise visible de loin)
 	Kit.Place(model, "CampFlag", at(0, 0, halfPad + 4) * CFrame.Angles(0, math.pi / 2, 0), { Team = teamId, Name = teamId .. "_CampFlag" })
@@ -460,7 +461,7 @@ function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, p
 			end
 			local beam = Build.Part({ Name = teamId .. "_ArchBeam", Size = Vector3.new(23, 3.6, 1.6), CFrame = at(0, 11.2, front), Color = def.DarkColor, Accent = true }, model)
 			for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
-				Build.SurfaceLabel(beam, face, def.Display .. " CAMP", { TextColor3 = Color3.new(1, 1, 1), TextStrokeTransparency = 0.3, Font = Enum.Font.GothamBlack })
+				Build.SurfaceLabel(beam, face, Lang.F("%s CAMP", def.Display), { TextColor3 = Color3.new(1, 1, 1), TextStrokeTransparency = 0.3, Font = Enum.Font.GothamBlack })
 			end
 			Props.Bunting(model, (at(-9.5, 9.4, front - 0.4)).Position, (at(9.5, 9.4, front - 0.4)).Position, { def.Color, Color3.new(1, 1, 1) }, 1.4)
 

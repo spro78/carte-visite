@@ -9,6 +9,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Lang = require(Shared.Lang)
 local DataService = require(script.Parent.DataService)
 
 local LeaderboardService = {}
@@ -27,7 +28,7 @@ local function nameOf(userId: number): string
 	local ok, name = pcall(function()
 		return Players:GetNameFromUserIdAsync(userId)
 	end)
-	local result = ok and name or ("Player " .. userId)
+	local result = ok and name or Lang.F("Player %d", userId)
 	nameCache[userId] = result
 	return result
 end
@@ -76,8 +77,8 @@ function LeaderboardService.Init(lobby: any)
 			if DataService.IsStoreAvailable() then
 				LeaderboardService.Refresh(lobby)
 			else
-				lobby.SetLeaderboardMessage("Wins", "Leaderboards need\nAPI access enabled")
-				lobby.SetLeaderboardMessage("Captures", "Leaderboards need\nAPI access enabled")
+				lobby.SetLeaderboardMessage("Wins", Lang.T("Leaderboards need\nAPI access enabled"))
+				lobby.SetLeaderboardMessage("Captures", Lang.T("Leaderboards need\nAPI access enabled"))
 			end
 			task.wait(Config.Lobby.LeaderboardRefreshSeconds)
 		end

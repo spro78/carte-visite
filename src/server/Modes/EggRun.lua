@@ -20,6 +20,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Teams = require(Shared.Teams)
+local Lang = require(Shared.Lang)
 local Types = require(Shared.Types)
 local Remotes = require(Shared.Remotes)
 local Mechanics = require(Shared.Mechanics)
@@ -177,7 +178,7 @@ local function drop(egg: Egg, position: Vector3, reason: string)
 	rest(egg, groundPoint(position))
 	local ctx = context
 	if ctx then
-		ctx.Announce(reason == "caught" and "An egg was dropped!" or "An egg fell!", Color3.fromRGB(240, 236, 255))
+		ctx.Announce(reason == "caught" and Lang.T("An egg was dropped!") or Lang.T("An egg fell!"), Color3.fromRGB(240, 236, 255))
 	end
 end
 
@@ -225,7 +226,7 @@ local function pickUp(egg: Egg, actor: Actor)
 	end
 	local def = Teams.Get(actor.Team)
 	if def then
-		ctx.AnnounceTo(actor, "You have an egg! Run it to your camp!", def.Color)
+		ctx.AnnounceTo(actor, Lang.T("You have an egg! Run it to your camp!"), def.Color)
 	end
 end
 
@@ -245,7 +246,7 @@ local function score(egg: Egg, actor: Actor)
 	Remotes.Get("Effect"):FireAllClients("Score", { Position = root and root.Position, Team = team })
 	local def = Teams.Get(team)
 	if def then
-		ctx.Announce(string.format("%s scored an egg! (%d/%d)", def.Plural, total, cfg.EggsToWin), def.Color)
+		ctx.Announce(Lang.F("%s scored an egg! (%d/%d)", def.Plural, total, cfg.EggsToWin), def.Color)
 	end
 	if total >= cfg.EggsToWin then
 		ctx.EndRound(team, "Objective")

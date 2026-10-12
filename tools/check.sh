@@ -14,7 +14,11 @@ cd "$(dirname "$0")/.."
 BIN=tools/bin
 mkdir -p "$BIN"
 
-fetch() { # nom url
+fetch() { # nom url [version attendue]
+  # Un binaire d'une autre version est remplacé (voir lune ci-dessous)
+  if [ -x "$BIN/$1" ] && [ -n "${3:-}" ] && ! "$BIN/$1" --version 2>/dev/null | grep -qF "$3"; then
+    rm -f "$BIN/$1"
+  fi
   if [ ! -x "$BIN/$1" ]; then
     echo "-> téléchargement de $1"
     local tmp; tmp=$(mktemp -d)
@@ -24,7 +28,10 @@ fetch() { # nom url
   fi
 }
 fetch rojo "https://github.com/rojo-rbx/rojo/releases/download/v7.4.4/rojo-7.4.4-linux-x86_64.zip"
-fetch lune "https://github.com/lune-org/lune/releases/download/v0.8.9/lune-0.8.9-linux-x86_64.zip"
+# Lune 0.10.4 : la 0.8.9 se figeait parfois (un cœur à 100 %, aucune sortie)
+# sur une lecture de fichier quand la mémoire était déjà remplie, donc au
+# chargement des sources d'une simulation (jusqu'à 1 lancement sur 4 sous charge)
+fetch lune "https://github.com/lune-org/lune/releases/download/v0.10.4/lune-0.10.4-linux-x86_64.zip" "lune 0.10.4"
 fetch luau-lsp "https://github.com/JohnnyMorganz/luau-lsp/releases/download/1.70.1/luau-lsp-linux-x86_64.zip"
 [ -f "$BIN/globalTypes.d.luau" ] || curl -sSL -o "$BIN/globalTypes.d.luau" "https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/main/scripts/globalTypes.d.luau"
 

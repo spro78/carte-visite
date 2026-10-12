@@ -15,6 +15,7 @@ local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Movement = require(Shared.Movement)
 local Teams = require(Shared.Teams)
+local Lang = require(Shared.Lang)
 local Types = require(Shared.Types)
 local ActorService = require(script.Parent.ActorService)
 local RoundState = require(script.Parent.RoundState)
@@ -192,7 +193,7 @@ local abilityHandlers: { [string]: (Actor, boolean) -> boolean } = {
 		end
 		AbilityService.SetSpeedModifier(target, "Bite", cfg.SlowMultiplier, cfg.SlowDuration)
 		ActorService.SetCharacterAttribute(target, "SlowedUntil", serverNow() + cfg.SlowDuration)
-		ActorService.FireClient(target, Remotes.Get("Announce"), "Bitten! You are slowed!", Teams.Defs.SNAKE.Color)
+		ActorService.FireClient(target, Remotes.Get("Announce"), Lang.T("Bitten! You are slowed!"), Teams.Defs.SNAKE.Color)
 		Remotes.Get("Effect"):FireAllClients("Bite", { From = actor.Id, To = target.Id })
 		return true
 	end,

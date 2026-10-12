@@ -21,6 +21,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Teams = require(Shared.Teams)
+local Lang = require(Shared.Lang)
 
 local Theme = require(script.Parent.Parent:WaitForChild("UI"):WaitForChild("Theme"))
 
@@ -116,7 +117,8 @@ local function updateTag(model: Model, team: any, relation: string?, visible: bo
 			status = "SAFE"
 		end
 		tag.Team.Visible = true
-		tag.Team.Text = status or RELATION_WORD[relation or ""] or def.Display
+		local word = status or RELATION_WORD[relation or ""]
+		tag.Team.Text = word and Lang.T(word) or def.Display
 		tag.Team.BackgroundColor3 = def.Color
 		tag.Team.TextColor3 = Theme.TextOn(def.Color)
 		tag.Stroke.Thickness = status and 3 or 0

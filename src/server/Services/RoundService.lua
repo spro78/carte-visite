@@ -15,6 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Teams = require(Shared.Teams)
+local Lang = require(Shared.Lang)
 local MapInfo = require(Shared.MapInfo)
 local ModeInfo = require(Shared.ModeInfo)
 local Remotes = require(Shared.Remotes)
@@ -181,17 +182,17 @@ local function updateLobbyBoard()
 	local modeDef = ModeInfo.Get(state.ModeId)
 	local mapText = mapDef and ((modeDef and modeDef.DisplayName or mapDef.ModeName) .. " - " .. mapDef.DisplayName) or ""
 	if state.Phase == "Waiting" then
-		LobbyBuilder.SetBoard("Waiting for players...", "--:--", "")
+		LobbyBuilder.SetBoard(Lang.T("Waiting for players..."), "--:--", "")
 	elseif state.Phase == "Intermission" then
 		local leader = optionText(VoteService.GetLeader())
-		LobbyBuilder.SetBoard("Next round in", formatTime(state.TimeLeft), leader and ("Leading: " .. leader) or "Vote for a mode!")
+		LobbyBuilder.SetBoard(Lang.T("Next round in"), formatTime(state.TimeLeft), leader and Lang.F("Leading: %s", leader) or Lang.T("Vote for a mode!"))
 	elseif state.Phase == "Countdown" then
-		LobbyBuilder.SetBoard("Round starting", formatTime(state.TimeLeft), mapText)
+		LobbyBuilder.SetBoard(Lang.T("Round starting"), formatTime(state.TimeLeft), mapText)
 	elseif state.Phase == "Round" then
-		LobbyBuilder.SetBoard("Round in progress", formatTime(state.TimeLeft), mapText)
+		LobbyBuilder.SetBoard(Lang.T("Round in progress"), formatTime(state.TimeLeft), mapText)
 	elseif state.Phase == "Results" then
 		local winnerDef = Teams.Get(state.Winner)
-		LobbyBuilder.SetBoard(winnerDef and (winnerDef.Plural .. " WIN!") or "DRAW!", formatTime(state.TimeLeft), mapText)
+		LobbyBuilder.SetBoard(winnerDef and Lang.F("%s WIN!", winnerDef.Plural) or Lang.T("DRAW!"), formatTime(state.TimeLeft), mapText)
 	end
 end
 
@@ -443,7 +444,7 @@ local function intermission(): boolean
 	local chosen = MapInfo.Get(mapId)
 	local mode = ModeInfo.Get(modeId)
 	if chosen and mode then
-		announce("Next: " .. mode.DisplayName .. " on " .. chosen.DisplayName, mode.Color)
+		announce(Lang.F("Next: %s on %s", mode.DisplayName, chosen.DisplayName), mode.Color)
 	end
 	return state.MapId ~= nil
 end
@@ -517,7 +518,7 @@ local function setupRound()
 		end
 		local def = Teams.Get(actor.Team)
 		if def then
-			announceTo(actor, "You are a " .. def.Display .. "!", def.Color)
+			announceTo(actor, Lang.F("You are %s!", def.WithArticle), def.Color)
 		end
 	end
 end
@@ -538,7 +539,7 @@ local function countdown()
 	for _, actor in RoundState.GetParticipants() do
 		setFrozen(actor, false)
 	end
-	announce("GO!")
+	announce(Lang.T("GO!"))
 end
 
 -- Vrai si une seule équipe (ou aucune) a encore des membres
@@ -574,11 +575,11 @@ local function determineWinner()
 		state.WinReason = roundEndRequest.Winner and roundEndRequest.Reason or "Draw"
 		local winner = roundEndRequest.Winner
 		if state.WinReason == "LastStanding" then
-			state.WinDetail = plural(winner) .. " converted everyone!"
+			state.WinDetail = Lang.F("%s converted everyone!", plural(winner))
 		elseif state.WinReason == "Objective" then
-			state.WinDetail = string.format("%s reached the goal: %d %s", plural(winner), state.Scores[winner :: string] or 0, state.ScoreLabel or "points")
+			state.WinDetail = Lang.F("%s reached the goal: %d %s", plural(winner), state.Scores[winner :: string] or 0, Lang.T(state.ScoreLabel or "points"))
 		else
-			state.WinDetail = "Nobody left in the round"
+			state.WinDetail = Lang.T("Nobody left in the round")
 		end
 		return
 	end
@@ -589,7 +590,7 @@ local function determineWinner()
 		if winner then
 			state.Winner = winner
 			state.WinReason = "TimeUp"
-			state.WinDetail = string.format("Time's up: %s had the most %s (%d)", plural(winner), state.ScoreLabel or "points", state.Scores[winner] or 0)
+			state.WinDetail = Lang.F("Time's up: %s had the most %s (%d)", plural(winner), Lang.T(state.ScoreLabel or "points"), state.Scores[winner] or 0)
 			return
 		end
 	end
@@ -598,7 +599,7 @@ local function determineWinner()
 	if largest then
 		state.Winner = largest
 		state.WinReason = "TimeUp"
-		state.WinDetail = string.format("Time's up: %s were the biggest team (%d)", plural(largest), counts[largest] or 0)
+		state.WinDetail = Lang.F("Time's up: %s were the biggest team (%d)", plural(largest), counts[largest] or 0)
 		return
 	end
 	local bestTeam, bestScore, tie = nil, -1, false
@@ -613,11 +614,11 @@ local function determineWinner()
 	if bestTeam and not tie and bestScore > 0 then
 		state.Winner = bestTeam
 		state.WinReason = "TimeUp"
-		state.WinDetail = string.format("Time's up: teams were tied in size, %s had the best score (%d)", plural(bestTeam), bestScore)
+		state.WinDetail = Lang.F("Time's up: teams were tied in size, %s had the best score (%d)", plural(bestTeam), bestScore)
 	else
 		state.Winner = "DRAW"
 		state.WinReason = "Draw"
-		state.WinDetail = "Time's up with equal teams: no winner"
+		state.WinDetail = Lang.T("Time's up with equal teams: no winner")
 	end
 end
 
@@ -657,10 +658,10 @@ local function computeBestHunter()
 	end
 	state.Podium = {
 		MVP = top("Score", function(row)
-			return string.format("%d pts", math.floor(row.Score))
+			return Lang.F("%d pts", math.floor(row.Score))
 		end),
 		Survival = top("Survival", function(row)
-			return string.format("%.1fs", row.Survival)
+			return Lang.F("%.1fs", row.Survival)
 		end),
 		Catches = top("Catches", function(row)
 			return tostring(row.Catches)
@@ -690,9 +691,9 @@ local function results()
 	setPhase("Results")
 	local winnerDef = Teams.Get(state.Winner)
 	if winnerDef then
-		announce(winnerDef.Plural .. " WIN!", winnerDef.Color)
+		announce(Lang.F("%s WIN!", winnerDef.Plural), winnerDef.Color)
 	else
-		announce("It's a draw!")
+		announce(Lang.T("It's a draw!"))
 	end
 	if rewardHandler and rewardHandler.OnRoundEnd then
 		local ok, err = pcall(rewardHandler.OnRoundEnd, RoundState.GetParticipants(), state.Winner, os.clock() - roundStartedAt)
@@ -797,13 +798,13 @@ local function onActorAdded(actor: Actor)
 				end
 				local def = Teams.Get(team)
 				if def then
-					announceTo(actor, "You joined as a " .. def.Display .. "!", def.Color)
+					announceTo(actor, Lang.F("You joined as %s!", def.WithArticle), def.Color)
 				end
 				broadcastState()
 				return
 			end
 		end
-		announceTo(actor, "A round is in progress. You'll join the next one!")
+		announceTo(actor, Lang.T("A round is in progress. You'll join the next one!"))
 	end)
 end
 
@@ -939,7 +940,7 @@ function RoundService.Start()
 				end)
 				if not ok then
 					warn("[RoundService] Erreur pendant la manche : " .. tostring(err))
-					announce("Round error, returning to lobby")
+					announce(Lang.T("Round error, returning to lobby"))
 				end
 				cleanup()
 			end

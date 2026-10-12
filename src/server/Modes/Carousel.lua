@@ -19,6 +19,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Teams = require(Shared.Teams)
+local Lang = require(Shared.Lang)
 local Types = require(Shared.Types)
 local Mechanics = require(Shared.Mechanics)
 local Kit = require(script.Parent.Parent.Util.Kit)
@@ -155,7 +156,7 @@ local function award()
 			if total % 30 == 0 then
 				local def = Teams.Get(best)
 				if def then
-					ctx.Announce(string.format("%s: %d points!", def.Plural, total), def.Color)
+					ctx.Announce(Lang.F("%s: %d points!", def.Plural, total), def.Color)
 				end
 			end
 		else
@@ -226,7 +227,7 @@ function Carousel.Start(ctx: MapContext, mapLayout: any)
 			if layout.Spinner then
 				Mechanics.SetSpin(layout.Spinner, speed())
 			end
-			ctx.Announce("The carousel turns the other way!", Color3.fromRGB(255, 226, 160))
+			ctx.Announce(Lang.T("The carousel turns the other way!"), Color3.fromRGB(255, 226, 160))
 		end
 	end)
 end

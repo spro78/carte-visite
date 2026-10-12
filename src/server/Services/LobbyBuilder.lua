@@ -23,6 +23,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Teams = require(Shared.Teams)
+local Lang = require(Shared.Lang)
 local MapInfo = require(Shared.MapInfo)
 local ModeInfo = require(Shared.ModeInfo)
 local Style = require(Shared.Style)
@@ -69,8 +70,8 @@ end
 
 local function prompt(part: BasePart, action: string, object: string, callback: (Player) -> ())
 	local p = Instance.new("ProximityPrompt")
-	p.ActionText = action
-	p.ObjectText = object
+	p.ActionText = Lang.T(action)
+	p.ObjectText = Lang.T(object)
 	p.KeyboardKeyCode = Enum.KeyCode.E
 	p.GamepadKeyCode = Enum.KeyCode.ButtonY
 	p.MaxActivationDistance = 14
@@ -328,8 +329,8 @@ local function buildPortal(parent: Folder, origin: Vector3)
 		Build.Part({ Name = "BoardPost", Size = Vector3.new(2, 24, 2), Position = origin + Vector3.new(side * 22, 12, -59), Color = P.StoneDark, Studs = true }, parent)
 	end
 	local gui = Build.SurfaceGui(board, Enum.NormalId.Back)
-	text(gui, { Name = "Title", Size = UDim2.fromScale(1, 0.2), Position = UDim2.fromScale(0, 0.04), Text = "HUNT OR HIDE", TextColor3 = P.Gold })
-	boardLabels.Status = text(gui, { Name = "Status", Size = UDim2.fromScale(1, 0.17), Position = UDim2.fromScale(0, 0.27), Text = "Waiting for players...", TextColor3 = P.ScreenText })
+	text(gui, { Name = "Title", Size = UDim2.fromScale(1, 0.2), Position = UDim2.fromScale(0, 0.04), Text = Lang.T("HUNT OR HIDE"), TextColor3 = P.Gold })
+	boardLabels.Status = text(gui, { Name = "Status", Size = UDim2.fromScale(1, 0.17), Position = UDim2.fromScale(0, 0.27), Text = Lang.T("Waiting for players..."), TextColor3 = P.ScreenText })
 	boardLabels.Time = text(gui, { Name = "Time", Size = UDim2.fromScale(1, 0.32), Position = UDim2.fromScale(0, 0.45), Text = "--:--", TextColor3 = Color3.new(1, 1, 1) })
 	boardLabels.Map = text(gui, { Name = "Map", Size = UDim2.fromScale(1, 0.15), Position = UDim2.fromScale(0, 0.8), Text = "", TextColor3 = Color3.fromRGB(150, 210, 255) })
 end
@@ -374,8 +375,8 @@ local MEDALS = { Color3.fromRGB(255, 200, 40), Color3.fromRGB(200, 210, 225), Co
 
 local function buildLeaderboards(parent: Folder, origin: Vector3)
 	local walls = {
-		{ Key = "Wins", Title = "TOP WINS", Accent = P.Gold, Pos = Vector3.new(-58, 0, -22), Yaw = 70 },
-		{ Key = "Captures", Title = "TOP CATCHES", Accent = Color3.fromRGB(70, 200, 160), Pos = Vector3.new(-60, 0, 6), Yaw = 85 },
+		{ Key = "Wins", Title = Lang.T("TOP WINS"), Accent = P.Gold, Pos = Vector3.new(-58, 0, -22), Yaw = 70 },
+		{ Key = "Captures", Title = Lang.T("TOP CATCHES"), Accent = Color3.fromRGB(70, 200, 160), Pos = Vector3.new(-60, 0, 6), Yaw = 85 },
 	}
 	for _, info in walls do
 		local cf = CFrame.new(origin + info.Pos + Vector3.new(0, 11.5, 0)) * CFrame.Angles(0, math.rad(info.Yaw), 0)
@@ -392,7 +393,7 @@ local function buildLeaderboards(parent: Folder, origin: Vector3)
 		header.BorderSizePixel = 0
 		header.Parent = gui
 		text(header, { Size = UDim2.fromScale(0.9, 0.62), Position = UDim2.fromScale(0.05, 0.08), Text = info.Title, TextColor3 = Color3.fromRGB(20, 22, 36), NoStroke = true })
-		text(header, { Size = UDim2.fromScale(0.9, 0.24), Position = UDim2.fromScale(0.05, 0.7), Text = "ALL TIME", TextColor3 = Color3.fromRGB(40, 44, 64), NoStroke = true })
+		text(header, { Size = UDim2.fromScale(0.9, 0.24), Position = UDim2.fromScale(0.05, 0.7), Text = Lang.T("ALL TIME"), TextColor3 = Color3.fromRGB(40, 44, 64), NoStroke = true })
 		local rows = {}
 		for rank = 1, Config.Lobby.LeaderboardSize do
 			local row = Instance.new("Frame")
@@ -418,7 +419,7 @@ local function buildLeaderboards(parent: Folder, origin: Vector3)
 			local value = text(row, { Name = "Value", Size = UDim2.fromScale(0.24, 0.8), Position = UDim2.fromScale(0.74, 0.1), Text = "", TextColor3 = info.Accent, TextXAlignment = Enum.TextXAlignment.Right })
 			rows[rank] = { Frame = row, Name = name, Value = value }
 		end
-		local message = text(gui, { Name = "Message", Size = UDim2.fromScale(0.84, 0.16), Position = UDim2.fromScale(0.08, 0.48), Text = "Loading...", TextColor3 = Color3.fromRGB(200, 210, 230) })
+		local message = text(gui, { Name = "Message", Size = UDim2.fromScale(0.84, 0.16), Position = UDim2.fromScale(0.08, 0.48), Text = Lang.T("Loading..."), TextColor3 = Color3.fromRGB(200, 210, 230) })
 		leaderboards[info.Key] = { Rows = rows, Message = message }
 	end
 end
@@ -451,7 +452,7 @@ local function buildWheel(parent: Folder, origin: Vector3)
 			CanCollide = false,
 		}, model)
 		local gui = Build.SurfaceGui(seg, Enum.NormalId.Bottom)
-		text(gui, { Size = UDim2.fromScale(0.95, 0.9), Position = UDim2.fromScale(0.025, 0.05), Text = reward.Label, TextColor3 = i % 2 == 0 and P.WheelBlue or P.White, Rotation = 90 })
+		text(gui, { Size = UDim2.fromScale(0.95, 0.9), Position = UDim2.fromScale(0.025, 0.05), Text = Lang.T(reward.Label), TextColor3 = i % 2 == 0 and P.WheelBlue or P.White, Rotation = 90 })
 	end
 	Build.Part({ Name = "WheelHub", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1.2, 4, 4), CFrame = pivot * CFrame.Angles(0, 0, math.rad(90)), Color = P.White, Accent = true, CanCollide = false }, model)
 	model:SetAttribute("SpinBase", pivot)
@@ -463,7 +464,7 @@ local function buildWheel(parent: Folder, origin: Vector3)
 	Build.Part({ Name = "WheelPointer", Size = Vector3.new(1.4, 2.4, 1.4), CFrame = axisCf * CFrame.new(0, radius + 1, -1.2) * CFrame.Angles(0, 0, math.rad(45)), Color = P.GiftRed, Accent = true }, parent)
 	-- Panneau et bouton d'interaction
 	local sign = Build.Part({ Name = "WheelSign", Size = Vector3.new(12, 3, 0.6), CFrame = axisCf * CFrame.new(0, radius + 4, 0), Color = P.Screen, Accent = true }, parent)
-	text(Build.SurfaceGui(sign, Enum.NormalId.Front), { Size = UDim2.fromScale(1, 0.9), Position = UDim2.fromScale(0, 0.05), Text = "DAILY SPIN", TextColor3 = P.Gold })
+	text(Build.SurfaceGui(sign, Enum.NormalId.Front), { Size = UDim2.fromScale(1, 0.9), Position = UDim2.fromScale(0, 0.05), Text = Lang.T("DAILY SPIN"), TextColor3 = P.Gold })
 	local button = Build.Part({ Name = "WheelButton", Size = Vector3.new(4, 3, 3), CFrame = facing * CFrame.new(0, 1.5, -5), Color = P.GiftRed, Studs = true, Accent = true }, parent)
 	prompt(button, "Spin", "Daily Spin", function(player)
 		if spinCallback then
@@ -494,7 +495,7 @@ local function buildGiftShop(parent: Folder, origin: Vector3)
 		end
 	end)
 	local sign = Build.Part({ Name = "ShopSign", Size = Vector3.new(0.6, 4, 14), CFrame = box.CFrame * CFrame.new(-size / 2 - 0.4, size * 0.4 + 6, 0), Color = P.Screen, Accent = true }, parent)
-	text(Build.SurfaceGui(sign, Enum.NormalId.Left), { Size = UDim2.fromScale(1, 0.9), Position = UDim2.fromScale(0, 0.05), Text = "SHOP", TextColor3 = P.Gold })
+	text(Build.SurfaceGui(sign, Enum.NormalId.Left), { Size = UDim2.fromScale(1, 0.9), Position = UDim2.fromScale(0, 0.05), Text = Lang.T("SHOP"), TextColor3 = P.Gold })
 end
 
 -- ---------------------------------------------------------------------------
@@ -508,7 +509,7 @@ local function buildRules(parent: Folder, origin: Vector3)
 		Build.Part({ Name = "RulesPost", Size = Vector3.new(2, 14, 2), Position = center + Vector3.new(side * 16, 7, 1), Color = P.StoneDark, Studs = true }, parent)
 	end
 	local gui = Build.SurfaceGui(board, Enum.NormalId.Front)
-	text(gui, { Name = "Title", Size = UDim2.fromScale(1, 0.13), Position = UDim2.fromScale(0, 0.03), Text = "WHO CATCHES WHO?", TextColor3 = P.Gold })
+	text(gui, { Name = "Title", Size = UDim2.fromScale(1, 0.13), Position = UDim2.fromScale(0, 0.03), Text = Lang.T("WHO CATCHES WHO?"), TextColor3 = P.Gold })
 	local function animal(teamId: string, position: UDim2)
 		local def = Teams.Get(teamId)
 		assert(def)
@@ -545,7 +546,7 @@ local function buildPractice(parent: Folder, origin: Vector3)
 	yellowBlocks(parent, origin + Vector3.new(54, 0, 50), { Vector3.new(0, 0, 0), Vector3.new(1, 0, 0), Vector3.new(0, 0, 1), Vector3.new(0.5, 1, 0.5) })
 	yellowBlocks(parent, origin + Vector3.new(-30, 0, -8), { Vector3.new(0, 0, 0), Vector3.new(0, 0, 1) })
 	local label = Build.Part({ Name = "PracticeSign", Size = Vector3.new(14, 3, 0.6), Position = origin + Vector3.new(34, 6, 16), Color = P.Screen, Accent = true }, parent)
-	text(Build.SurfaceGui(label, Enum.NormalId.Front), { Size = UDim2.fromScale(1, 0.9), Position = UDim2.fromScale(0, 0.05), Text = "DASH PRACTICE", TextColor3 = P.Gold })
+	text(Build.SurfaceGui(label, Enum.NormalId.Front), { Size = UDim2.fromScale(1, 0.9), Position = UDim2.fromScale(0, 0.05), Text = Lang.T("DASH PRACTICE"), TextColor3 = P.Gold })
 end
 
 -- ---------------------------------------------------------------------------
@@ -635,7 +636,7 @@ function LobbyBuilder.SetVoteCandidates(candidates: { string })
 			plate.Part.Color = modeDef.Color
 			plate.Name.Text = modeDef.DisplayName
 			plate.Mode.Text = mapDef.DisplayName
-			plate.Votes.Text = "0 votes"
+			plate.Votes.Text = string.format("%d %s", 0, Lang.Plural(0, "vote", "votes"))
 		else
 			plate.Part.Color = P.PadBlue
 			plate.Name.Text = "-"
@@ -650,7 +651,7 @@ function LobbyBuilder.SetVoteCounts(counts: { [string]: number })
 		local option = plate.MapId
 		if option then
 			local n = counts[option] or 0
-			plate.Votes.Text = string.format("%d vote%s", n, n == 1 and "" or "s")
+			plate.Votes.Text = string.format("%d %s", n, Lang.Plural(n, "vote", "votes"))
 		end
 	end
 end
@@ -680,7 +681,7 @@ function LobbyBuilder.SetLeaderboard(key: string, entries: { { any } })
 		return
 	end
 	if #entries == 0 then
-		LobbyBuilder.SetLeaderboardMessage(key, "Play a round to\nappear here!")
+		LobbyBuilder.SetLeaderboardMessage(key, Lang.T("Play a round to\nappear here!"))
 		return
 	end
 	board.Message.Visible = false

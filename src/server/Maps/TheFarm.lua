@@ -15,6 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Teams = require(Shared.Teams)
+local Lang = require(Shared.Lang)
 local Mechanics = require(Shared.Mechanics)
 local Remotes = require(Shared.Remotes)
 local Types = require(Shared.Types)
@@ -148,7 +149,7 @@ local function buildBarn(parent: Instance, center: Vector3)
 	end
 	-- Panneau "THE BIG RED BARN" au-dessus d'une porte (lisible depuis le centre)
 	local sign = Build.Part({ Name = "BarnSign", Size = Vector3.new(0.4, 2.2, 10), CFrame = cf * CFrame.new(w / 2 + 0.3, doorH + 1.6, 0), Color = WHITE, CanCollide = false }, model)
-	Build.SurfaceLabel(sign, Enum.NormalId.Right, "BIG RED BARN", { TextColor3 = RED, TextStrokeTransparency = 1, Font = Enum.Font.GothamBlack })
+	Build.SurfaceLabel(sign, Enum.NormalId.Right, Lang.T("BIG RED BARN"), { TextColor3 = RED, TextStrokeTransparency = 1, Font = Enum.Font.GothamBlack })
 	model.Parent = parent
 end
 
@@ -705,7 +706,7 @@ local function dropEgg(position: Vector3, reason: string)
 	setAllObjectives(groundPosition(position))
 	local ctx = context
 	if ctx then
-		ctx.Announce(reason == "caught" and "The egg was dropped!" or "Egg knocked loose!", Color3.fromRGB(255, 215, 0))
+		ctx.Announce(reason == "caught" and Lang.T("The egg was dropped!") or Lang.T("Egg knocked loose!"), Color3.fromRGB(255, 215, 0))
 	end
 end
 
@@ -742,7 +743,7 @@ local function pickUp(actor: Actor)
 		ctx.SetActorObjective(actor, bases[team].Center)
 	end
 	if def then
-		ctx.Announce(def.Display .. " team has the egg!", def.Color)
+		ctx.Announce(Lang.F("%s have the egg!", def.Plural), def.Color)
 	end
 end
 
@@ -770,7 +771,7 @@ local function score(actor: Actor)
 	local total = ctx.GetScore(team)
 	Remotes.Get("Effect"):FireAllClients("Score", { Position = position and position.Position, Team = team })
 	if def then
-		ctx.Announce(string.format("%s team scored! (%d/%d)", def.Display, total, cfg.PointsToWin), def.Color)
+		ctx.Announce(Lang.F("%s scored! (%d/%d)", def.Plural, total, cfg.PointsToWin), def.Color)
 	end
 	if total >= cfg.PointsToWin then
 		ctx.EndRound(team, "Objective")
@@ -780,7 +781,7 @@ local function score(actor: Actor)
 		if running and eggState == "Waiting" then
 			spawnEggAtCenter()
 			if context then
-				context.Announce("A new golden egg appeared!", Color3.fromRGB(255, 215, 0))
+				context.Announce(Lang.T("A new golden egg appeared!"), Color3.fromRGB(255, 215, 0))
 			end
 		end
 	end)

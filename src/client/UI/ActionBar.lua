@@ -18,6 +18,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Teams = require(Shared.Teams)
+local Lang = require(Shared.Lang)
 local Theme = require(script.Parent.Theme)
 
 local ActionBar = {}
@@ -29,13 +30,13 @@ export type Handlers = { [string]: () -> () }
 local New, Title = Theme.New, Theme.Title
 
 local TOUCH = { "DashLeft", "DashRight", "Stop", "Ability", "Carry" }
-local TOUCH_LABELS = { DashLeft = "◀ DASH", DashRight = "DASH ▶", Stop = "STOP", Ability = "ABILITY", Carry = "CARRY" }
+local TOUCH_LABELS = { DashLeft = "◀ " .. Lang.T("DASH"), DashRight = Lang.T("DASH") .. " ▶", Stop = Lang.T("STOP"), Ability = Lang.T("ABILITY"), Carry = Lang.T("CARRY") }
 -- Dock clavier : un médaillon par action (le dash couvre les deux côtés)
 local DOCK = {
-	{ Action = "DashLeft", Label = "DASH", Size = 64 },
-	{ Action = "Ability", Label = "ABILITY", Size = 80 },
-	{ Action = "Stop", Label = "STOP", Size = 54 },
-	{ Action = "Carry", Label = "CARRY", Size = 64 },
+	{ Action = "DashLeft", Label = Lang.T("DASH"), Size = 64 },
+	{ Action = "Ability", Label = Lang.T("ABILITY"), Size = 80 },
+	{ Action = "Stop", Label = Lang.T("STOP"), Size = 54 },
+	{ Action = "Carry", Label = Lang.T("CARRY"), Size = 64 },
 }
 
 type Medallion = { Root: GuiObject, Circle: GuiObject, Fill: Frame, Seconds: TextLabel, Main: TextLabel, Key: TextLabel? }
@@ -176,7 +177,8 @@ end
 function ActionBar.SetTeam(teamId: string?)
 	local def = Teams.Get(teamId)
 	local cfg = def and Config.Abilities[def.Id]
-	local text = string.upper(cfg and cfg.Name or "ABILITY")
+	-- (string.upper ne connaît pas les accents : la traduction est déjà en majuscules)
+	local text = Lang.T(string.upper(cfg and cfg.Name or "ABILITY"))
 	for _, slots in { touchSlots, dockSlots } do
 		local slot = slots.Ability
 		if slot then

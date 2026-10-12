@@ -17,6 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Teams = require(Shared.Teams)
+local Lang = require(Shared.Lang)
 local Types = require(Shared.Types)
 local ActorService = require(script.Parent.ActorService)
 local TeamService = require(script.Parent.TeamService)
@@ -183,9 +184,9 @@ local function capture(hunter: Actor, victim: Actor)
 		end
 		local announce = Remotes.Get("Announce")
 		local preyDef = Teams.Get(def.Prey)
-		local hint = preyDef and (" Now catch " .. preyDef.Plural .. "!") or ""
-		ActorService.FireClient(victim, announce, hunter.Name .. " caught you! You're a " .. def.Display .. "." .. hint, def.Color)
-		ActorService.FireClient(hunter, announce, "You caught " .. victim.Name .. "!", def.Color)
+		local hint = preyDef and (" " .. Lang.F("Now catch %s!", preyDef.Plural)) or ""
+		ActorService.FireClient(victim, announce, Lang.F("%s caught you! You're %s.", hunter.Name, def.WithArticle) .. hint, def.Color)
+		ActorService.FireClient(hunter, announce, Lang.F("You caught %s!", victim.Name), def.Color)
 	end
 	Remotes.Get("Effect"):FireAllClients("Capture", {
 		Position = position,

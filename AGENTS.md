@@ -34,7 +34,9 @@ Pour l'installation et la publication, voir `README.md`.
 
 ## Règles à respecter
 
-- **Langue** : textes vus par le joueur en anglais, commentaires et documentation en français.
+- **Langue** : le jeu est en français par défaut (`Config.Language`, `"en"` possible), à la demande de Malcom.
+  - Les textes vus par le joueur s'écrivent en anglais dans le code et passent par `Shared/Lang` (`Lang.T`, `Lang.F`, `Lang.Plural`) ; leur traduction française va dans le dictionnaire de `Lang.lua`.
+  - Commentaires et documentation en français.
 - **Règles de jeu** : on ne change sans une demande explicite de Malcom :
   - ni la capture en triangle ;
   - ni la boucle à terre / portage / réanimation / conversion ;
@@ -75,7 +77,12 @@ Toutes les simulations doivent passer :
 - `test_bots`, `test_farm`, `test_canyon`, `test_swamp` ;
 - `test_economy` ;
 - `test_mobile` : appareil tactile simulé, paysage et portrait, bouton CARRY ;
-- `test_visual` : règles chiffrées de la bible sur chaque carte (dont contraste des contours et zones sûres). Sur Carousel Valley, il relit aussi les pièces du kit : couleurs, couloirs et piste dégagés, apparitions et nids hors collisions, budget de triangles.
+- `test_visual` : règles chiffrées de la bible sur chaque carte (dont contraste des contours et zones sûres). Sur Carousel Valley, il relit aussi les pièces du kit : couleurs, couloirs et piste dégagés, apparitions et nids hors collisions, budget de triangles ;
+- `test_kit` : mémoire des meshes épuisée (comme dans Studio) : aucune erreur, une seule alerte, l'essentiel d'abord, jamais de bloc géant ;
+- `test_kit_import` : kit importé dans Studio trouvé, rangé, copié à la bonne taille, contrôle physique écrit dans la sortie ;
+- `test_langue` : une manche en français (lobby, vote, aide, équipes, zone sûre, secours, résultats), aucun texte anglais à l'écran, aucune traduction manquante, HUD lisible sur PC et téléphone.
+
+Les scénarios tournent en anglais (`shared.HoH_Language`, posé par `tools/sim/world.luau`) ; `test_langue` et les rendus gardent la langue du jeu.
 
 Le simulateur refuse toute propriété qui n'existe pas dans l'API Roblox réelle.
 

@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
+local Lang = require(Shared.Lang)
 local Theme = require(script.Parent.Theme)
 
 local ShopUI = {}
@@ -34,9 +35,9 @@ local ORDER_KEY = { Looks = "LookOrder", Trails = "TrailOrder", CatchEffects = "
 local OWNED_KEY = { Looks = "OwnedLooks", Trails = "OwnedTrails", CatchEffects = "OwnedCatchEffects" }
 local EQUIPPED_KEY = { Looks = "EquippedLook", Trails = "EquippedTrail", CatchEffects = "EquippedCatchEffect" }
 local DESCRIPTIONS = {
-	Looks = "A hat on top of your avatar. Cosmetic only.",
-	Trails = "A trail behind you when you run. Cosmetic only.",
-	CatchEffects = "Plays when you catch someone. Cosmetic only.",
+	Looks = Lang.T("A hat on top of your avatar. Cosmetic only."),
+	Trails = Lang.T("A trail behind you when you run. Cosmetic only."),
+	CatchEffects = Lang.T("Plays when you catch someone. Cosmetic only."),
 }
 
 local function hasPasses(): boolean
@@ -82,7 +83,7 @@ local function render()
 			child:Destroy()
 		end
 	end
-	coinsLabel.Text = tostring(profile.Coins or 0) .. " coins"
+	coinsLabel.Text = Lang.F("%d coins", profile.Coins or 0)
 	for name, button in tabButtons do
 		button.BackgroundColor3 = name == currentTab and Theme.Good or Theme.PanelLight
 		button.TextColor3 = name == currentTab and Theme.Dark or Theme.White
@@ -101,10 +102,10 @@ local function render()
 			local def = defs[id]
 			local isOwned = owned[id] == true
 			local isEquipped = equipped == id
-			local text = isEquipped and "EQUIPPED" or (isOwned and "EQUIP" or (def.Price .. " coins"))
+			local text = isEquipped and Lang.T("EQUIPPED") or (isOwned and Lang.T("EQUIP") or Lang.F("%d coins", def.Price))
 			local enabled = (isOwned and not isEquipped) or (not isOwned and coins >= def.Price)
-			local status = isOwned and "Owned" or (coins >= def.Price and "" or ("Need " .. (def.Price - coins) .. " more"))
-			card(content, index, def.Name, DESCRIPTIONS[category], status, text, enabled, function()
+			local status = isOwned and Lang.T("Owned") or (coins >= def.Price and "" or Lang.F("Need %d more", def.Price - coins))
+			card(content, index, Lang.T(def.Name), DESCRIPTIONS[category], status, text, enabled, function()
 				if isOwned then
 					equip:FireServer(category, id)
 				else
@@ -117,7 +118,7 @@ local function render()
 		for key, def in Config.Monetization.GamePasses do
 			if def.Id and def.Id > 0 then
 				index += 1
-				card(content, index, def.Name, def.Description, "", "GET", true, function()
+				card(content, index, Lang.T(def.Name), Lang.T(def.Description), "", Lang.T("GET"), true, function()
 					MarketplaceService:PromptGamePassPurchase(player, def.Id)
 				end)
 			end
@@ -126,7 +127,7 @@ local function render()
 		for key, def in Config.Monetization.Products do
 			if def.Id and def.Id > 0 then
 				index += 1
-				card(content, index, def.Coins .. " coins", "Coin pack", "", "BUY", true, function()
+				card(content, index, Lang.F("%d coins", def.Coins), Lang.T("Coin pack"), "", Lang.T("BUY"), true, function()
 					MarketplaceService:PromptProductPurchase(player, def.Id)
 				end)
 			end
@@ -187,7 +188,7 @@ function ShopUI.Init(screen: ScreenGui, pill: GuiButton?)
 	Theme.Corner(window, 16)
 	Theme.Stroke(window, 5, Theme.Outline)
 	New("UISizeConstraint", { MaxSize = Vector2.new(900, 600) }, window)
-	Theme.Title(window, { Size = UDim2.fromScale(0.4, 0.1), Position = UDim2.fromScale(0.03, 0.025), Text = "SHOP", TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Theme.Gold })
+	Theme.Title(window, { Size = UDim2.fromScale(0.4, 0.1), Position = UDim2.fromScale(0.03, 0.025), Text = Lang.T("SHOP"), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Theme.Gold })
 	coinsLabel = Label(window, { Size = UDim2.fromScale(0.3, 0.07), Position = UDim2.fromScale(0.52, 0.04), Text = "", TextColor3 = Theme.Coin, TextXAlignment = Enum.TextXAlignment.Right })
 	local close: TextButton = New("TextButton", {
 		Size = UDim2.fromScale(0.08, 0.1),
@@ -213,7 +214,7 @@ function ShopUI.Init(screen: ScreenGui, pill: GuiButton?)
 			Name = name,
 			Size = UDim2.fromScale(1 / #tabList - 0.015, 1),
 			BackgroundColor3 = Theme.Panel,
-			Text = string.upper(name),
+			Text = Lang.T(string.upper(name)),
 			TextScaled = true,
 			FontFace = Theme.FaceHeavy,
 			TextColor3 = Theme.White,
