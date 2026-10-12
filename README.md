@@ -1,8 +1,10 @@
 # Hunt or Hide (« Poule, poule, renard, vipère »)
 
 Party game Roblox de poursuite à trois équipes, écrit en Luau et synchronisé
-avec Roblox Studio grâce à [Rojo](https://rojo.space). Tout est généré par le
-code : lobby, cartes (sol et relief en pièces), mécanismes, interface, effets.
+avec Roblox Studio grâce à [Rojo](https://rojo.space).
+- Le décor de la carte héroïque (Carousel Valley) vient d'un **kit d'assets 3D
+  original modélisé dans Blender** (`tools/assets`, `assets/kit/HoH_Kit.fbx`).
+- Le reste est généré par le code : lobby, autres cartes, mécanismes, interface, effets.
 
 > Règle affichée au joueur : **"Catch your prey. Run from your hunter."**
 > Le RENARD attrape la POULE, la POULE attrape la VIPÈRE, la VIPÈRE attrape le RENARD.
@@ -40,7 +42,26 @@ code : lobby, cartes (sol et relief en pièces), mécanismes, interface, effets.
    - Ou dernière équipe debout.
    - Ou, au chrono, l'équipe la plus nombreuse (ou la règle de la carte).
 
-Réglages : `Config.Rescue` et `Config.SafeZone` dans `src/shared/Config.lua`.
+8. **Modes et vote** : avant chaque manche, le lobby propose trois options « mode + carte ».
+   - **CHASE** : poursuite pure. Dernière équipe debout, sinon la plus nombreuse au chrono.
+   - **EGG RUN** : des œufs peints apparaissent dans trois nids, un entre chaque paire de camps.
+     - On ramasse un œuf en le touchant et on le rapporte dans la zone sûre de son camp : +1.
+     - Le porteur est ralenti (x0,85), visible de tous, ne peut ni attraper ni porter un coéquipier.
+     - Porteur attrapé : l'œuf tombe. Un œuf laissé seul 20 s retourne dans un nid.
+     - Première équipe à 5 œufs ; au chrono, le plus d'œufs.
+   - **CAROUSEL** : le manège du centre a trois bras ; au bout de chacun, un cheval volant fait le tour de la vallée.
+     - Sous chaque cheval, un anneau au sol suit sa course.
+     - Chaque seconde, chaque anneau donne 1 point à l'équipe qui y a le plus de joueurs debout ; égalité : personne.
+     - L'anneau prend la couleur de l'équipe qui le tient. Le manège change de sens toutes les 60 s.
+     - La piste ne traverse aucune zone sûre. Première équipe à 120 points ; au chrono, le plus de points.
+   - **Vote** : une voix par joueur, on peut changer d'avis. Chaque carte de vote montre la règle, le
+     nombre de voix et le nom des votants ; une ligne liste tous les joueurs et ceux qui n'ont pas voté.
+     L'option la plus votée gagne ; égalité ou aucun vote : le mode joué il y a le plus longtemps.
+   - **Équipes** : tailles égales à un près ; chacun change d'animal d'une manche à l'autre et passe par
+     les trois au fil des manches. Le décompte affiche la composition des trois équipes.
+
+Réglages : `Config.Rescue`, `Config.SafeZone`, `Config.Modes` et `Config.Round.MapPool`
+dans `src/shared/Config.lua`.
 
 ## Structure
 
@@ -49,16 +70,18 @@ default.project.json       Projet Rojo
 src/shared/                -> ReplicatedStorage.Shared (serveur + client)
   Config.lua               Toutes les valeurs d'équilibrage (manche, cartes, économie, boutique)
   Teams.lua                Équipes, couleurs, chaîne de prédation
-  MapInfo.lua              Nom, mode et phrase "comment gagner" de chaque carte
+  MapInfo.lua              Nom de chaque carte et modes qu'on peut y jouer
+  ModeInfo.lua             Modes (CHASE, EGG RUN, CAROUSEL...) : nom, règle en trois lignes
+  Kit/                     Kit 3D généré par tools/assets : Manifest, Meshes/, Layouts, Palettes
   Style.lua                Direction artistique (palette, Terrain, éclairage)
   Remotes.lua, Types.lua   RemoteEvents et types partagés
 src/server/                -> ServerScriptService.Server
   Main.server.lua          Point d'entrée : initialise les services dans l'ordre
   Services/                Déroulement de la partie
     RoundService.lua       Boucle : lobby/vote -> équipes -> décompte -> manche -> résultats
-    VoteService.lua        Vote + rotation des cartes
+    VoteService.lua        Vote des options « mode + carte », départage par rotation
     MapRegistry.lua        Chargement automatique des cartes de Maps/
-    TeamService.lua        Équipes équilibrées
+    TeamService.lua        Équipes équilibrées, animaux qui tournent d'une manche à l'autre
     CaptureService.lua     Captures (validées par le serveur) -> mise à terre
     RescueService.lua      À terre, portage, réanimation, conversion faute de secours
     SafeZoneService.lua    Zones sûres des camps (protection vérifiée par le serveur)
@@ -68,14 +91,19 @@ src/server/                -> ServerScriptService.Server
   Maps/                    Cartes
     MapBase.lua            Système commun : arène, camps, chemins, cachettes, mécanismes
     _Template.lua          Modèle commenté pour créer une carte
-    TheFarm, TheCarousel, TheCanyon, TheSwamp
-  Util/                    Build (Parts), Props (décors 3D), Ground (sol et relief en pièces)
+    TheCarousel            Carte héroïque « Carousel Valley » (kit 3D, trois modes)
+    TheFarm, TheCanyon, TheSwamp   Cartes historiques (un mode chacune, hors rotation)
+  Modes/                   Règles des modes, indépendantes des cartes : Chase, EggRun, Carousel
+  Util/                    Kit (pose des assets 3D), Build (Parts), Props, Ground
   Bots/                    Bots (noms, apparence, cerveau)
   Data/                    Profil sauvegardé, économie, boutique, roue, classements, Robux
 src/client/                -> StarterPlayer.StarterPlayerScripts.Client
-  Controllers/             Mouvement, contours, portage (RescueController), effets et sons, état, données
+  Controllers/             Mouvement, contours, portage (RescueController), meshes du kit
+                           (KitController), effets et sons, état, données
   UI/                      HUD, barre d'action tactile, boutique, fil des captures
 tools/                     Vérification hors Studio (types, simulation, rendus 3D)
+  assets/                  Kit 3D : modélisation Blender en Python, export FBX et données du jeu
+assets/kit/HoH_Kit.fbx     Le kit exporté, à importer dans Studio (tools/assets/README.md)
 ```
 
 ## Installation
@@ -128,8 +156,11 @@ Alternative sans serveur : `rojo build -o HuntOrHide.rbxl` puis ouvrir le fichie
 
 ## Tester
 
-- **Protocole de vérification dans Studio** (contours, zones sûres, mise à terre,
-  portage, réanimation, HUD, mobile) : `reference/TEST_STUDIO.md`.
+- **Protocole de vérification dans Studio** (Carousel Valley, kit 3D, trois modes,
+  vote, contours, zones sûres, mise à terre, portage, HUD, mobile) : `reference/TEST_STUDIO.md`.
+- **Kit 3D** : au *Play*, chaque client construit les meshes à la volée (EditableMesh).
+  Pour une expérience publiée, importer `assets/kit/HoH_Kit.fbx` (procédure dans
+  `tools/assets/README.md`) ou activer l'option « Allow Mesh & Image APIs ».
 - **Un joueur** : bouton *Play* dans Studio. Une manche se lance avec un seul
   joueur (`Config.Round.MinPlayersToStart = 1`).
 - **Plusieurs joueurs** : onglet *Test* -> *Clients and Servers* -> choisir
@@ -144,16 +175,17 @@ dans la fenêtre *Output* de Studio.
 
 - **Bible visuelle** : `reference/BIBLE_VISUELLE.md` (principes tirés de la
   référence, règles chiffrées vérifiées par `tools/sim/test_visual.luau`, kit
-  d'interface propre au jeu, exemple complet sur le Canyon, preuves dans
-  `reference/preuves/`). En bref :
-  - toujours de jour ;
-  - sol en plaques à tenons d'un ton dominant, sans Terrain (`src/server/Util/Ground.lua`) ;
-  - fond en gradins de blocs ;
+  d'interface propre au jeu, preuves dans `reference/preuves/`). En bref :
+  - toujours de jour, lumière douce ;
+  - décor en meshes stylisés du kit 3D : formes rondes et épaisses, arêtes adoucies,
+    couleurs par rôle (palette `src/shared/Kit/Palettes.lua`), aucune texture ;
+  - vallée fermée par des collines, sol d'herbe en plusieurs tons, allées bordées de pierres ;
   - couleurs d'équipe réservées aux équipes ;
-  - couloirs de course dégagés ;
+  - couloirs de course dégagés, repères visibles de loin (manège, grande roue, moulin, grange, drapeaux) ;
   - interface en police Fredoka One, panneaux vert-de-gris à bord crème.
 
-  Réglages dans `src/shared/Style.lua`, `Map.Lighting` et les thèmes des cartes.
+  Réglages dans `Map.Lighting`, les palettes du kit et, pour les cartes historiques,
+  `src/shared/Style.lua`.
 - **Chacun garde son avatar Roblox, entièrement** : corps, vêtements, accessoires et
   couleurs. L'équipe se lit à un **contour lumineux seul**, sans remplissage, aux
   couleurs de l'équipe :
@@ -199,7 +231,9 @@ automatiquement en fin de manche. La carte entre dans le vote et la rotation.
 1. `rojo build -o HuntOrHide.rbxl`, ouvrir le fichier dans Studio (ou `rojo serve`).
 2. Supprimer la Baseplate et la SpawnLocation d'origine si elles existent.
 3. *Game Settings* : Avatar Type = R6 ; *Security* : activer **Studio Access to
-   API Services** (sauvegarde et classements).
+   API Services** (sauvegarde et classements) et **Allow Mesh & Image APIs**
+   (meshes du kit 3D construits par chaque client). Sans cette option, importer
+   le kit dans la place : `tools/assets/README.md`.
 4. Tester dans Studio : *Play* (1 joueur + bots), puis *Test > Clients and Servers*
    avec 3 joueurs (captures, vote, résultats, boutique, roue) et l'émulateur de
    téléphone (*Test > Device*) pour les boutons tactiles.
@@ -213,6 +247,10 @@ automatiquement en fin de manche. La carte entre dans le vote et la rotation.
 - [x] Boucle de manche, équipes, vote et rotation, lobby
 - [x] Captures, conversion, contours, inertie, dash, capacités
 - [x] 4 cartes : The Farm, The Carousel, The Canyon, The Swamp
+- [x] Kit 3D original modélisé dans Blender (59 assets) et carte héroïque Carousel Valley (simulation)
+- [x] Trois modes jouables par tout le serveur (CHASE, EGG RUN, CAROUSEL), vote lisible, équipes tournantes (simulation)
+- [ ] Carousel Valley vérifiée dans Studio (meshes, collisions, sensations) : `reference/TEST_STUDIO.md`
+- [ ] Même traitement (kit 3D) pour The Farm, The Canyon et The Swamp, puis retour dans la rotation
 - [x] Bots
 - [x] Pièces, niveaux, boutique de cosmétiques, sauvegarde, classements
 - [x] Effets, sons, fil des captures, résultats expliqués, arrivée en cours de manche

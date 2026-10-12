@@ -143,11 +143,11 @@ local Manifest: { [string]: AssetDef } = {
 	RockSmall = {
 		Category = "Rock",
 		Footprint = 1.6,
-		Height = 1.303,
+		Height = 1.294,
 		Tris = 140,
 		Pieces = {
-			{ Mesh = "RockSmall__Rock", Role = "Rock", Material = "SmoothPlastic", Center = Vector3.new(-0.075, 0.553, -0.004), Size = Vector3.new(3.185, 1.108, 2.627), Tris = 111, Shadow = true },
-			{ Mesh = "RockSmall__Moss", Role = "Moss", Material = "SmoothPlastic", Center = Vector3.new(0.157, 1.008, 0.009), Size = Vector3.new(2.443, 0.59, 1.899), Tris = 29, Shadow = true },
+			{ Mesh = "RockSmall__Rock", Role = "Rock", Material = "SmoothPlastic", Center = Vector3.new(-0.038, 0.593, 0.011), Size = Vector3.new(3.197, 1.188, 2.653), Tris = 113, Shadow = true },
+			{ Mesh = "RockSmall__Moss", Role = "Moss", Material = "SmoothPlastic", Center = Vector3.new(0.144, 1, -0.003), Size = Vector3.new(2.448, 0.589, 1.87), Tris = 27, Shadow = true },
 		},
 		Colliders = {},
 		Anchors = {},
@@ -155,11 +155,11 @@ local Manifest: { [string]: AssetDef } = {
 	RockMedium = {
 		Category = "Rock",
 		Footprint = 3,
-		Height = 2.699,
+		Height = 2.772,
 		Tris = 240,
 		Pieces = {
-			{ Mesh = "RockMedium__Rock", Role = "Rock", Material = "SmoothPlastic", Center = Vector3.new(0.007, 1.323, -0.025), Size = Vector3.new(6.614, 2.647, 5.279), Tris = 207, Shadow = true },
-			{ Mesh = "RockMedium__Moss", Role = "Moss", Material = "SmoothPlastic", Center = Vector3.new(0.007, 2.028, 0.318), Size = Vector3.new(4.681, 1.342, 3.767), Tris = 33, Shadow = true },
+			{ Mesh = "RockMedium__Rock", Role = "Rock", Material = "SmoothPlastic", Center = Vector3.new(0.077, 1.292, -0.023), Size = Vector3.new(6.552, 2.584, 5.365), Tris = 205, Shadow = true },
+			{ Mesh = "RockMedium__Moss", Role = "Moss", Material = "SmoothPlastic", Center = Vector3.new(0.017, 2.073, 0.296), Size = Vector3.new(4.772, 1.397, 3.842), Tris = 35, Shadow = true },
 		},
 		Colliders = {
 			{ Shape = "Block", CFrame = CFrame.new(0, 1.4, 0) * CFrame.Angles(0, math.rad(0), 0), Size = Vector3.new(5, 2.8, 4) },
@@ -169,11 +169,11 @@ local Manifest: { [string]: AssetDef } = {
 	RockLarge = {
 		Category = "Rock",
 		Footprint = 6,
-		Height = 5.723,
+		Height = 5.805,
 		Tris = 248,
 		Pieces = {
-			{ Mesh = "RockLarge__Rock", Role = "Rock", Material = "SmoothPlastic", Center = Vector3.new(0.028, 2.861, 0.167), Size = Vector3.new(12.514, 5.723, 9.589), Tris = 217, Shadow = true },
-			{ Mesh = "RockLarge__Moss", Role = "Moss", Material = "SmoothPlastic", Center = Vector3.new(0.021, 4.432, -0.064), Size = Vector3.new(10.904, 2.582, 6.838), Tris = 31, Shadow = true },
+			{ Mesh = "RockLarge__Rock", Role = "Rock", Material = "SmoothPlastic", Center = Vector3.new(-0.025, 2.902, 0.006), Size = Vector3.new(12.488, 5.805, 9.343), Tris = 219, Shadow = true },
+			{ Mesh = "RockLarge__Moss", Role = "Moss", Material = "SmoothPlastic", Center = Vector3.new(-0.086, 4.449, 0.001), Size = Vector3.new(10.781, 2.712, 7.299), Tris = 29, Shadow = true },
 		},
 		Colliders = {
 			{ Shape = "Block", CFrame = CFrame.new(0, 2.6, 0) * CFrame.Angles(0, math.rad(0), 0), Size = Vector3.new(10, 5.2, 7.2) },
@@ -184,11 +184,11 @@ local Manifest: { [string]: AssetDef } = {
 	RockTall = {
 		Category = "Rock",
 		Footprint = 3.5,
-		Height = 7.341,
+		Height = 7.423,
 		Tris = 236,
 		Pieces = {
-			{ Mesh = "RockTall__Rock", Role = "Rock", Material = "SmoothPlastic", Center = Vector3.new(0.085, 3.654, -0.028), Size = Vector3.new(5.785, 7.308, 4.923), Tris = 229, Shadow = true },
-			{ Mesh = "RockTall__Moss", Role = "Moss", Material = "SmoothPlastic", Center = Vector3.new(0.276, 7.064, 0.012), Size = Vector3.new(1.737, 0.554, 1.369), Tris = 7, Shadow = true },
+			{ Mesh = "RockTall__Rock", Role = "Rock", Material = "SmoothPlastic", Center = Vector3.new(0.075, 3.712, -0.038), Size = Vector3.new(5.727, 7.423, 5.002), Tris = 233, Shadow = true },
+			{ Mesh = "RockTall__Moss", Role = "Moss", Material = "SmoothPlastic", Center = Vector3.new(0.573, 7.071, 0.02), Size = Vector3.new(1.254, 0.705, 1.438), Tris = 3, Shadow = true },
 		},
 		Colliders = {
 			{ Shape = "Block", CFrame = CFrame.new(0, 4, 0) * CFrame.Angles(0, math.rad(0), 0), Size = Vector3.new(4.4, 8, 3.8) },
@@ -239,7 +239,7 @@ local Manifest: { [string]: AssetDef } = {
 		Height = 1.51,
 		Tris = 190,
 		Pieces = {
-			{ Mesh = "Stump__Bark", Role = "Trunk", Material = "SmoothPlastic", Center = Vector3.new(-0.011, 0.731, -0.015), Size = Vector3.new(2.874, 1.498, 2.854), Tris = 138, Shadow = true },
+			{ Mesh = "Stump__Bark", Role = "Trunk", Material = "SmoothPlastic", Center = Vector3.new(-0.001, 0.73, 0.006), Size = Vector3.new(2.898, 1.497, 2.827), Tris = 138, Shadow = true },
 			{ Mesh = "Stump__Rings", Role = "WoodLight", Material = "SmoothPlastic", Center = Vector3.new(0, 1.48, 0), Size = Vector3.new(1.56, 0.06, 1.6), Tris = 52, Shadow = true },
 		},
 		Colliders = {
@@ -253,7 +253,7 @@ local Manifest: { [string]: AssetDef } = {
 		Height = 1.942,
 		Tris = 252,
 		Pieces = {
-			{ Mesh = "Log__Bark", Role = "Trunk", Material = "SmoothPlastic", Center = Vector3.new(0.004, 0.896, 0.015), Size = Vector3.new(7.025, 1.846, 1.912), Tris = 44, Shadow = true },
+			{ Mesh = "Log__Bark", Role = "Trunk", Material = "SmoothPlastic", Center = Vector3.new(-0.012, 0.886, -0.009), Size = Vector3.new(7.065, 1.892, 1.882), Tris = 44, Shadow = true },
 			{ Mesh = "Log__Ends", Role = "WoodLight", Material = "SmoothPlastic", Center = Vector3.new(0.02, 0.9, 0), Size = Vector3.new(7.04, 1.44, 1.44), Tris = 88, Shadow = true },
 			{ Mesh = "Log__Moss", Role = "Moss", Material = "SmoothPlastic", Center = Vector3.new(-0.089, 1.59, -0.001), Size = Vector3.new(4.88, 0.703, 1.471), Tris = 120, Shadow = true },
 		},
@@ -291,11 +291,11 @@ local Manifest: { [string]: AssetDef } = {
 	Fence = {
 		Category = "Fence",
 		Footprint = 4,
-		Height = 3.779,
+		Height = 3.784,
 		Tris = 262,
 		Pieces = {
-			{ Mesh = "Fence__Posts", Role = "WoodDark", Material = "SmoothPlastic", Center = Vector3.new(0.001, 1.886, -0.003), Size = Vector3.new(8.645, 3.786, 0.645), Tris = 174, Shadow = true },
-			{ Mesh = "Fence__Rails", Role = "Wood", Material = "SmoothPlastic", Center = Vector3.new(0.004, 2.101, 0.001), Size = Vector3.new(8.61, 1.714, 0.295), Tris = 88, Shadow = true },
+			{ Mesh = "Fence__Posts", Role = "WoodDark", Material = "SmoothPlastic", Center = Vector3.new(0.002, 1.888, 0), Size = Vector3.new(8.637, 3.792, 0.651), Tris = 174, Shadow = true },
+			{ Mesh = "Fence__Rails", Role = "Wood", Material = "SmoothPlastic", Center = Vector3.new(0.005, 2.102, 0.005), Size = Vector3.new(8.606, 1.715, 0.297), Tris = 88, Shadow = true },
 		},
 		Colliders = {
 			{ Shape = "Block", CFrame = CFrame.new(0, 1.8, 0) * CFrame.Angles(0, math.rad(0), 0), Size = Vector3.new(8.6, 3.6, 0.7) },
@@ -305,11 +305,11 @@ local Manifest: { [string]: AssetDef } = {
 	StoneWall = {
 		Category = "Fence",
 		Footprint = 4,
-		Height = 2.776,
+		Height = 2.78,
 		Tris = 900,
 		Pieces = {
-			{ Mesh = "StoneWall__Stones", Role = "Stone", Material = "SmoothPlastic", Center = Vector3.new(-0.009, 1.451, -0.013), Size = Vector3.new(7.96, 2.651, 1.612), Tris = 582, Shadow = true },
-			{ Mesh = "StoneWall__StonesShade", Role = "RockDark", Material = "SmoothPlastic", Center = Vector3.new(-0.018, 1.227, -0.014), Size = Vector3.new(7.941, 2.429, 1.601), Tris = 318, Shadow = true },
+			{ Mesh = "StoneWall__Stones", Role = "Stone", Material = "SmoothPlastic", Center = Vector3.new(-0.001, 1.454, 0.008), Size = Vector3.new(7.886, 2.653, 1.596), Tris = 590, Shadow = true },
+			{ Mesh = "StoneWall__StonesShade", Role = "RockDark", Material = "SmoothPlastic", Center = Vector3.new(0.002, 1.231, 0.017), Size = Vector3.new(7.844, 2.426, 1.578), Tris = 310, Shadow = true },
 		},
 		Colliders = {
 			{ Shape = "Block", CFrame = CFrame.new(0, 1.4, 0) * CFrame.Angles(0, math.rad(0), 0), Size = Vector3.new(8.2, 2.8, 1.6) },
@@ -322,7 +322,7 @@ local Manifest: { [string]: AssetDef } = {
 		Height = 3.49,
 		Tris = 424,
 		Pieces = {
-			{ Mesh = "HayBale__Hay", Role = "Hay", Material = "SmoothPlastic", Center = Vector3.new(-0.012, 1.704, 0.032), Size = Vector3.new(2.689, 3.391, 3.451), Tris = 128, Shadow = true },
+			{ Mesh = "HayBale__Hay", Role = "Hay", Material = "SmoothPlastic", Center = Vector3.new(-0.001, 1.705, -0.017), Size = Vector3.new(2.691, 3.462, 3.435), Tris = 128, Shadow = true },
 			{ Mesh = "HayBale__Ends", Role = "Straw", Material = "SmoothPlastic", Center = Vector3.new(0, 1.7, 0), Size = Vector3.new(2.62, 3.58, 3.58), Tris = 296, Shadow = true },
 		},
 		Colliders = {
@@ -333,11 +333,11 @@ local Manifest: { [string]: AssetDef } = {
 	HayStack = {
 		Category = "Cover",
 		Footprint = 3.5,
-		Height = 3.553,
+		Height = 3.556,
 		Tris = 324,
 		Pieces = {
-			{ Mesh = "HayStack__Hay", Role = "Hay", Material = "SmoothPlastic", Center = Vector3.new(-0.008, 1.851, -0.032), Size = Vector3.new(6.286, 3.405, 2.283), Tris = 210, Shadow = true },
-			{ Mesh = "HayStack__HayShade", Role = "Straw", Material = "SmoothPlastic", Center = Vector3.new(-0.008, 1.065, -0.032), Size = Vector3.new(6.286, 2.152, 2.283), Tris = 114, Shadow = true },
+			{ Mesh = "HayStack__Hay", Role = "Hay", Material = "SmoothPlastic", Center = Vector3.new(0.018, 1.821, -0.014), Size = Vector3.new(6.263, 3.47, 2.244), Tris = 206, Shadow = true },
+			{ Mesh = "HayStack__HayShade", Role = "Straw", Material = "SmoothPlastic", Center = Vector3.new(0.018, 1.073, -0.01), Size = Vector3.new(6.263, 2.175, 2.238), Tris = 118, Shadow = true },
 		},
 		Colliders = {
 			{ Shape = "Block", CFrame = CFrame.new(0, 0.9, 0) * CFrame.Angles(0, math.rad(0), 0), Size = Vector3.new(6.3, 1.8, 2.1) },
@@ -406,7 +406,7 @@ local Manifest: { [string]: AssetDef } = {
 		Tris = 1560,
 		Pieces = {
 			{ Mesh = "Windmill__Tower", Role = "Wall", Material = "SmoothPlastic", Center = Vector3.new(0, 7.5, 0), Size = Vector3.new(10.8, 15, 10.8), Tris = 80, Shadow = true },
-			{ Mesh = "Windmill__Base", Role = "Stone", Material = "SmoothPlastic", Center = Vector3.new(0.032, 0.748, -0.025), Size = Vector3.new(11.969, 1.586, 12.009), Tris = 94, Shadow = true },
+			{ Mesh = "Windmill__Base", Role = "Stone", Material = "SmoothPlastic", Center = Vector3.new(-0.005, 0.745, -0.005), Size = Vector3.new(11.996, 1.593, 12), Tris = 94, Shadow = true },
 			{ Mesh = "Windmill__Cap", Role = "RoofDark", Material = "SmoothPlastic", Center = Vector3.new(0, 17.8, 0), Size = Vector3.new(9.4, 6.2, 9.4), Tris = 198, Shadow = true },
 			{ Mesh = "Windmill__Trims", Role = "Wood", Material = "SmoothPlastic", Center = Vector3.new(0, 8.15, -0.339), Size = Vector3.new(9.342, 13.7, 10.021), Tris = 1188, Shadow = true },
 		},
@@ -435,9 +435,9 @@ local Manifest: { [string]: AssetDef } = {
 		Height = 6.918,
 		Tris = 1432,
 		Pieces = {
-			{ Mesh = "Well__Stones", Role = "Stone", Material = "SmoothPlastic", Center = Vector3.new(-0.002, 1.288, -0.017), Size = Vector3.new(5.637, 2.578, 5.575), Tris = 900, Shadow = true },
+			{ Mesh = "Well__Stones", Role = "Stone", Material = "SmoothPlastic", Center = Vector3.new(0.009, 1.268, 0), Size = Vector3.new(5.55, 2.575, 5.616), Tris = 900, Shadow = true },
 			{ Mesh = "Well__Water", Role = "Water", Material = "SmoothPlastic", Center = Vector3.new(0, 1.65, 0), Size = Vector3.new(3.705, 0.1, 3.8), Tris = 52, Shadow = true },
-			{ Mesh = "Well__Posts", Role = "Wood", Material = "SmoothPlastic", Center = Vector3.new(0, 2.782, 0), Size = Vector3.new(5.4, 5.575, 1.046), Tris = 264, Shadow = true },
+			{ Mesh = "Well__Posts", Role = "Wood", Material = "SmoothPlastic", Center = Vector3.new(0, 2.781, 0), Size = Vector3.new(5.4, 5.578, 1.046), Tris = 264, Shadow = true },
 			{ Mesh = "Well__Roof", Role = "RoofDark", Material = "SmoothPlastic", Center = Vector3.new(0, 6.15, 0), Size = Vector3.new(6.4, 1.535, 4.467), Tris = 216, Shadow = true },
 		},
 		Colliders = {
@@ -448,10 +448,10 @@ local Manifest: { [string]: AssetDef } = {
 	Signpost = {
 		Category = "Decor",
 		Footprint = 1,
-		Height = 6.669,
+		Height = 6.661,
 		Tris = 106,
 		Pieces = {
-			{ Mesh = "Signpost__Post", Role = "WoodDark", Material = "SmoothPlastic", Center = Vector3.new(0.007, 3.331, 0.001), Size = Vector3.new(0.595, 6.675, 0.595), Tris = 58, Shadow = true },
+			{ Mesh = "Signpost__Post", Role = "WoodDark", Material = "SmoothPlastic", Center = Vector3.new(-0.001, 3.326, -0.008), Size = Vector3.new(0.603, 6.668, 0.595), Tris = 58, Shadow = true },
 			{ Mesh = "Signpost__Boards", Role = "Plank", Material = "SmoothPlastic", Center = Vector3.new(0.123, 4.5, 0.848), Size = Vector3.new(6.602, 2.9, 5.504), Tris = 48, Shadow = true },
 		},
 		Colliders = {
@@ -478,10 +478,10 @@ local Manifest: { [string]: AssetDef } = {
 	Bench = {
 		Category = "Decor",
 		Footprint = 1.6,
-		Height = 3.056,
+		Height = 3.045,
 		Tris = 608,
 		Pieces = {
-			{ Mesh = "Bench__Seat", Role = "WoodLight", Material = "SmoothPlastic", Center = Vector3.new(0, 2.146, 0.143), Size = Vector3.new(4.613, 1.82, 1.443), Tris = 176, Shadow = true },
+			{ Mesh = "Bench__Seat", Role = "WoodLight", Material = "SmoothPlastic", Center = Vector3.new(0.001, 2.136, 0.139), Size = Vector3.new(4.606, 1.819, 1.452), Tris = 176, Shadow = true },
 			{ Mesh = "Bench__Legs", Role = "WoodDark", Material = "SmoothPlastic", Center = Vector3.new(0, 1.375, 0.125), Size = Vector3.new(4.15, 2.75, 1.55), Tris = 432, Shadow = true },
 		},
 		Colliders = {
@@ -496,7 +496,7 @@ local Manifest: { [string]: AssetDef } = {
 		Tris = 1100,
 		Pieces = {
 			{ Mesh = "MarketStall__Counter", Role = "WoodLight", Material = "SmoothPlastic", Center = Vector3.new(0, 1.625, 0), Size = Vector3.new(7.4, 3.25, 3), Tris = 216, Shadow = true },
-			{ Mesh = "MarketStall__Posts", Role = "Wood", Material = "SmoothPlastic", Center = Vector3.new(0.002, 3.864, -0.001), Size = Vector3.new(7.106, 7.749, 2.698), Tris = 232, Shadow = true },
+			{ Mesh = "MarketStall__Posts", Role = "Wood", Material = "SmoothPlastic", Center = Vector3.new(-0.002, 3.865, -0.002), Size = Vector3.new(7.109, 7.749, 2.704), Tris = 232, Shadow = true },
 			{ Mesh = "MarketStall__StripeA", Role = "FairRed", Material = "SmoothPlastic", Center = Vector3.new(0, 7.984, -0.486), Size = Vector3.new(7.82, 1.763, 4.854), Tris = 304, Shadow = true },
 			{ Mesh = "MarketStall__StripeB", Role = "Cream", Material = "SmoothPlastic", Center = Vector3.new(0, 7.984, -0.486), Size = Vector3.new(5.591, 1.763, 4.854), Tris = 228, Shadow = true },
 			{ Mesh = "MarketStall__Goods", Role = "Fruit", Material = "SmoothPlastic", Center = Vector3.new(0.025, 3.6, 0.366), Size = Vector3.new(6.055, 0.9, 1.101), Tris = 120, Shadow = true },
@@ -528,9 +528,9 @@ local Manifest: { [string]: AssetDef } = {
 		Height = 4.523,
 		Tris = 1732,
 		Pieces = {
-			{ Mesh = "Bridge__Deck", Role = "Plank", Material = "SmoothPlastic", Center = Vector3.new(0.003, 1.381, -0.001), Size = Vector3.new(15.913, 1.818, 6.036), Tris = 704, Shadow = true },
+			{ Mesh = "Bridge__Deck", Role = "Plank", Material = "SmoothPlastic", Center = Vector3.new(0.002, 1.377, -0.004), Size = Vector3.new(15.927, 1.808, 6.036), Tris = 704, Shadow = true },
 			{ Mesh = "Bridge__Beams", Role = "WoodDark", Material = "SmoothPlastic", Center = Vector3.new(0, 0.961, 0), Size = Vector3.new(16.229, 2.184, 6.3), Tris = 304, Shadow = true },
-			{ Mesh = "Bridge__Rails", Role = "Wood", Material = "SmoothPlastic", Center = Vector3.new(0, 2.233, 0), Size = Vector3.new(16.365, 4.58, 6.018), Tris = 724, Shadow = true },
+			{ Mesh = "Bridge__Rails", Role = "Wood", Material = "SmoothPlastic", Center = Vector3.new(-0.001, 2.234, -0.003), Size = Vector3.new(16.37, 4.579, 6.01), Tris = 724, Shadow = true },
 		},
 		Colliders = {
 			{ Shape = "Wedge", CFrame = CFrame.new(-5.4, 1.1, 0) * CFrame.Angles(0, math.rad(90), 0), Size = Vector3.new(6, 2.2, 5.2) },
@@ -607,10 +607,10 @@ local Manifest: { [string]: AssetDef } = {
 	Nest = {
 		Category = "Objective",
 		Footprint = 2.5,
-		Height = 1.552,
+		Height = 1.587,
 		Tris = 1038,
 		Pieces = {
-			{ Mesh = "Nest__Straw", Role = "Straw", Material = "SmoothPlastic", Center = Vector3.new(-0.016, 0.736, 0.002), Size = Vector3.new(4.005, 1.631, 3.922), Tris = 878, Shadow = true },
+			{ Mesh = "Nest__Straw", Role = "Straw", Material = "SmoothPlastic", Center = Vector3.new(0, 0.752, -0.012), Size = Vector3.new(3.971, 1.67, 3.932), Tris = 878, Shadow = true },
 			{ Mesh = "Nest__Sticks", Role = "WoodDark", Material = "SmoothPlastic", Center = Vector3.new(-0.159, 0.869, 0.132), Size = Vector3.new(4.715, 0.929, 4.824), Tris = 160, Shadow = true },
 		},
 		Colliders = {},
@@ -658,14 +658,36 @@ local Manifest: { [string]: AssetDef } = {
 		Colliders = {},
 		Anchors = {},
 	},
+	BigWheel = {
+		Category = "Landmark",
+		Footprint = 14,
+		Height = 59.85,
+		Tris = 8196,
+		Pieces = {
+			{ Mesh = "BigWheel__Frame", Role = "Cream", Material = "SmoothPlastic", Center = Vector3.new(0, 32.525, 0), Size = Vector3.new(53.7, 54.65, 5.3), Tris = 4096, Shadow = true },
+			{ Mesh = "BigWheel__Legs", Role = "FairBlue", Material = "SmoothPlastic", Center = Vector3.new(0, 12.836, 0), Size = Vector3.new(30.1, 42.328, 11), Tris = 228, Shadow = true },
+			{ Mesh = "BigWheel__Hub", Role = "FairRed", Material = "SmoothPlastic", Center = Vector3.new(0, 33, 0), Size = Vector3.new(6, 6, 5), Tris = 60, Shadow = true },
+			{ Mesh = "BigWheel__Star", Role = "Gold", Material = "SmoothPlastic", Center = Vector3.new(0, 33, -2.8), Size = Vector3.new(6.6, 6.6, 0.5), Tris = 60, Shadow = true },
+			{ Mesh = "BigWheel__Cabins1", Role = "FairRed", Material = "SmoothPlastic", Center = Vector3.new(0, 28.8, 0), Size = Vector3.new(55.4, 54.2, 3), Tris = 432, Shadow = true },
+			{ Mesh = "BigWheel__Cabins2", Role = "FairBlue", Material = "SmoothPlastic", Center = Vector3.new(0, 28.8, 0), Size = Vector3.new(51.442, 50.242, 3), Tris = 432, Shadow = true },
+			{ Mesh = "BigWheel__Cabins3", Role = "FairLilac", Material = "SmoothPlastic", Center = Vector3.new(0, 28.8, 0), Size = Vector3.new(40.17, 38.97, 3), Tris = 432, Shadow = true },
+			{ Mesh = "BigWheel__Cabins4", Role = "FairTeal", Material = "SmoothPlastic", Center = Vector3.new(0, 28.8, 0), Size = Vector3.new(51.442, 50.242, 3), Tris = 432, Shadow = true },
+			{ Mesh = "BigWheel__Roofs", Role = "Cream", Material = "SmoothPlastic", Center = Vector3.new(0, 30.7, 0), Size = Vector3.new(56.565, 53.2, 4.8), Tris = 576, Shadow = true },
+			{ Mesh = "BigWheel__Bulbs", Role = "Bulb", Material = "Neon", Center = Vector3.new(0, 33, 0), Size = Vector3.new(52.074, 52.201, 5.821), Tris = 800, Shadow = false },
+			{ Mesh = "BigWheel__Platform", Role = "WoodLight", Material = "SmoothPlastic", Center = Vector3.new(0, -1.6, -1.65), Size = Vector3.new(15, 6, 13.3), Tris = 216, Shadow = true },
+			{ Mesh = "BigWheel__Footings", Role = "Stone", Material = "SmoothPlastic", Center = Vector3.new(0, -3, 0), Size = Vector3.new(26, 7, 11.8), Tris = 432, Shadow = true },
+		},
+		Colliders = {},
+		Anchors = {},
+	},
 	CampGate = {
 		Category = "Camp",
 		Footprint = 12,
 		Height = 12.5,
 		Tris = 1420,
 		Pieces = {
-			{ Mesh = "CampGate__Posts", Role = "Wood", Material = "SmoothPlastic", Center = Vector3.new(0, 6.246, 0), Size = Vector3.new(24.5, 12.507, 2.4), Tris = 864, Shadow = true },
-			{ Mesh = "CampGate__Stones", Role = "Stone", Material = "SmoothPlastic", Center = Vector3.new(-0.025, 0.817, 0.001), Size = Vector3.new(24.077, 1.667, 3.075), Tris = 216, Shadow = true },
+			{ Mesh = "CampGate__Posts", Role = "Wood", Material = "SmoothPlastic", Center = Vector3.new(0, 6.241, 0), Size = Vector3.new(24.5, 12.518, 2.4), Tris = 864, Shadow = true },
+			{ Mesh = "CampGate__Stones", Role = "Stone", Material = "SmoothPlastic", Center = Vector3.new(0.001, 0.811, -0.01), Size = Vector3.new(24.019, 1.677, 3.092), Tris = 216, Shadow = true },
 			{ Mesh = "CampGate__Sign", Role = "Plank", Material = "SmoothPlastic", Center = Vector3.new(0, 7.4, -0.15), Size = Vector3.new(14, 3.4, 0.6), Tris = 108, Shadow = true },
 			{ Mesh = "CampGate__Pennants", Role = "Team", Material = "SmoothPlastic", Center = Vector3.new(0, 9.85, -0.75), Size = Vector3.new(20.7, 1.6, 0.1), Tris = 72, Shadow = true },
 			{ Mesh = "CampGate__Lanterns", Role = "Bulb", Material = "Neon", Center = Vector3.new(0, 10, -1.2), Size = Vector3.new(22.046, 1.1, 1.1), Tris = 160, Shadow = false },
@@ -733,7 +755,7 @@ local Manifest: { [string]: AssetDef } = {
 	SnakeHollow = {
 		Category = "Camp",
 		Footprint = 6,
-		Height = 5.12,
+		Height = 5.125,
 		Tris = 1568,
 		Pieces = {
 			{ Mesh = "SnakeHollow__Rock", Role = "Rock", Material = "SmoothPlastic", Center = Vector3.new(0.134, 0.836, -0.053), Size = Vector3.new(11.439, 1.672, 11.336), Tris = 738, Shadow = true },
@@ -742,7 +764,7 @@ local Manifest: { [string]: AssetDef } = {
 			{ Mesh = "SnakeHollow__Reeds", Role = "Reed", Material = "SmoothPlastic", Center = Vector3.new(0.312, 1.558, 0.054), Size = Vector3.new(7.003, 3.132, 6.166), Tris = 240, Shadow = true },
 			{ Mesh = "SnakeHollow__ReedHeads", Role = "WoodDark", Material = "SmoothPlastic", Center = Vector3.new(-0.043, 2.588, -0.077), Size = Vector3.new(5.886, 1.208, 6.104), Tris = 120, Shadow = true },
 			{ Mesh = "SnakeHollow__Lily", Role = "Lily", Material = "SmoothPlastic", Center = Vector3.new(0.299, 0.33, 0.008), Size = Vector3.new(4.049, 0.06, 4.003), Tris = 108, Shadow = false },
-			{ Mesh = "SnakeHollow__BannerPole", Role = "WoodDark", Material = "SmoothPlastic", Center = Vector3.new(0.002, 2.554, -5.594), Size = Vector3.new(0.444, 5.131, 0.448), Tris = 58, Shadow = true },
+			{ Mesh = "SnakeHollow__BannerPole", Role = "WoodDark", Material = "SmoothPlastic", Center = Vector3.new(-0.001, 2.558, -5.601), Size = Vector3.new(0.443, 5.134, 0.438), Tris = 58, Shadow = true },
 			{ Mesh = "SnakeHollow__Banner", Role = "Team", Material = "SmoothPlastic", Center = Vector3.new(1.3, 3.6, -5.6), Size = Vector3.new(2.4, 3, 0.15), Tris = 108, Shadow = true },
 		},
 		Colliders = {
@@ -767,15 +789,17 @@ local Manifest: { [string]: AssetDef } = {
 	ValleyGround = {
 		Category = "Terrain",
 		Footprint = 150,
-		Height = 0.225,
-		Tris = 3512,
+		Height = 0.42,
+		Tris = 9352,
 		Pieces = {
 			{ Mesh = "ValleyGround__Plaza", Role = "Cobble", Material = "SmoothPlastic", Center = Vector3.new(0, 0.08, 0), Size = Vector3.new(52, 0.16, 52), Tris = 288, Shadow = false },
 			{ Mesh = "ValleyGround__PlazaLines", Role = "CobbleDark", Material = "SmoothPlastic", Center = Vector3.new(0, 0.2, 0), Size = Vector3.new(52, 0.05, 52), Tris = 464, Shadow = false },
 			{ Mesh = "ValleyGround__Paths", Role = "Path", Material = "SmoothPlastic", Center = Vector3.new(0, 0.06, 14.549), Size = Vector3.new(174.811, 0.12, 170.9), Tris = 1452, Shadow = false },
 			{ Mesh = "ValleyGround__PathEdges", Role = "PathEdge", Material = "SmoothPlastic", Center = Vector3.new(-0.053, 0.15, 0.029), Size = Vector3.new(143.941, 0.05, 143.656), Tris = 480, Shadow = false },
-			{ Mesh = "ValleyGround__PatchesLight", Role = "GrassLight", Material = "SmoothPlastic", Center = Vector3.new(-0.389, 0.06, 0.99), Size = Vector3.new(306.468, 0.05, 315.023), Tris = 414, Shadow = false },
-			{ Mesh = "ValleyGround__PatchesDark", Role = "GrassDark", Material = "SmoothPlastic", Center = Vector3.new(-7.362, 0.06, -1.408), Size = Vector3.new(306.039, 0.05, 300.149), Tris = 414, Shadow = false },
+			{ Mesh = "ValleyGround__PathStones", Role = "PathStone", Material = "SmoothPlastic", Center = Vector3.new(1.244, 0.12, 9.638), Size = Vector3.new(165.687, 0.6, 165.272), Tris = 4940, Shadow = false },
+			{ Mesh = "ValleyGround__PatchesLight", Role = "GrassLight", Material = "SmoothPlastic", Center = Vector3.new(-10.305, 0.06, -1.858), Size = Vector3.new(327.241, 0.05, 320.189), Tris = 576, Shadow = false },
+			{ Mesh = "ValleyGround__PatchesDark", Role = "GrassDark", Material = "SmoothPlastic", Center = Vector3.new(0.874, 0.06, -2.286), Size = Vector3.new(321.608, 0.05, 317.998), Tris = 576, Shadow = false },
+			{ Mesh = "ValleyGround__PatchesCool", Role = "GrassCool", Material = "SmoothPlastic", Center = Vector3.new(10.369, 0.06, -4.082), Size = Vector3.new(328.052, 0.05, 323.327), Tris = 576, Shadow = false },
 		},
 		Colliders = {},
 		Anchors = {
@@ -785,11 +809,10 @@ local Manifest: { [string]: AssetDef } = {
 	ValleyHills1 = {
 		Category = "Terrain",
 		Footprint = 200,
-		Height = 70.592,
+		Height = 70.599,
 		Tris = 900,
 		Pieces = {
-			{ Mesh = "ValleyHills1__Grass", Role = "HillGrass", Material = "SmoothPlastic", Center = Vector3.new(281.423, 34.996, 209.878), Size = Vector3.new(361.154, 71.192, 419.756), Tris = 798, Shadow = true },
-			{ Mesh = "ValleyHills1__Slope", Role = "HillSlope", Material = "SmoothPlastic", Center = Vector3.new(146.946, 11.019, 99.893), Size = Vector3.new(89.201, 23.238, 199.785), Tris = 102, Shadow = true },
+			{ Mesh = "ValleyHills1__Grass", Role = "HillGrass", Material = "SmoothPlastic", Center = Vector3.new(281.423, 34.999, 209.878), Size = Vector3.new(361.154, 71.199, 419.756), Tris = 900, Shadow = true },
 		},
 		Colliders = {},
 		Anchors = {},
@@ -797,11 +820,10 @@ local Manifest: { [string]: AssetDef } = {
 	ValleyHills2 = {
 		Category = "Terrain",
 		Footprint = 200,
-		Height = 83.07,
+		Height = 83.08,
 		Tris = 900,
 		Pieces = {
-			{ Mesh = "ValleyHills2__Grass", Role = "HillGrass", Material = "SmoothPlastic", Center = Vector3.new(0, 41.235, 318.335), Size = Vector3.new(484.692, 83.67, 287.329), Tris = 763, Shadow = true },
-			{ Mesh = "ValleyHills2__Slope", Role = "HillSlope", Material = "SmoothPlastic", Center = Vector3.new(2, 10.375, 191.746), Size = Vector3.new(226.692, 21.951, 28.955), Tris = 137, Shadow = true },
+			{ Mesh = "ValleyHills2__Grass", Role = "HillGrass", Material = "SmoothPlastic", Center = Vector3.new(0, 41.24, 318.335), Size = Vector3.new(484.692, 83.68, 287.329), Tris = 900, Shadow = true },
 		},
 		Colliders = {},
 		Anchors = {},
@@ -809,11 +831,10 @@ local Manifest: { [string]: AssetDef } = {
 	ValleyHills3 = {
 		Category = "Terrain",
 		Footprint = 200,
-		Height = 78.473,
+		Height = 78.483,
 		Tris = 900,
 		Pieces = {
-			{ Mesh = "ValleyHills3__Grass", Role = "HillGrass", Material = "SmoothPlastic", Center = Vector3.new(-281.423, 38.937, 209.878), Size = Vector3.new(361.154, 79.073, 419.756), Tris = 801, Shadow = true },
-			{ Mesh = "ValleyHills3__Slope", Role = "HillSlope", Material = "SmoothPlastic", Center = Vector3.new(-151.173, 8.053, 96.429), Size = Vector3.new(97.654, 17.306, 192.857), Tris = 99, Shadow = true },
+			{ Mesh = "ValleyHills3__Grass", Role = "HillGrass", Material = "SmoothPlastic", Center = Vector3.new(-281.423, 38.941, 209.878), Size = Vector3.new(361.154, 79.083, 419.756), Tris = 900, Shadow = true },
 		},
 		Colliders = {},
 		Anchors = {},
@@ -821,11 +842,10 @@ local Manifest: { [string]: AssetDef } = {
 	ValleyHills4 = {
 		Category = "Terrain",
 		Footprint = 200,
-		Height = 85.421,
+		Height = 85.432,
 		Tris = 900,
 		Pieces = {
-			{ Mesh = "ValleyHills4__Grass", Role = "HillGrass", Material = "SmoothPlastic", Center = Vector3.new(-281.423, 42.411, -209.878), Size = Vector3.new(361.154, 86.021, 419.756), Tris = 740, Shadow = true },
-			{ Mesh = "ValleyHills4__Slope", Role = "HillSlope", Material = "SmoothPlastic", Center = Vector3.new(-155.141, 12.067, -99.893), Size = Vector3.new(105.589, 25.335, 199.785), Tris = 160, Shadow = true },
+			{ Mesh = "ValleyHills4__Grass", Role = "HillGrass", Material = "SmoothPlastic", Center = Vector3.new(-281.423, 42.416, -209.878), Size = Vector3.new(361.154, 86.032, 419.756), Tris = 900, Shadow = true },
 		},
 		Colliders = {},
 		Anchors = {},
@@ -833,11 +853,10 @@ local Manifest: { [string]: AssetDef } = {
 	ValleyHills5 = {
 		Category = "Terrain",
 		Footprint = 200,
-		Height = 79.285,
+		Height = 79.293,
 		Tris = 900,
 		Pieces = {
-			{ Mesh = "ValleyHills5__Grass", Role = "HillGrass", Material = "SmoothPlastic", Center = Vector3.new(0, 39.342, -318.335), Size = Vector3.new(484.692, 79.885, 287.329), Tris = 825, Shadow = true },
-			{ Mesh = "ValleyHills5__Slope", Role = "HillSlope", Material = "SmoothPlastic", Center = Vector3.new(-2, 12.067, -191.455), Size = Vector3.new(226.692, 25.335, 28.373), Tris = 75, Shadow = true },
+			{ Mesh = "ValleyHills5__Grass", Role = "HillGrass", Material = "SmoothPlastic", Center = Vector3.new(0, 39.347, -318.335), Size = Vector3.new(484.692, 79.893, 287.329), Tris = 900, Shadow = true },
 		},
 		Colliders = {},
 		Anchors = {},
@@ -845,11 +864,10 @@ local Manifest: { [string]: AssetDef } = {
 	ValleyHills6 = {
 		Category = "Terrain",
 		Footprint = 200,
-		Height = 79.778,
+		Height = 79.787,
 		Tris = 900,
 		Pieces = {
-			{ Mesh = "ValleyHills6__Grass", Role = "HillGrass", Material = "SmoothPlastic", Center = Vector3.new(281.423, 39.589, -209.878), Size = Vector3.new(361.154, 80.378, 419.756), Tris = 856, Shadow = true },
-			{ Mesh = "ValleyHills6__Slope", Role = "HillSlope", Material = "SmoothPlastic", Center = Vector3.new(144.673, 7.229, -96.429), Size = Vector3.new(84.654, 15.658, 192.857), Tris = 44, Shadow = true },
+			{ Mesh = "ValleyHills6__Grass", Role = "HillGrass", Material = "SmoothPlastic", Center = Vector3.new(281.423, 39.593, -209.878), Size = Vector3.new(361.154, 80.387, 419.756), Tris = 900, Shadow = true },
 		},
 		Colliders = {},
 		Anchors = {},
@@ -857,13 +875,13 @@ local Manifest: { [string]: AssetDef } = {
 	Knoll = {
 		Category = "Terrain",
 		Footprint = 19,
-		Height = 6.444,
+		Height = 6.479,
 		Tris = 836,
 		Pieces = {
 			{ Mesh = "Knoll__Top", Role = "Grass", Material = "SmoothPlastic", Center = Vector3.new(6.334, 2.653, -6.737), Size = Vector3.new(50.893, 6.694, 52.526), Tris = 356, Shadow = true },
-			{ Mesh = "Knoll__RockLow", Role = "RockDark", Material = "SmoothPlastic", Center = Vector3.new(-0.411, 1.161, 0.566), Size = Vector3.new(40.809, 4.314, 41.636), Tris = 316, Shadow = true },
-			{ Mesh = "Knoll__RockHigh", Role = "Rock", Material = "SmoothPlastic", Center = Vector3.new(0.159, 4.109, 0.188), Size = Vector3.new(39.637, 3.17, 35.699), Tris = 116, Shadow = true },
-			{ Mesh = "Knoll__RampSides", Role = "RockDark", Material = "SmoothPlastic", Center = Vector3.new(12.726, 3.197, -8.356), Size = Vector3.new(39.779, 6.494, 50.409), Tris = 48, Shadow = true },
+			{ Mesh = "Knoll__RockLow", Role = "RockDark", Material = "SmoothPlastic", Center = Vector3.new(-0.411, 1.188, 0.346), Size = Vector3.new(40.809, 4.366, 41.54), Tris = 316, Shadow = true },
+			{ Mesh = "Knoll__RockHigh", Role = "Rock", Material = "SmoothPlastic", Center = Vector3.new(0.167, 4.158, 0.265), Size = Vector3.new(39.528, 3.18, 35.786), Tris = 116, Shadow = true },
+			{ Mesh = "Knoll__RampSides", Role = "RockDark", Material = "SmoothPlastic", Center = Vector3.new(12.715, 3.209, -8.335), Size = Vector3.new(39.736, 6.54, 50.366), Tris = 48, Shadow = true },
 		},
 		Colliders = {
 			{ Shape = "Wedge", CFrame = CFrame.new(0, 3, -25.5) * CFrame.Angles(0, math.rad(360), 0), Size = Vector3.new(12, 6, 15) },

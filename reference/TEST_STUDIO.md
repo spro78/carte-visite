@@ -1,9 +1,9 @@
-# Protocole de test dans Roblox Studio : tranche verticale (Canyon)
+# Protocole de test dans Roblox Studio : Carousel Valley
 
 Ce protocole couvre ce que la simulation (`tools/check.sh`) ne peut pas prouver : le rendu et la physique réels de Roblox.
 - **Seules des captures de la vraie fenêtre Studio comptent comme preuve.**
-- Les rendus de `tools/preview` et la simulation ne valent pas un test Studio.
-- Durée : 30 à 45 minutes.
+- Les rendus de `tools/preview` (mention « RENDU SIMULÉ »), les planches Blender (« RENDU BLENDER ») et la simulation ne valent pas un test Studio.
+- Durée : 45 à 60 minutes.
 
 ## 1. Préparer la place
 
@@ -12,62 +12,84 @@ Ce protocole couvre ce que la simulation (`tools/check.sh`) ne peut pas prouver 
    - `rojo build -o HuntOrHide.rbxl`, puis ouvrir le fichier dans Studio ;
    - ou `rojo serve` puis *Plugins > Rojo > Connect*.
 3. Supprimer `Workspace.Baseplate` et `Workspace.SpawnLocation` s'ils existent.
-4. Pour aller vite, dans `src/shared/Config.lua` (à remettre ensuite) :
-   - `Config.Debug.ForceMap = "TheCanyon"` : toujours la carte de la tranche ;
-   - option : `Config.Rescue.BleedOutSeconds = 30` pour avoir le temps de faire les captures d'écran à terre.
-5. Ouvrir la fenêtre *Output* : aucune ligne rouge ne doit apparaître pendant les tests.
+4. Ouvrir la fenêtre *Output* : aucune ligne rouge ne doit apparaître pendant les tests.
+5. Meshes du kit 3D, deux possibilités (détails dans `tools/assets/README.md`) :
+   - **A. Rien à faire** : au *Play*, chaque client construit les meshes (EditableMesh). C'est le premier test à faire.
+   - **B. Import** : *Import 3D* de `assets/kit/HoH_Kit.fbx` (unité : studs, sans fusion), modèle renommé `HoH_KitMeshes` dans ReplicatedStorage. À faire avant de publier.
+6. Pour aller vite (à remettre ensuite), dans `src/shared/Config.lua` :
+   - `Config.Debug.ForceMode = "Carousel"` (ou `"EggRun"`, `"Chase"`) pour imposer un mode ;
+   - `Config.Rescue.BleedOutSeconds = 30` pour avoir le temps des captures d'écran à terre.
 
-## 2. Test seul avec les bots (*Play*)
+## 2. La carte (seul, *Play*)
 
-Une manche démarre avec toi et 11 bots (4 par équipe).
+| # | Contrôle | Résultat attendu | Capture |
+|---|---|---|---|
+| 1 | Entrer dans la manche, regarder autour | Vallée d'herbe fermée par des collines ; manège au centre ; moulin sur sa butte ; grange rouge ; ruisseau et pont ; grande roue sur les collines, posée sur la pente sans flotter ; trois camps (portail en bois avec le nom, drapeau d'équipe, tanière / poulailler / creux des vipères). Aucun bloc gris de remplacement | ✔ même cadrage que `reference/preuves/avant_apres/` |
+| 2 | Sortie *Output* | Pas de message « [Kit] Meshes non construits ». Si le message apparaît : noter la raison, essayer l'import (B) | ✔ si message |
+| 3 | Faces des meshes | Arbres, rochers, grange vus de partout, sans trou. Si des faces manquent : `Config.Kit.FlipWinding = true` et recommencer | |
+| 4 | Collisions | On ne traverse ni les troncs, ni les rochers, ni les murs de la grange. On passe par les portes de la grange. On monte sur la butte du moulin par ses deux rampes. On franchit le ruisseau par le pont seulement | ✔ sur la butte |
+| 5 | Repères | Depuis chaque camp, on voit le manège, la grande roue, le moulin et les drapeaux des deux autres camps | |
+| 6 | Mouvement | Les chevaux volants tournent doucement au-dessus de la piste ; les ailes du moulin tournent | |
+| 7 | Performance | *Shift+F5* : images par seconde stables ; noter la mémoire (*Shift+F6*, catégorie Graphics/Geometry) | ✔ Stats |
+
+## 3. Le vote (*Test > Clients and Servers*, 3 joueurs)
 
 | # | Action | Résultat attendu | Capture |
 |---|---|---|---|
-| 1 | Pendant le décompte, regarder les autres joueurs | Avatars intacts, sans oreilles, queue ni foulard. Contour lumineux seul : renards orange, poules jaunes, vipères vertes. Ton propre contour aussi | ✔ vue au spawn |
-| 2 | Rester dans son camp (plateforme ou derrière) | Liseré pointillé au sol, « SAFE ZONE » à l'entrée. Pastille du HUD : `SAFE ZONE · nobody can catch you here` | ✔ |
-| 3 | Laisser un chasseur te toucher **dans** ta zone | Aucune capture ; sa morsure (vipère) ne te ralentit pas | |
-| 4 | Sortir, te faire attraper | Tu tombes sur le dos, immobile ; pastille `YOU'RE DOWN · 15s · ...` avec une jauge ; plus de boutons d'action | ✔ |
-| 5 | Attendre un bot coéquipier | Il vient, te charge sur l'épaule (`CARRIED HOME by ...`), te ramène au camp, tu te relèves sur la plateforme avec un champ de force | ✔ portage vu par la caméra |
-| 6 | Sinon, attendre 15 s | Tu rejoins l'équipe qui t'a attrapé, debout sur place, protégé 2 s ; fil : `toi joined the ...` | |
-| 7 | Trouver un coéquipier bot à terre | Marqueur `HELP 12s · 34m` au-dessus de lui, étiquette `DOWN`, pastille `... is down · 34m · carry them home` | ✔ |
-| 8 | T'en approcher (moins de 7 studs) | Pastille `Press C to carry ...`, médaillon `CARRY` avec la puce `C` dans le dock | ✔ |
-| 9 | Appuyer sur **C** | Le corps se pose sur ton épaule droite ; tu ralentis ; flèche vers ton camp ; médaillon `DROP` ; pastille `CARRYING ...` | ✔ caméra de dos |
-| 10 | Appuyer encore sur **C**, puis le reprendre | Il retombe à côté, avec au moins 5 s de chrono, puis remonte sur l'épaule | |
-| 11 | Entrer dans la zone sûre de ton camp | Il se relève sur la plateforme : « SAVED! », étincelles ; fil `toi saved ...` ; pièces | ✔ |
-| 12 | Pendant le portage, toucher une proie | Aucune capture (mains prises) | |
+| 1 | Pendant l'intermission | Trois cartes : CHASE, EGG RUN, CAROUSEL « on Carousel Valley », chacune avec sa règle en trois lignes. Une ligne en dessous liste les joueurs et ceux qu'on attend. Écrans du lobby : nom du mode et de la carte | ✔ |
+| 2 | Joueur 1 clique EGG RUN, joueur 2 marche sur la plaque EGG RUN, joueur 3 vote CAROUSEL | Carte EGG RUN : « 2 votes · noms ». Le panneau géant indique le mode en tête | |
+| 3 | Fin du vote | Annonce « Next: EGG RUN on Carousel Valley » ; c'est bien ce mode qui est joué | |
+| 4 | Décompte | Panneau des trois équipes avec tous les joueurs (bots compris) | ✔ |
+| 5 | Manche suivante sans voter | Le mode joué il y a le plus longtemps est choisi | |
+| 6 | Trois manches de suite | Personne ne garde le même animal deux fois de suite | |
 
-## 3. Test à plusieurs joueurs (*Test > Clients and Servers*, 3 joueurs)
+## 4. Les modes
 
-C'est le test le plus important pour la physique réelle : la soudure entre deux vrais joueurs et la propriété réseau.
-
+### EGG RUN
 | # | Action | Résultat attendu |
 |---|---|---|
-| 1 | Joueur 2 attrape joueur 1 | Joueur 1 couché, immobile côté client et côté serveur |
-| 2 | Si joueur 3 est dans l'équipe de joueur 1 : il le porte avec C | Pas de saccades ni de téléportations ; le porteur avance normalement à 80 % de sa vitesse ; la caméra du joueur porté suit |
-| 3 | Joueur 2 attrape le porteur | Le porteur tombe à son tour ; le joueur porté retombe à côté (chrono minimum 5 s) |
-| 4 | Le joueur à terre fait *Reset Character* (menu Échap) | Il réapparaît dans l'équipe de celui qui l'a attrapé (pas de résurrection gratuite) |
-| 5 | Plus aucun coéquipier debout | Conversion immédiate, personne ne reste couché |
+| 1 | Début | Trois œufs peints (blanc, bande lilas) flottent dans trois nids, un entre chaque paire de camps ; la flèche montre l'œuf le plus proche |
+| 2 | Toucher un œuf | L'œuf se pose au-dessus de la tête ; « You have an egg! » ; ralenti ; flèche vers son camp |
+| 3 | Entrer dans la zone sûre de son camp | +1 œuf ; un nouvel œuf réapparaît dans un nid après 4 s |
+| 4 | Se faire attraper en portant | L'œuf tombe au sol ; ramassable après 1 s ; retourne seul dans un nid après 20 s |
+| 5 | 5 œufs | Victoire de l'équipe |
 
-## 4. Mobile (*Test > Device*, téléphone en paysage puis en portrait)
+### CAROUSEL
+| # | Action | Résultat attendu | Capture |
+|---|---|---|---|
+| 1 | Début | Les trois chevaux volants accélèrent (un tour en 48 s) ; un anneau au sol suit chacun | ✔ |
+| 2 | Rester dans un anneau | 1 point par seconde pour son équipe ; l'anneau prend sa couleur | ✔ |
+| 3 | Un adversaire entre à égalité | Plus de point ; anneau gris | |
+| 4 | Après 60 s | Annonce « The carousel turns the other way! », sens inversé | |
+| 5 | Fluidité | L'anneau et le cheval glissent sans saccade (animation côté client) ; l'anneau ne passe jamais dans une zone sûre | |
+
+### CHASE
+| # | Action | Résultat attendu |
+|---|---|---|
+| 1 | Toute la manche | Pas de score ; sous le ruban : « last team standing » ; pas d'anneau au sol |
+
+## 5. Règles qui ne changent pas (à revérifier sur cette carte)
 
 | # | Contrôle | Résultat attendu |
 |---|---|---|
-| 1 | Près d'un coéquipier à terre | Bouton rond `CARRY` au-dessus du dash gauche, sans couvrir le saut ni le joystick de Roblox ; pastille `Tap CARRY to save ...` |
-| 2 | Toucher CARRY puis DROP | Même comportement qu'au clavier |
-| 3 | Pastille d'état et annonces | En haut, sous le ruban ; jamais au centre de l'écran |
+| 1 | Avatars | Intacts ; contour lumineux seul : renards orange, poules jaunes, vipères vertes |
+| 2 | Zone sûre de son camp | Liseré pointillé, « SAFE ZONE » ; impossible d'y être attrapé ou mordu |
+| 3 | Mise à terre et portage (C, bouton CARRY) | Comme dans la version précédente : porté jusqu'à la zone sûre, relevé sur la plateforme |
+| 4 | Téléphone (*Test > Device*, paysage et portrait) | Vote lisible (une règle par carte en petit écran), composition des équipes, pastille d'état, bouton CARRY |
 
-## 5. Captures à envoyer
+## 6. Captures à envoyer
 
 Une capture de la vraie fenêtre Studio pour chaque ligne marquée ✔, plus :
 - la fenêtre *Output* en fin de manche ;
-- le panneau *Stats* (`Shift+F5`) pendant une poursuite, pour les performances.
+- le panneau *Stats* (`Shift+F5`) pendant une poursuite.
 
-## 6. Ce qui peut différer de la simulation (à regarder en priorité)
+## 7. Ce qui peut différer de la simulation (à regarder en priorité)
 
 | Domaine | Risque |
 |---|---|
-| Contours (Highlight) | Épaisseur et lisibilité à distance ; vert vif sur sol vert ; limite de 31 Highlights ; coût sur téléphone modeste (réglage `Config.Appearance.MaxOutlines`) |
-| Corps à terre | Posé par une racine ancrée ; l'animation d'attente de l'avatar peut bouger les membres |
-| Portage | Corps soudé sur l'épaule, sans animation dédiée ; possibles saccades selon la propriété réseau ; pose à vérifier en R6 et en R15 |
-| Sol sous le joueur | Rayon vers le bas qui ignore les pièces non collidables ; vérifier la mine, l'arche et les buttes du Canyon |
-| Sons | Sons intégrés à Roblox (`rbxasset://`) : volume et choix à juger à l'oreille |
+| Meshes construits à la volée | API refusée dans une expérience publiée sans l'option ; ordre des sommets (faces) ; normales ; mémoire sur téléphone |
+| Import du FBX | Axes (rotation des assets) ; un MeshPart par objet ; noms conservés |
+| Collisions du kit | Volumes simples posés à la main : bords de la butte, rampes, pont, ruisseau, murs de la grange |
+| Chevaux volants | Anneaux suivis par le serveur au calcul (pas de collision) ; vérifier que le point compte bien quand on est dedans |
+| Contours (Highlight) | Lisibles sur le vert de la vallée ; limite de 31 Highlights (`Config.Appearance.MaxOutlines`) |
+| Lumière | `Map.Lighting` de Carousel Valley (ombres douces, brume légère) : rendu réel à juger |

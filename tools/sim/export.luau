@@ -62,6 +62,7 @@ local function exportGui(node)
 			out.font = (face.Family and string.find(face.Family, "FredokaOne", 1, true)) and "FredokaOne" or "Face"
 		end
 		out.rich = p.RichText == true
+		out.wrapped = p.TextWrapped == true
 	end
 	if p.Image and p.Image ~= "" then
 		out.image = p.Image

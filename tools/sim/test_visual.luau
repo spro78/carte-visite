@@ -301,7 +301,7 @@ for _, id in maps do
 	end
 	local worst, worstName, boardCount = math.huge, "", 0
 	local seen = {}
-	local BOARD_ROLES = { Grass = true, GrassLight = true, GrassDark = true }
+	local BOARD_ROLES = { Grass = true, GrassLight = true, GrassDark = true, GrassCool = true }
 	local PATH_ROLES = { Path = true, PathEdge = true, Cobble = true, CobbleDark = true }
 	local boardParts = {}
 	for _, part in parts do

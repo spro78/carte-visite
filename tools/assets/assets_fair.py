@@ -305,6 +305,100 @@ def balloon(a):
 
 
 # ---------------------------------------------------------------------------
+# Grande roue : repère lointain, posée sur les collines hors de l'aire de jeu.
+# Roue dans le plan XZ de Blender, axe le long de +Y (l'avant, tourné vers le
+# centre de la carte). Pieds prolongés sous le sol : posée sur une pente,
+# l'asset est placé au pied le plus bas et les autres s'enfoncent.
+# ---------------------------------------------------------------------------
+WHEEL_HUB = 33.0  # hauteur du moyeu
+WHEEL_R = 26.0  # rayon de la jante
+WHEEL_SPOKES = 16
+
+
+def torus_xz(radius, minor, y, z, segments=48, minor_segments=8):
+    """Anneau dans un plan vertical (XZ de Blender), centré en (0, y, z)."""
+    prof = [(radius + minor * math.cos(2 * math.pi * k / minor_segments), minor * math.sin(2 * math.pi * k / minor_segments)) for k in range(minor_segments)]
+    ring = K.lathe(prof, segments=segments, closed=True)
+    return K.transform(ring, loc=(0, y, z), rot=(math.pi / 2, 0, 0))
+
+
+@asset("BigWheel", "Landmark", footprint=14)
+def big_wheel(a):
+    H, R, n = WHEEL_HUB, WHEEL_R, WHEEL_SPOKES
+    half = 1.8  # demi-épaisseur de la roue le long de l'axe
+
+    def at(theta, r, y):
+        return Vector((math.cos(theta) * r, y, H + math.sin(theta) * r))
+
+    # Roue : deux jantes, un anneau intérieur, rayons, treillis, traverses
+    frame = []
+    for y in (-half, half):
+        frame.append(torus_xz(R, 0.85, y, H))
+        frame.append(torus_xz(R * 0.46, 0.5, y, H, segments=32, minor_segments=6))
+        for k in range(n):
+            th = 2 * math.pi * k / n
+            frame.append(K.tube([at(th, 2.6, y), at(th, R, y)], 0.36, segments=6))
+            frame.append(K.tube([at(th, R * 0.46, y), at(th + math.pi / n, R, y)], 0.24, segments=5))
+    for k in range(n):
+        th = 2 * math.pi * k / n
+        frame.append(K.tube([at(th, R, -half - 0.4), at(th, R, half + 0.4)], 0.32, segments=6))
+    # Nacelles suspendues aux traverses, quatre couleurs de fête
+    cabins = {0: [], 1: [], 2: [], 3: []}
+    roofs = []
+    for k in range(n):
+        th = 2 * math.pi * k / n
+        p = at(th, R, 0)
+        frame.append(K.tube([p, p - Vector((0, 0, 1.8))], 0.24, segments=6))
+        roofs.append(K.cylinder(2.4, 0.4, 1.2, (p.x, 0, p.z - 2.9), segments=10))
+        body = K.rbox((3.4, 3.0, 2.2), (p.x, 0, p.z - 4.2), r=0.7, segments=2)
+        cabins[k % 4].append(body)
+    # Moyeu, axe et étoile dorée tournée vers le centre de la carte
+    hub = K.cylinder(3.0, 3.0, 2 * half + 1.4, (0, -(half + 0.7), H), rot=(-math.pi / 2, 0, 0), segments=16)
+    star_outline = [((3.3 if k % 2 == 0 else 1.7) * math.cos(math.pi * k / 8), (3.3 if k % 2 == 0 else 1.7) * math.sin(math.pi * k / 8)) for k in range(16)]
+    star = K.prism(star_outline, -0.25, 0.25, name="star")
+    star = K.transform(star, loc=(0, half + 1.0, H), rot=(math.pi / 2, 0, 0))
+    # Deux chevalets en A, entretoises et axe (pieds prolongés sous le sol)
+    legs = []
+    ly = half + 2.6
+    foot, top = 14.0, 1.0
+    for y in (-ly, ly):
+        for sx in (-1, 1):
+            legs.append(K.tube([Vector((sx * foot, y, -8.0)), Vector((sx * top, y, H + 0.6))], 1.1, segments=8))
+        for zb in (9.0, 20.0):
+            t = (zb + 8.0) / (H + 8.6)
+            xb = foot + (top - foot) * t
+            legs.append(K.tube([Vector((-xb, y, zb)), Vector((xb, y, zb))], 0.55, segments=6))
+    legs.append(K.cylinder(1.0, 1.0, 2 * ly + 1.6, (0, -(ly + 0.8), H), rot=(-math.pi / 2, 0, 0), segments=10))
+    # Ampoules (néon) au bout des rayons et autour du moyeu
+    bulbs = []
+    for y in (-half - 0.6, half + 0.6):
+        for k in range(n):
+            th = 2 * math.pi * k / n + math.pi / n
+            bulbs.append(K.ico(0.6, tuple(at(th, R, y)), subdiv=0))
+    for k in range(8):
+        th = 2 * math.pi * k / 8
+        bulbs.append(K.ico(0.36, tuple(at(th, 3.6, half + 0.75)), subdiv=0))
+    # Quai d'embarquement et socles des pieds
+    t0 = 8.0 / (H + 8.6)
+    x0 = foot + (top - foot) * t0
+    platform = K.join([
+        K.rbox((15.0, 10.0, 6.0), (0, 0, -1.6), r=0.4),
+        K.rbox((5.0, 3.4, 3.4), (0, 6.6, -1.3), r=0.3),
+    ], "platform")
+    footings = K.join([K.rbox((3.0, 3.0, 7.0), (sx * x0, y, -3.0), r=0.4) for sx in (-1, 1) for y in (-ly, ly)], "footings")
+    a.piece("Frame", K.shade(K.join(frame, "frame"), 40), "Cream")
+    a.piece("Legs", K.shade(K.join(legs, "legs"), 40), "FairBlue")
+    a.piece("Hub", K.shade(hub, 40), "FairRed")
+    a.piece("Star", K.shade(star, 20), "Gold")
+    for i, role in enumerate(("FairRed", "FairBlue", "FairLilac", "FairTeal")):
+        a.piece("Cabins" + str(i + 1), K.shade(K.join(cabins[i], f"cabins{i}"), 40), role)
+    a.piece("Roofs", K.shade(K.join(roofs, "roofs"), 40), "Cream")
+    a.piece("Bulbs", K.shade(K.join(bulbs, "bulbs"), 80), "Bulb", material="Neon", shadow=False)
+    a.piece("Platform", K.shade(platform, 40), "WoodLight")
+    a.piece("Footings", K.shade(footings, 40), "Stone")
+
+
+# ---------------------------------------------------------------------------
 # Camps des équipes : portail, drapeau, et un décor par animal
 # ---------------------------------------------------------------------------
 @asset("CampGate", "Camp", footprint=12)

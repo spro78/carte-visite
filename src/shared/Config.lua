@@ -111,8 +111,9 @@ Config.Kit = {
 	-- À passer à true si, dans Studio, les meshes construits à la volée
 	-- apparaissent retournés (faces avant invisibles)
 	FlipWinding = false,
-	-- Pièces construites par image sur le client (lissage du chargement)
-	PiecesPerFrame = 40,
+	-- Pièces posées par image sur le client (lissage du chargement ; les
+	-- meshes sont préparés pendant le lobby, il ne reste que des copies)
+	PiecesPerFrame = 80,
 }
 
 -- ---------------------------------------------------------------------------

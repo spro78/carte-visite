@@ -1438,9 +1438,42 @@ local function carriedRoots()
 	return carried
 end
 
+-- WeldConstraint : la pièce soudée garde sa position relative (prise à la
+-- première étape où la soudure est active). Sert aux objets portés (œufs,
+-- meshes du kit soudés à leur pivot). Les personnages portés passent par Weld.
+local weldConstraints = setmetatable({}, { __mode = "k" })
+Engine._classHooks.WeldConstraint = function(w)
+	weldConstraints[w] = true
+end
+local function followWeldConstraints()
+	for w in weldConstraints do
+		if rawget(w, "_destroyed") then
+			weldConstraints[w] = nil
+			continue
+		end
+		local wp = rawget(w, "_props")
+		local p0, p1 = wp.Part0, wp.Part1
+		if wp.Enabled == false or not p0 or not p1 or rawget(p0, "_destroyed") or rawget(p1, "_destroyed") then
+			continue
+		end
+		local pp0, pp1 = rawget(p0, "_props"), rawget(p1, "_props")
+		local offset = rawget(w, "_offset")
+		if not offset or rawget(w, "_p0") ~= p0 or rawget(w, "_p1") ~= p1 then
+			offset = pp0.CFrame:Inverse() * pp1.CFrame
+			rawset(w, "_offset", offset)
+			rawset(w, "_p0", p0)
+			rawset(w, "_p1", p1)
+		end
+		if not pp1.Anchored then
+			pp1.CFrame = pp0.CFrame * offset
+		end
+	end
+end
+
 -- Pas de physique de simulation : déplace les Humanoid et intègre la balistique.
 local GRAVITY = 196.2
 function Engine.PhysicsStep(dt)
+	followWeldConstraints()
 	local carried = carriedRoots()
 	for h in humanoids do
 		if rawget(h, "_destroyed") then
@@ -1538,6 +1571,7 @@ function Engine.PhysicsStep(dt)
 		local model = rawget(root, "_props").Parent
 		model:PivotTo(target * rawget(root, "_props").CFrame:Inverse() * model:GetPivot())
 	end
+	followWeldConstraints()
 end
 
 -- ---------------------------------------------------------------------------

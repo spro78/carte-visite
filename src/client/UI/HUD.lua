@@ -261,8 +261,8 @@ for index = 1, 3 do
 	Theme.Corner(stripe, 6)
 	local nameLabel = Title(button, { Name = "ModeName", Size = UDim2.new(0.92, 0, 0.2, 0), Position = UDim2.fromScale(0.04, 0.08), Text = "?" })
 	local mapLabel = Label(button, { Name = "MapName", Size = UDim2.new(0.92, 0, 0.11, 0), Position = UDim2.fromScale(0.04, 0.28), Text = "", TextColor3 = Theme.Mint, FontFace = Theme.FaceHeavy })
-	local rulesLabel = Label(button, { Name = "Rules", Size = UDim2.new(0.92, 0, 0.36, 0), Position = UDim2.fromScale(0.04, 0.41), Text = "", TextColor3 = Theme.Cream, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, TextXAlignment = Enum.TextXAlignment.Left })
-	Theme.MaxText(rulesLabel, 14)
+	local rulesLabel = Label(button, { Name = "Rules", Size = UDim2.new(0.92, 0, 0.4, 0), Position = UDim2.fromScale(0.04, 0.39), Text = "", TextColor3 = Theme.Cream, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, TextXAlignment = Enum.TextXAlignment.Left })
+	Theme.MaxText(rulesLabel, 15)
 	local votesLabel = Label(button, { Name = "Votes", Size = UDim2.new(0.92, 0, 0.17, 0), Position = UDim2.fromScale(0.04, 0.8), Text = "", RichText = true, TextColor3 = Theme.Muted, TextXAlignment = Enum.TextXAlignment.Left })
 	Theme.MaxText(votesLabel, 14)
 	local entry: VoteButton = { Button = button, Name = nameLabel, Map = mapLabel, Rules = rulesLabel, Votes = votesLabel, Stripe = stripe, MapId = nil, Stroke = stroke }
@@ -382,7 +382,7 @@ for index, teamId in Teams.Order do
 	Theme.Corner(column, 14)
 	local stroke = Theme.Stroke(column, 2, def.Color)
 	local title = Title(column, { Name = "TeamName", Size = UDim2.new(0.92, 0, 0, 24), Position = UDim2.new(0.04, 0, 0, 6), Text = def.Plural, TextColor3 = def.Color })
-	local names = Label(column, { Name = "Names", Size = UDim2.new(0.92, 0, 1, -38), Position = UDim2.new(0.04, 0, 0, 32), Text = "", RichText = true, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, TextColor3 = Theme.Cream })
+	local names = Label(column, { Name = "Names", Size = UDim2.new(0.92, 0, 1, -36), Position = UDim2.new(0.04, 0, 0, 30), Text = "", RichText = true, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, TextColor3 = Theme.Cream })
 	Theme.MaxText(names, 15)
 	lineupColumns[teamId] = { Frame = column, Title = title, Names = names, Stroke = stroke }
 end
@@ -404,8 +404,10 @@ local function updateLineup()
 			table.insert(members[team], name)
 		end
 	end
+	local tallest = 0
 	for teamId, column in lineupColumns do
 		local list = members[teamId]
+		tallest = math.max(tallest, math.min(#list, compact and 4 or 7) + (#list > (compact and 4 or 7) and 1 or 0))
 		table.sort(list)
 		local shown = {}
 		local limit = compact and 4 or 7
@@ -419,6 +421,9 @@ local function updateLineup()
 		column.Names.Text = text
 		column.Title.Text = string.format("%s · %d", (Teams.Get(teamId) :: Teams.TeamDef).Plural, #list)
 	end
+	-- Hauteur ajustée au contenu (le décompte ne doit pas masquer la carte)
+	local line = compact and 13 or 16
+	lineup.Size = UDim2.new(0, lineup.Size.X.Offset, 0, (compact and 26 or 34) + math.max(1, tallest) * line + 8)
 end
 
 local helpPanel: Frame = panel(screen, {
@@ -726,7 +731,8 @@ local function updateVotePanel(state: Types.GameState)
 			entry.Stripe.BackgroundColor3 = modeDef.Color
 			entry.Name.Text = modeDef.DisplayName
 			entry.Map.Text = "on " .. mapDef.DisplayName
-			entry.Rules.Text = compact and modeDef.Rules[1] or table.concat(modeDef.Rules, "\n")
+			-- Une règle par ligne (puce) ; sur petit écran, la première seulement
+			entry.Rules.Text = compact and modeDef.Rules[1] or ("· " .. table.concat(modeDef.Rules, "\n· "))
 			local n = state.Votes[option] or 0
 			local names = voters[option] or {}
 			entry.Votes.Text = string.format("<b>%d vote%s</b>%s", n, n == 1 and "" or "s", #names > 0 and (" · " .. nameList(names, compact and 2 or 3)) or "")
@@ -997,7 +1003,7 @@ rescale = function()
 	end
 	bottomCenter.Position = UDim2.new(0.5, 0, 1, small and -8 or -14)
 	-- Composition des équipes : au milieu, sous la pastille d'état
-	lineup.Size = UDim2.new(0, math.min(600, size.X - 24), 0, small and 104 or 150)
+	lineup.Size = UDim2.new(0, math.min(600, size.X - 24), 0, lineup.Size.Y.Offset)
 	lineup.Position = UDim2.new(0.5, 0, 0, portrait and 240 or (small and 124 or 176))
 	-- Vote : à droite des pièces quand l'écran est trop étroit pour le centrer ;
 	-- en portrait, sur toute la largeur au-dessus des pièces

@@ -14,3 +14,7 @@ tools/preview/out/
 tools/bin/
 sourcemap.json
 .claude/
+
+# Python (scripts Blender)
+__pycache__/
+*.pyc

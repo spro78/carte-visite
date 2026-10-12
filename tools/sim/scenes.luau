@@ -21,7 +21,14 @@ local forcedMap = process.args[4] -- map imposée pour les groupes round, mobile
 
 Engine.Quiet = true
 World.LoadSourcemap(sourcemap)
-if forcedMap then
+if group == "modes" then
+	-- Groupe "modes" : carte héroïque, mode imposé par le 4e argument
+	Engine.Run("server", function()
+		local Config = World.Require(World.game.ReplicatedStorage.Shared.Config)
+		Config.Debug.ForceMap = "TheCarousel"
+		Config.Debug.ForceMode = forcedMap or "Carousel"
+	end)
+elseif forcedMap then
 	Engine.Run("server", function()
 		World.Require(World.game.ReplicatedStorage.Shared.Config).Debug.ForceMap = forcedMap
 	end)
@@ -250,6 +257,117 @@ if group == "players" then
 	Engine.Advance(14)
 	stageChase()
 	addScene(id .. "_player_chase_pc", id .. " - chase in the foreground (PC 1280x720)", O, 300, robloxCamera(hero), { hud = true })
+end
+
+if group == "modes" then
+	-- Vote, composition des équipes et mode en jeu sur Carousel Valley
+	local O = Config.World.MapOrigin
+	local L = Config.World.LobbyOrigin
+	local modeId = forcedMap or "Carousel"
+	local VoteService
+	Engine.Run("server", function()
+		VoteService = World.Require(World.game.ServerScriptService.Server.Services.VoteService)
+	end)
+	closeHelp()
+	waitFor(function()
+		return serverPhase() == "Intermission"
+	end, 60)
+	Engine.Advance(1)
+	-- Les autres joueurs votent (leurs noms s'affichent sous chaque carte)
+	Engine.Run("server", function()
+		local candidates = VoteService.GetCandidates()
+		for i, p in others do
+			VoteService.CastVote(p, candidates[(i % #candidates) + 1])
+		end
+		VoteService.CastVote(hero, candidates[2])
+	end)
+	Engine.Advance(1.2)
+	addScene("modes_vote_pc", "Lobby vote: three modes, rules, votes and every player (PC 1280x720)", L, 120, robloxCamera(hero), { hud = true })
+	addScene("modes_vote_phone", "Lobby vote on a phone (844x390)", L, 120, robloxCamera(hero), { hud = true, width = 844, height = 390 })
+	addScene("modes_vote_portrait", "Lobby vote on a phone in portrait (390x844)", L, 120, robloxCamera(hero), { hud = true, width = 390, height = 844 })
+	waitFor(function()
+		return serverPhase() == "Countdown"
+	end, 40)
+	Engine.Advance(1)
+	addScene("modes_lineup_pc", "Countdown: every player listed by team (" .. modeId .. ")", O, 300, robloxCamera(hero), { hud = true })
+	waitFor(function()
+		return serverPhase() == "Round"
+	end, 20)
+	local srv = {}
+	Engine.Run("server", function()
+		local services = World.game.ServerScriptService.Server.Services
+		srv.ActorService = World.Require(services.ActorService)
+		srv.CaptureService = World.Require(services.CaptureService)
+		srv.Map = World.Require(World.game.ServerScriptService.Server.Maps.TheCarousel)
+		srv.Carousel = World.Require(World.game.ServerScriptService.Server.Modes.Carousel)
+		srv.CaptureService.Protect(hero.Character, 60)
+	end)
+	Engine.Advance(4)
+	local function place(position, look)
+		Engine.Run("server", function()
+			local p = Vector3.new(position.X, O.Y + 3, position.Z)
+			hero.Character:PivotTo(roblox.CFrame.lookAt(p, Vector3.new(look.X, p.Y, look.Z)))
+		end)
+		Engine.Advance(0.3)
+	end
+	if modeId == "EggRun" then
+		-- Un nid hors de la butte du moulin (le simulateur ne gère pas le relief)
+		local eggs = srv.Map.DebugState().Mode.Eggs
+		local egg = eggs[1]
+		for _, e in eggs do
+			local deg = math.deg(math.atan2(e.Position.Z - O.Z, e.Position.X - O.X)) % 360
+			if e.State == "Nest" and math.abs(deg - 30) > 20 then
+				egg = e
+			end
+		end
+		local p = egg.Position
+		local away = Vector3.new(p.X - O.X, 0, p.Z - O.Z).Unit
+		local side = Vector3.new(-away.Z, 0, away.X)
+		-- Le long de la piste (dégagée par construction), décalé vers le centre :
+		-- l'œuf apparaît à côté de l'avatar et la caméra ne heurte aucun décor
+		place(p - side * 12 - away * 4, p + side * 6 - away * 4)
+		addScene("modes_eggrun_nest_pc", "EGG RUN: a painted egg in its nest, arrow to the nearest egg", O, 300, robloxCamera(hero), { hud = true })
+		place(p + side * 1.2, p + side * 12)
+		Engine.Advance(0.3)
+		addScene("modes_eggrun_carrier_pc", "EGG RUN: carrying an egg home (slower, visible to all)", O, 300, robloxCamera(hero), { hud = true })
+		addScene("modes_eggrun_carrier_phone", "EGG RUN on a phone (844x390)", O, 300, robloxCamera(hero), { hud = true, width = 844, height = 390 })
+	elseif modeId == "Carousel" then
+		-- Bots dans les anneaux : les anneaux prennent la couleur de l'équipe
+		local zonePositions = {}
+		Engine.Run("server", function()
+			for i = 1, 3 do
+				zonePositions[i] = srv.Carousel.ZonePosition(i, 2.2)
+			end
+		end)
+		local bots = {}
+		Engine.Run("server", function()
+			for _, a in srv.ActorService.GetAll() do
+				if a.IsBot and a.Character then
+					table.insert(bots, a)
+				end
+			end
+		end)
+		Engine.Run("server", function()
+			for i, a in bots do
+				local z = zonePositions[(i % 2) + 2]
+				if i <= 6 and z then
+					a.Character:PivotTo(roblox.CFrame.new(z + Vector3.new((i % 3 - 1) * 5, 3, (i % 2) * 4)))
+				end
+			end
+		end)
+		local z1 = zonePositions[1]
+		local inward = Vector3.new(O.X - z1.X, 0, O.Z - z1.Z).Unit
+		-- Au bord intérieur de l'anneau, tourné vers son centre : le cheval
+		-- volant est au-dessus, l'anneau aux couleurs de l'équipe devant
+		place(z1 + inward * 7, z1 - inward * 30)
+		Engine.Advance(1.6)
+		addScene("modes_carousel_ring_pc", "CAROUSEL: holding a ring under a flying horse", O, 300, robloxCamera(hero), { hud = true })
+		addScene("modes_carousel_ring_phone", "CAROUSEL on a phone (844x390)", O, 300, robloxCamera(hero), { hud = true, width = 844, height = 390 })
+		addScene("modes_carousel_aerial", "CAROUSEL: three moving rings around the valley", O, 300, { position = { O.X + 90, 110, O.Z + 110 }, target = { O.X, 0, O.Z }, fov = 55 })
+	else
+		stageChase()
+		addScene("modes_chase_pc", "CHASE: pure chase on Carousel Valley", O, 300, robloxCamera(hero), { hud = true })
+	end
 end
 
 if group == "mobile" then

@@ -25,8 +25,8 @@ ModeInfo.Defs = {
 		Tagline = "Catch your prey, dodge your hunter. Last team standing wins!",
 		Rules = {
 			"Catch your prey, dodge your hunter.",
-			"Caught players fall: carry teammates home.",
-			"Last team standing wins (or biggest team).",
+			"Carry downed teammates home.",
+			"Last team standing wins.",
 		},
 		Goal = nil,
 		Color = Color3.fromRGB(96, 156, 232),
@@ -36,8 +36,8 @@ ModeInfo.Defs = {
 		DisplayName = "EGG RUN",
 		Tagline = "Grab painted eggs and run them home. First to 5 wins!",
 		Rules = {
-			"Painted eggs appear in nests around the valley.",
-			"Carry one into your camp to score. Carriers can't catch.",
+			"Grab a painted egg from a nest.",
+			"Run it into your camp. Carriers can't catch.",
 			"First team to 5 eggs wins.",
 		},
 		Goal = 5,
@@ -49,7 +49,7 @@ ModeInfo.Defs = {
 		Tagline = "Ride the flying horses: outnumber the others under them to score!",
 		Rules = {
 			"Three flying horses circle the valley.",
-			"Outnumber the other teams in a horse's ring to score.",
+			"Outnumber others in a horse's ring.",
 			"First team to 120 points wins.",
 		},
 		Goal = 120,

@@ -354,7 +354,9 @@ function MapBase.BuildBases(folder: Instance, origin: Vector3, radius: number, p
 			Build.Part({ Name = "BaseBorder", Size = Vector3.new(padSize + 3, 0.7, padSize + 3), CFrame = at(0, 0.35, 0), Color = def.DarkColor, Accent = true }, model)
 		end
 		-- Emblème au sol : disque clair avec le nom de l'équipe (lisible d'en haut)
-		Build.Part({ Name = "Emblem", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.12, 16, 16), CFrame = at(0, 1.02, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = light, Accent = true, CanCollide = false, CanQuery = false }, model)
+		if not style.Kit then
+			Build.Part({ Name = "Emblem", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.12, 16, 16), CFrame = at(0, 1.02, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = light, Accent = true, CanCollide = false, CanQuery = false }, model)
+		end
 		local label = Build.Part({ Name = "EmblemText", Size = Vector3.new(14, 0.05, 5), CFrame = at(0, 1.1, 0) * CFrame.Angles(0, math.pi, 0), Transparency = 1, CanCollide = false, CanQuery = false }, model)
 		Build.SurfaceLabel(label, Enum.NormalId.Top, def.Display, { TextColor3 = def.DarkColor, TextStrokeTransparency = 1, Font = Enum.Font.GothamBlack })
 

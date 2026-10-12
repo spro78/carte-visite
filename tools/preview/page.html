@@ -49,6 +49,7 @@ const fontCss = (el, size) => {
 };
 // Texte enrichi minimal : <font color="#rrggbb">...</font>
 function richSegments(text, base) {
+  text = String(text).replace(/<\/?b>/g, "");
   const out = []; const re = /<font color="([^"]+)">(.*?)<\/font>/g; let last = 0, m;
   while ((m = re.exec(text))) { if (m.index > last) out.push([text.slice(last, m.index), base]); out.push([m[2], m[1]]); last = re.lastIndex; }
   if (last < text.length) out.push([text.slice(last), base]); return out;
@@ -120,11 +121,24 @@ function layoutChildren(el, rect, k) {
   return out;
 }
 
+// Retour à la ligne aux espaces (TextWrapped de Roblox)
+function wrapLines(ctx, text, w) {
+  const out = [];
+  for (const para of String(text).split("\n")) {
+    const words = para.split(" "); let line = "";
+    for (const word of words) {
+      const test = line ? line + " " + word : word;
+      if (line && ctx.measureText(test).width > w) { out.push(line); line = word; } else line = test;
+    }
+    out.push(line);
+  }
+  return out;
+}
 function fitFont(ctx, el, text, w, h, max) {
-  const lines = String(text).split("\n");
-  let size = Math.min(h / lines.length, max || 1000);
+  let size = Math.min(h, max || 1000);
   while (size > 4) {
     ctx.font = fontCss(el, size);
+    const lines = el.wrapped ? wrapLines(ctx, text, w) : String(text).split("\n");
     const widest = Math.max(...lines.map(l => ctx.measureText(l).width));
     if (widest <= w && size * lines.length <= h) break;
     size -= 1;
@@ -159,7 +173,7 @@ function drawGui(ctx, el, rect, k) {
     const size = el.scaled ? fitFont(ctx, el, plain(el), w, h, el.maxText ? el.maxText * k : null) : (el.textSize || 14) * k;
     ctx.font = fontCss(el, size);
     ctx.textBaseline = "middle";
-    const lines = plain(el).split("\n");
+    const lines = el.wrapped ? wrapLines(ctx, plain(el), w) : plain(el).split("\n");
     const lh = size * 1.0;
     const totalH = lh * lines.length;
     let ty = el.yAlign === "Top" ? y + lh / 2 : el.yAlign === "Bottom" ? y + h - totalH + lh / 2 : cy - totalH / 2 + lh / 2;

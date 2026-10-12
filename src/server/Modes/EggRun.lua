@@ -206,7 +206,8 @@ local function pickUp(egg: Egg, actor: Actor)
 	CollectionService:RemoveTag(pivot, Mechanics.FloatTag)
 	pivot.Anchored = false
 	pivot.Massless = true
-	pivot.CFrame = head.CFrame * CFrame.new(0, head.Size.Y / 2 + 1.8, 0)
+	-- Tenu au-dessus de la tête (visible de loin, sans masquer le visage)
+	pivot.CFrame = CFrame.new(head.Position + Vector3.new(0, head.Size.Y / 2 + 0.6, 0))
 	egg.Model.Parent = character
 	local weld = Instance.new("WeldConstraint")
 	weld.Part0 = head

@@ -15,7 +15,8 @@
 	  piste     : anneau dégagé à 62 studs, parcouru par les chevaux ;
 	  allées    : du centre vers chaque camp (jamais encombrées) ;
 	  secteurs  : butte du moulin (30°), grange et foin (150°), ruisseau (270°) ;
-	  camps     : renards 90°, poules 210°, vipères 330°, à 110 studs.
+	  camps     : renards 90°, poules 210°, vipères 330°, à 110 studs ;
+	  horizon   : grande roue sur les collines (292°), montgolfières.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -47,7 +48,7 @@ Map.Lighting = {
 	EnvironmentDiffuseScale = 1,
 	EnvironmentSpecularScale = 0.35,
 	ShadowSoftness = 0.55,
-	Atmosphere = { Density = 0.26, Offset = 0.12, Haze = 1.1, Glare = 0.05, Color = Color3.fromRGB(214, 230, 252), Decay = Color3.fromRGB(150, 182, 226) },
+	Atmosphere = { Density = 0.22, Offset = 0.08, Haze = 0.55, Glare = 0, Color = Color3.fromRGB(206, 226, 252), Decay = Color3.fromRGB(140, 176, 226) },
 	ColorCorrection = { TintColor = Color3.fromRGB(255, 252, 246), Saturation = 0.1, Contrast = 0.05, Brightness = 0.02 },
 	Bloom = { Intensity = 0.35, Size = 22, Threshold = 1.6 },
 }
@@ -147,6 +148,9 @@ local function buildGround(f: Folder)
 	-- Montgolfières au-dessus des collines (repères mémorables)
 	place(hills, "HotAirBalloon", polar(200, 250) + Vector3.new(0, 62, 0), 20, { Collide = false })
 	place(hills, "HotAirBalloon", polar(55, 290) + Vector3.new(0, 84, 0), 140, { Collide = false, Scale = 1.2, Roles = { FairRed = Palettes.Valley.FairBlue } })
+	-- Grande roue sur les collines, derrière le ruisseau : repère visible des
+	-- trois camps, hors de l'aire de jeu (aucune collision)
+	place(hills, "BigWheel", origin + L.BigWheel, origin, { Collide = false, Name = "BigWheel" })
 end
 
 -- ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ Mini-bible réutilisable pour toute carte, le lobby et l'interface.
 - Les règles chiffrées sont vérifiées par la simulation :
   - `tools/sim/test_visual.luau` pour les cartes ;
   - `test.luau` et `test_mobile.luau` pour l'interface.
-- Le **Canyon** sert d'exemple complet (§11).
+- **Carousel Valley** (carte héroïque, décor modélisé dans Blender) sert d'exemple complet (§11). Le Canyon (§12) montre l'ancienne direction en blocs, gardée pour les autres cartes tant qu'elles ne sont pas refaites.
 
 ---
 
@@ -44,12 +44,19 @@ Les domaines Roblox (pages, vignettes, CDN) et YouTube sont bloqués par la poli
   - ni modèles, ni icônes, ni sons, ni vignettes ;
   - ni agencement ou style d'interface.
 - **C3 — Lisible sur téléphone** : paysage par défaut, portrait si l'orientation libre est activée.
+- **C4 — Décor modélisé, pas de blocs** (demande de Malcom, après refus des captures en blocs, jugées « trop génériques et trop pauvres ») :
+  - silhouettes reconnaissables, relief aux formes travaillées ;
+  - composition, chemins et couvertures lisibles, repères mémorables ;
+  - palette cohérente, lumière douce ;
+  - stylisé, lumineux et soigné, dans l'esprit de la référence, sans en copier ni les assets ni le plan ;
+  - assets originaux modélisés (Blender, éventuellement Meshy) puis optimisés pour Roblox et le téléphone, jamais une centaine de pièces primitives.
 
 ## 2. Couleurs et sol
 
 | Choix | Pourquoi | Preuve |
 |---|---|---|
 | Plateau d'un seul ton dominant, bandes à peine visibles (≈ 5 %) | P1 ; bandes = repère de vitesse (P4) | rendus |
+| Carte en kit 3D : sol lisse d'un ton dominant, avec des taches d'herbe en trois tons voisins (clair, sombre, frais). Taches larges et douces, jamais de bruit fin | P1, C4 | `test_visual` (ΔE des rôles de sol) |
 | Au plus 4 couleurs au sol : plateau, chemins, une zone d'accent, abords des camps | P1 | revue |
 | Plateau à ΔE ≥ 40 (Lab) des 3 couleurs d'équipe, d'un avatar blanc (245, 245, 245) et d'un avatar sombre (27, 42, 53) | P3 | `test_visual` |
 | Couleurs d'équipe = couleurs des contours : renard orange (240, 128, 40), poule jaune (250, 222, 90), vipère verte (40, 255, 40), plus claire et plus saturée que les sols verts | P3, C1 | `test_visual` |
@@ -65,17 +72,43 @@ Les domaines Roblox (pages, vignettes, CDN) et YouTube sont bloqués par la poli
 | `ClockTime` 12 à 16,5, `Brightness` ≥ 2,2 : jamais de crépuscule ni de nuit | P2 | `test_visual` |
 | Brume ≤ 0,3, bleutée, qui voile seulement le fond lointain | P2, P4 | `test_visual` |
 | Correction de couleur neutre, saturation +0,10 à +0,20, contraste ≤ +0,08 | P2, P3 | revue |
+| Carte en kit 3D : ombres adoucies (`ShadowSoftness` ≈ 0,5), reflets faibles (`EnvironmentSpecularScale` ≤ 0,4), halo léger (`Bloom` seuil ≥ 1,5) : les volumes arrondis se lisent sans reflets durs | C4 | revue |
 
 ## 4. Matières et formes
+
+### 4.1 Direction actuelle : kit 3D modélisé (Carousel Valley)
+
+Tout le décor vient d'un kit d'assets originaux, modélisés dans Blender par des scripts (`tools/assets`, mode d'emploi dans `tools/assets/README.md`).
+
+| Choix | Pourquoi | Preuve |
+|---|---|---|
+| **Formes rondes et épaisses** : arêtes biseautées, légères irrégularités, aucun détail plus fin que 0,3 stud | C4 ; lisible en mouvement et de loin (P4) | planches `reference/preuves/kit/` |
+| **Pas de texture ni d'UV** : SmoothPlastic, Neon pour les ampoules | P1 ; net sur téléphone, aucune image à charger (C3) | `Manifest.lua` |
+| **Couleur par rôle** : une pièce porte un rôle (Foliage, Rock, Wood, Team...), la palette de la carte (`src/shared/Kit/Palettes.lua`) donne la teinte. Les planches Blender relisent la même palette | C1 : une seule source, couleurs d'équipe réservées au rôle Team | `test_visual` |
+| **Ombre peinte** : feuillages, buissons et pierres ont une pièce plus sombre pour les faces tournées vers le bas | Le volume se lit même sans ombre portée (téléphones modestes) | planches |
+| **Relief en meshes** : collines lissées autour de la vallée (pentes plus claires et plus froides que le dessus), butte à strates de roche, ruisseau. Pas de Terrain | P1, C4 | `test_visual` |
+| **Collisions simples** : quelques volumes invisibles par asset (boîtes, cylindres, boules, rampes). Les meshes ne collisionnent pas | Même physique pour le serveur, les bots et tous les clients ; pas de collision au triangle | `test_visual` (pistes, nids, spawns) |
+| **Repères modélisés** : un repère central animé, un repère par secteur (moulin sur sa butte, grange traversable, ruisseau et pont), une grande silhouette sur l'horizon (grande roue sur les collines, hors de l'aire de jeu) | P4, C4 | rendus « hero » |
+| **Camps du kit** : dalle à bord de pierre (couleur d'équipe), portail en bois au nom du camp, drapeau d'équipe de 22 studs, clôtures sur trois côtés, décor de l'animal derrière (tanière, poulailler, creux des vipères). L'entrée reste dégagée | C1, P4 | `test_visual` (balises, zones sûres) |
+| **Budget** : moins de 400 000 triangles posés sur la carte ; arbres lointains en version légère (56 à 170 triangles) ; un asset = un mesh réutilisé partout | C3 | `test_visual` (budget) |
+
+### 4.2 Ancienne direction : blocs à tenons (Farm, Canyon, Swamp, lobby)
+
+Gardée tant que ces cartes ne sont pas refaites avec le kit (C4).
 
 | Choix | Pourquoi | Preuve |
 |---|---|---|
 | Sol en plaques à tenons, sans Terrain | P1, P3 (avatars blocky dans un monde blocky) | `test_visual` |
 | Primitives trapues, végétation en cubes | P3 | rendus |
 | Fond en gradins de blocs, dessus du même ton que le plateau | P1 | rendus |
-| 4 à 6 silhouettes signature dans le fond (aiguilles, buttes, tours) | P4 : s'orienter sans regarder la carte | rendus |
-| Petits décors en bordure ou contre un repère, jamais sur les lignes de course | P4 | `test_visual` (couloirs) |
 | **Camps dégagés** : dalle, arche, murets, balise, emblème. Ni tente ni caisses : la caméra du joueur qui apparaît voit la carte | P4 | rendu « spawn » |
+
+### 4.3 Pour toutes les cartes
+
+| Choix | Pourquoi | Preuve |
+|---|---|---|
+| 4 à 6 silhouettes signature (aiguilles, buttes, tours, moulin) | P4 : s'orienter sans regarder la carte | rendus |
+| Petits décors en bordure ou contre un repère, jamais sur les lignes de course | P4 | `test_visual` (couloirs) |
 
 Tailles utiles (un joueur mesure 5 studs) :
 - obstacles d'esquive : 4 à 8 studs ;
@@ -92,6 +125,7 @@ Tailles utiles (un joueur mesure 5 studs) :
 | Balises de camp de 32 studs, visibles depuis l'entrée des deux autres camps | P4, C1 | `test_visual` |
 | **Zone sûre** de chaque camp (plateforme + 8 studs sur les côtés, 4 devant, jusqu'à 24 derrière) marquée au sol : liseré pointillé à la couleur de l'équipe éclaircie, « SAFE ZONE » à l'entrée. Plat (0,12 stud), traversable : ne gêne ni la course ni la vue | P4, C1 | `test_visual`, `test_rescue` |
 | Un repère central (le mécanisme) et 3 lieux de zone avec panneau | P4, C1 | rendus |
+| Objectif mobile (anneaux des chevaux volants) : sur une piste dégagée qui passe devant chaque camp sans entrer dans aucune zone sûre | P4, C1 | `test_visual` (piste libre), `test_carousel` |
 
 ## 6. Joueurs à l'écran
 
@@ -133,6 +167,19 @@ Tailles utiles (un joueur mesure 5 studs) :
 
 ## 9. Appliquer la bible à une carte
 
+### 9.1 Avec le kit 3D (direction actuelle)
+
+1. Assets : réutiliser le kit ; modéliser ce qui manque dans `tools/assets/assets_*.py` (conventions du §4.1). Un modèle venu de Meshy passe par Blender : échelle, origine au sol, rôles de couleur, budget, volumes de collision.
+2. Relief et sols de la carte : un module comme `tools/assets/terrain_valley.py` (sol peint, collines, butte), avec la disposition (`LAYOUT`) recopiée dans `Config.Maps` ; `test_visual` vérifie l'égalité.
+3. Palette : une entrée dans `src/shared/Kit/Palettes.lua`, mêmes contrôles de couleur qu'au §2.
+4. `tools/assets/build.sh --sheets` : regarder les planches avant d'intégrer.
+5. Carte : placer les assets avec `Kit.Place` ; camps avec `MapBase.BuildBases(..., { Kit = true })`.
+6. `Map.Lighting` dans les bornes du §3 ; `tools/check.sh` doit passer.
+7. Rendus `tools/check.sh preview hero <Carte>` : mêmes cadrages avant/après, mention « RENDU SIMULÉ ».
+8. **Test dans Roblox Studio** (`reference/TEST_STUDIO.md`) avant de dire la carte prête : les rendus simulés ne suffisent pas.
+
+### 9.2 En blocs (ancienne direction)
+
 1. Thème `MapBase.ArenaTheme` :
    - `Board` / `BoardAlt` : un ton dominant (P1), ΔE ≥ 40 (P3) ;
    - `Path`, `GroundColors` ;
@@ -147,6 +194,11 @@ Tailles utiles (un joueur mesure 5 studs) :
 
 ## 10. Non vérifié dans Roblox Studio
 
+- Kit 3D :
+  - meshes construits à la volée (`EditableMesh`) : autorisation dans une expérience publiée, sens des faces, normales lissées ;
+  - import du FBX : axes, noms, un MeshPart par pièce ;
+  - collisions réelles des volumes simples (butte, rampes, pont, grange) ;
+  - mémoire et temps de chargement sur téléphone.
 - Rendu réel :
   - tenons, matières, ombres « Future », brume ;
   - Fredoka One telle qu'affichée par Roblox.
@@ -158,7 +210,34 @@ Tailles utiles (un joueur mesure 5 studs) :
 - Performance (nombre de pièces, appareils modestes).
 - Ressemblance réelle avec la référence : l'arène n'a jamais été vue.
 
-## 11. Exemple complet : The Canyon
+## 11. Exemple complet : Carousel Valley (kit 3D)
+
+Ce qui change par rapport à « The Carousel » (fête foraine en blocs), et le principe dont chaque changement découle :
+
+| Élément | Avant (blocs) | Après (kit 3D) | Principe |
+|---|---|---|---|
+| Sol | Plaques à tenons vertes | Sol lisse (116, 190, 86) avec taches d'herbe en trois tons voisins | P1, C4 |
+| Relief | Gradins de blocs bleu-lilas | Six collines lissées qui ferment la vallée ; butte à strates de roche, deux rampes | P1, C4 |
+| Repères | Grande roue, montagnes russes, chapiteau, tour, tasses (en blocs, dans l'aire de jeu) | Manège à chevaux volants au centre ; moulin à ailes tournantes sur la butte (30°) ; grange rouge traversable (150°) ; ruisseau et pont (270°) ; grande roue modélisée sur les collines, hors de l'aire de jeu (292°) ; montgolfières | P4, C2, C4 |
+| Végétation | Arbres ronds roses et cubes | Six essences (feuillus, cerisiers, conifères), buissons, fleurs ; versions légères sur les collines | C4 |
+| Camps | Dalle, arche, murets | Dalle à bord de pierre, portail au nom du camp, drapeau d'équipe, clôtures, tanière / poulailler / creux des vipères | C1, C4 |
+| Lumière | Après-midi doré (16 h 06), brume chaude | Plein jour (14 h 18), ombres adoucies, brume bleutée au loin | P2, C4 |
+| Mécanisme | Plateforme centrale tournante : tout le monde s'y entasse | Trois chevaux volants autour de la vallée, chacun avec un anneau au sol ; aucun objectif au centre | P4, C1 |
+| Modes | Un seul (« King of the Wheel ») | Trois au vote : CHASE, EGG RUN, CAROUSEL | C1 |
+| Pièces | 4 798 pièces primitives | 59 assets modélisés, environ 260 000 triangles posés, collisions simples | C3, C4 |
+
+**Inchangé (C1)** :
+- trois équipes, trois camps à 110 studs, zones sûres ;
+- capture en triangle, mise à terre, portage, réanimation, conversion faute de secours.
+
+Preuves :
+- planches du kit (Blender) : `reference/preuves/kit/` ;
+- planche avant/après à caméra identique : `reference/preuves/carousel_valley_avant_apres.jpg` ;
+- vues joueur et modes : `reference/preuves/carousel_valley_*.jpg` ;
+- `test_visual` (couleurs, contraste des contours, couloirs, piste libre, nids, budget) et `test_carousel` (vote, modes).
+- Chaque image porte « RENDU SIMULÉ » ou « RENDU BLENDER ». **Aucune n'est une capture de Roblox Studio** ; la carte n'est pas déclarée prête avant le test du protocole `reference/TEST_STUDIO.md`.
+
+## 12. Exemple en blocs : The Canyon
 
 Ce qui change, et le principe dont chaque changement découle :
 

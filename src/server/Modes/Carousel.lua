@@ -63,15 +63,19 @@ end
 -- Disque translucide sous l'anneau (aux couleurs de l'équipe qui le tient)
 local function makeFill(index: number)
 	local zone = layout.Zones[index]
-	local pivot = zone and zone.PrimaryPart
-	if not pivot then
+	local base = layout.Spinner and layout.Spinner:GetAttribute("SpinBase")
+	if not zone or typeof(base) ~= "CFrame" then
 		return
 	end
+	-- Position dans le repère de l'angle 0 (celui du serveur, qui ne fait pas
+	-- tourner le manège) : chaque client la replace dans son repère courant
+	local rideAngle = zone:GetAttribute("RideAngle") or 0
+	local ground = (base * CFrame.Angles(0, rideAngle, 0) * CFrame.new(layout.TrackRadius, 0, 0)).Position
 	local fill = Instance.new("Part")
 	fill.Name = "ZoneFill"
 	fill.Shape = Enum.PartType.Cylinder
 	fill.Size = Vector3.new(0.12, cfg.ZoneRadius * 2 - 1.6, cfg.ZoneRadius * 2 - 1.6)
-	fill.CFrame = CFrame.new(pivot.Position + Vector3.new(0, 0.06, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+	fill.CFrame = CFrame.new(ground + Vector3.new(0, 0.24, 0)) * CFrame.Angles(0, 0, math.pi / 2)
 	fill.Anchored = true
 	fill.CanCollide = false
 	fill.CanQuery = false

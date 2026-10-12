@@ -134,12 +134,40 @@ local function worker()
 	end
 end
 
+-- Prépare tous les meshes du kit pendant le lobby (quelques créations en
+-- parallèle) : quand la carte est posée, il ne reste qu'à copier les modèles,
+-- et les camps n'apparaissent pas en retard au début de la manche
+local PREWARM_THREADS = 6
+
+local function prewarm()
+	local names = {}
+	for _, def in Manifest do
+		for _, piece in def.Pieces do
+			table.insert(names, piece.Mesh)
+		end
+	end
+	local nextIndex = 0
+	for _ = 1, PREWARM_THREADS do
+		task.spawn(function()
+			while KitMesh.LastError == nil do
+				nextIndex += 1
+				local name = names[nextIndex]
+				if not name then
+					break
+				end
+				KitMesh.GetTemplate(name)
+			end
+		end)
+	end
+end
+
 function KitController.Init()
 	for _, model in CollectionService:GetTagged(TAG) do
 		enqueue(model)
 	end
 	CollectionService:GetInstanceAddedSignal(TAG):Connect(enqueue)
 	task.spawn(worker)
+	task.spawn(prewarm)
 end
 
 -- Pour les tests : construit tout ce qui attend, tout de suite

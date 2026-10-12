@@ -71,10 +71,18 @@ def build(names):
         for p in a.pieces:
             K.bake(p["obj"]) if p["obj"].modifiers else None
         tris = 0
+        kept = []
         for p in a.pieces:
             o = bpy.data.objects[p["obj"].name]
             p["obj"] = o
-            tris += K.count_tris(o)
+            n = K.count_tris(o)
+            if n == 0:
+                # Pièce vide (ex. aucune pente raide dans un morceau de colline)
+                K.delete(o)
+                continue
+            kept.append(p)
+            tris += n
+        a.pieces = kept
         a.tris = tris
         built.append(a)
         print(f"  {name:<22} {len(a.pieces)} pièces {tris:>6} triangles  {time.time() - t0:5.1f} s")
@@ -252,6 +260,9 @@ def write_layouts():
         f = L[key]
         extra = f", Height = {f['Height']}" if "Height" in f else ""
         lines.append(f"\t{key} = {{ Angle = {f['Angle']}, Radius = {f['Radius']}{extra} }},")
+    (wx, wy, wz), _ = TV.wheel_spot()
+    lines.append("\t-- Grande roue : pied (hauteur la plus basse de son emprise), tournée vers le centre")
+    lines.append("\tBigWheel = Vector3.new(%s, %s, %s)," % (fmt(wx), fmt(wy), fmt(wz)))
     lines.append("\t-- Arbres des collines : { x, y, z, distance au bord de la vallée }")
     lines.append("\tHillTrees = {")
     for x, y, z, d in TV.tree_spots():
@@ -457,8 +468,8 @@ def main():
         nature_decor = {"FlowerPatch", "GrassTuft", "Mushrooms", "Stump", "Log"}
         groups = [
             ("kit_nature.jpg", "Nature : arbres, buissons, rochers, fleurs", lambda n, c: c in ("Tree", "Bush", "Rock") or n in nature_decor),
-            ("kit_village.jpg", "Village : clôtures, couvertures, grange, moulin, décor", lambda n, c: c in ("Fence", "Cover") or (c == "Landmark" and n not in ("CarouselHub", "HotAirBalloon")) or (c == "Decor" and n not in nature_decor)),
-            ("kit_fete_camps.jpg", "Fête, objectifs et camps des équipes", lambda n, c: c in ("Ride", "Objective", "Camp") or n in ("CarouselHub", "HotAirBalloon")),
+            ("kit_village.jpg", "Village : clôtures, couvertures, grange, moulin, décor", lambda n, c: c in ("Fence", "Cover") or (c == "Landmark" and n not in ("CarouselHub", "HotAirBalloon", "BigWheel")) or (c == "Decor" and n not in nature_decor)),
+            ("kit_fete_camps.jpg", "Fête, objectifs et camps des équipes", lambda n, c: c in ("Ride", "Objective", "Camp") or n in ("CarouselHub", "HotAirBalloon", "BigWheel")),
         ]
         by_name = {a.name: a for a in built}
         for filename, title, accept in groups:

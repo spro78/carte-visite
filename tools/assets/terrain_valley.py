@@ -34,6 +34,9 @@ LAYOUT = {
     "Knoll": {"Angle": 30, "Radius": 104, "Height": 6},
     "Barn": {"Angle": 150, "Radius": 100},
     "Creek": {"Angle": 270, "Radius": 98},
+    # Grande roue sur les collines, derrière le ruisseau (hors de l'aire de jeu) :
+    # distance au-delà du bord de la vallée
+    "Wheel": {"Angle": 292, "Distance": 18},
 }
 
 
@@ -208,22 +211,63 @@ def valley_ground(a):
     a.piece("Paths", K.shade(paths, 20), "Path", shadow=False)
     edges = [annulus(tr - tw / 2 - 0.9, tr - tw / 2 + 0.1, 0.15, "e1", 120, wobble=0.012, seed=3), annulus(tr + tw / 2 - 0.1, tr + tw / 2 + 0.9, 0.15, "e2", 120, wobble=0.012, seed=3)]
     a.piece("PathEdges", K.shade(K.join(edges, "edges"), 20), "PathEdge", shadow=False)
-    # Taches d'herbe claire et foncée (le sol n'est jamais d'un seul aplat)
+    # Pierres plates le long des bords des allées et de la piste (finition)
+    stones = []
+    rnd = random.Random(23)
+
+    # Galets arrondis (lissés) : des facettes plates à plat accrochent le
+    # soleil et se lisent comme des papiers blancs
+    def stone(x, z, size, yaw):
+        st = K.ico(1.0, (0, 0, 0), (size, size * rnd.uniform(0.6, 0.9), 0.3), subdiv=1)
+        return K.transform(st, loc=tuple(B(x, z, 0.12)), rot=(0, 0, yaw))
+
+    for deg in LAYOUT["BaseAngles"].values():
+        pts = lane_points(deg)
+        for i in range(len(pts) - 1):
+            (x0, z0), (x1, z1) = pts[i], pts[i + 1]
+            seg = math.hypot(x1 - x0, z1 - z0)
+            nx, nz = -(z1 - z0) / seg, (x1 - x0) / seg
+            n = max(1, int(seg / 3.2))
+            for k in range(n):
+                t = (k + rnd.uniform(0.2, 0.8)) / n
+                x, z = x0 + (x1 - x0) * t, z0 + (z1 - z0) * t
+                r = math.hypot(x, z)
+                if abs(r - LAYOUT["TrackRadius"]) < LAYOUT["TrackWidth"] / 2 + 1:
+                    continue
+                for side in (-1, 1):
+                    w = LAYOUT["LaneWidth"] / 2 + 0.6
+                    stones.append(stone(x + nx * w * side, z + nz * w * side, rnd.uniform(0.55, 0.85), rnd.uniform(0, 3)))
+    tr, tw = LAYOUT["TrackRadius"], LAYOUT["TrackWidth"]
+    for edge in (tr - tw / 2 - 1.3, tr + tw / 2 + 1.3):
+        n = int(2 * math.pi * edge / 3.6)
+        for k in range(n):
+            ang = 2 * math.pi * (k + rnd.uniform(0.2, 0.8)) / n
+            x, z = math.cos(ang) * edge, math.sin(ang) * edge
+            # pas de pierres en travers des allées
+            if any(abs(((math.degrees(ang) - d + 180) % 360) - 180) < math.degrees((LAYOUT["LaneWidth"] / 2 + 1.5) / edge) for d in LAYOUT["BaseAngles"].values()):
+                continue
+            stones.append(stone(x, z, rnd.uniform(0.6, 0.9), rnd.uniform(0, 3)))
+    st = K.join(stones, "stones")
+    K.shade(st, 75)
+    a.piece("PathStones", st, "PathStone", shadow=False)
+    # Taches d'herbe en trois tons (le sol n'est jamais d'un seul aplat)
     rnd = random.Random(17)
-    light, dark = [], []
+    tones = {"GrassLight": [], "GrassDark": [], "GrassCool": []}
+    order = ["GrassLight", "GrassDark", "GrassCool"]
     tries = 0
     placed = []
-    while len(placed) < 46 and tries < 2000:
+    while len(placed) < 96 and tries < 4000:
         tries += 1
-        x, z = rnd.uniform(-150, 150), rnd.uniform(-150, 150)
-        r = rnd.uniform(5, 12)
-        if not path_clear(x, z, r * 0.6) or any(math.hypot(x - px, z - pz) < r + pr2 for px, pz, pr2 in placed):
+        x, z = rnd.uniform(-158, 158), rnd.uniform(-158, 158)
+        r = rnd.uniform(4, 13)
+        if not path_clear(x, z, r * 0.5) or any(math.hypot(x - px, z - pz) < (r + pr2) * 0.8 for px, pz, pr2 in placed):
             continue
         placed.append((x, z, r))
-        pts = blob_points(x, z, r, seed=tries, wobble=0.3, sx=rnd.uniform(0.8, 1.3), sz=rnd.uniform(0.7, 1.1), rot=rnd.uniform(0, 6.28))
-        (light if len(placed) % 2 else dark).append(fan(pts, 0.06, "patch"))
-    a.piece("PatchesLight", K.shade(K.join(light, "pl"), 20), "GrassLight", shadow=False)
-    a.piece("PatchesDark", K.shade(K.join(dark, "pd"), 20), "GrassDark", shadow=False)
+        pts = blob_points(x, z, r, seed=tries, wobble=0.32, sx=rnd.uniform(0.8, 1.4), sz=rnd.uniform(0.6, 1.1), rot=rnd.uniform(0, 6.28))
+        tones[order[len(placed) % 3]].append(fan(pts, 0.06, "patch"))
+    a.piece("PatchesLight", K.shade(K.join(tones["GrassLight"], "pl"), 20), "GrassLight", shadow=False)
+    a.piece("PatchesDark", K.shade(K.join(tones["GrassDark"], "pd"), 20), "GrassDark", shadow=False)
+    a.piece("PatchesCool", K.shade(K.join(tones["GrassCool"], "pc"), 20), "GrassCool", shadow=False)
     a.anchor("Center", (0, 0, 0))
 
 
@@ -278,17 +322,42 @@ for _k in range(HILL_SECTORS):
         @asset(f"ValleyHills{k + 1}", "Terrain", footprint=200)
         def hills(a):
             o = hill_chunk(k)
-            top, side = K.split_by_normal(o, 0.72, "grass", "slope")
+            top, side = K.split_by_normal(o, 0.5, "grass", "slope")
             a.piece("Grass", K.shade(top, 35), "HillGrass")
             a.piece("Slope", K.shade(side, 35), "HillSlope")
 
     _make(_k)
 
 
+def ground_height(x, z):
+    """Hauteur du sol (collines comprises) en (x, z) Roblox."""
+    theta = math.atan2(z, x)
+    return hill_height(theta, math.hypot(x, z) - edge_radius(theta))
+
+
+def wheel_spot():
+    """Pied de la grande roue : (x, y, z) Roblox, à la hauteur du sol en son
+    centre ; elle regarde le centre de la carte. Retourne aussi l'écart de
+    hauteur (min, max) sur son emprise : le socle et les pieds de l'asset,
+    prolongés sous le sol, couvrent jusqu'à -4 / +3 studs."""
+    theta = math.radians(LAYOUT["Wheel"]["Angle"])
+    r = edge_radius(theta) + LAYOUT["Wheel"]["Distance"]
+    x, z = math.cos(theta) * r, math.sin(theta) * r
+    look = (-math.cos(theta), -math.sin(theta))  # vers le centre
+    right = (-look[1], look[0])
+    y = ground_height(x, z)
+    rel = []
+    for bx in (-12, -6, 0, 6, 12):
+        for by in (-5, 0, 5):
+            rel.append(ground_height(x + right[0] * bx + look[0] * by, z + right[1] * bx + look[1] * by) - y)
+    return (x, y - 0.2, z), (min(rel), max(rel))
+
+
 def tree_spots():
     """Emplacements d'arbres sur les collines (pente douce), déterministes."""
     rnd = random.Random(29)
     spots = []
+    (wx, _, wz), _ = wheel_spot()
     for i in range(900):
         theta = rnd.uniform(0, 2 * math.pi)
         d = rnd.uniform(6, 120)
@@ -299,6 +368,9 @@ def tree_spots():
         r = edge_radius(theta) + d
         x, z = math.cos(theta) * r, math.sin(theta) * r
         if any(math.hypot(x - sx, z - sz) < (11 if d < 40 else 16) for sx, _, sz, _ in spots):
+            continue
+        # la grande roue reste dégagée
+        if math.hypot(x - wx, z - wz) < 26:
             continue
         spots.append((x, h0 - 0.3, z, d))
     return spots
