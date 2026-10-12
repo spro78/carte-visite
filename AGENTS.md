@@ -60,10 +60,13 @@ Pour l'installation et la publication, voir `README.md`.
 ## Vérifier avant de pousser
 
 ```bash
-tools/check.sh          # types (luau-lsp + API Roblox) + toutes les simulations
+tools/check.sh          # place + types (luau-lsp + API Roblox) + toutes les simulations
+tools/check.sh place    # place seulement : dist/HuntOrHide.rbxl construite et contrôlée
 tools/check.sh types    # types seulement
 tools/check.sh sim      # simulations seulement
 ```
+
+`dist/HuntOrHide.rbxl` est la place prête à ouvrir dans Studio. `tools/check.sh` la reconstruit : la pousser avec le code qui l'a produite (la construction est déterministe).
 
 Toutes les simulations doivent passer :
 - `test` : boucle de manche, HUD sur 4 écrans de PC ;

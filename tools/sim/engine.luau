@@ -792,6 +792,15 @@ setParent = function(self, newParent)
 	if newParent ~= nil and not isInstance(newParent) then
 		error("Parent must be an Instance", 3)
 	end
+	-- Comme Roblox : refuser une boucle de parenté (sinon toute remontée des
+	-- ancêtres tournerait sans fin)
+	local p = newParent
+	while p do
+		if p == self then
+			error(string.format("Attempt to set parent of %s to %s would result in circular reference", self:GetFullName(), newParent:GetFullName()), 3)
+		end
+		p = rawget(p, "_props").Parent
+	end
 	if old then
 		local list = rawget(old, "_children")
 		local i = table.find(list, self)

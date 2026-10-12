@@ -17,6 +17,11 @@ local Vector3 = roblox.Vector3
 local sourcemap = process.args[1] or "sourcemap.json"
 local outPath = process.args[2] or "tools/preview/out/scenes.json"
 local group = process.args[3] or "all"
+-- Graine du hasard, pour rejouer une mise en scène : SIM_SEED=<entier>
+local seed = tonumber(process.env.SIM_SEED)
+if seed then
+	math.randomseed(seed)
+end
 local forcedMap = process.args[4] -- map imposée pour les groupes round, mobile et players
 
 Engine.Quiet = true

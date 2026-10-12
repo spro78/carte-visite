@@ -27,6 +27,14 @@ local queue: { Model } = {}
 local queued: { [Model]: boolean } = {}
 local warned = false
 
+-- Une seule alerte dans la sortie si les meshes ne peuvent pas être construits
+local function warnFailure()
+	if not warned then
+		warned = true
+		warn("[Kit] Meshes non construits (" .. tostring(KitMesh.LastError) .. ") : importer assets/kit/HoH_Kit.fbx dans Studio (tools/assets/README.md). Blocs de remplacement en attendant.")
+	end
+end
+
 local function buildPiece(model: Model, pivot: BasePart, piece: Manifest.Piece, scale: number)
 	local template = KitMesh.GetTemplate(piece.Mesh)
 	if model.Parent == nil then
@@ -36,10 +44,7 @@ local function buildPiece(model: Model, pivot: BasePart, piece: Manifest.Piece, 
 	if template then
 		part = template:Clone()
 	else
-		if not warned then
-			warned = true
-			warn("[Kit] Meshes non construits (" .. tostring(KitMesh.LastError) .. ") : importer assets/kit/HoH_Kit.fbx dans Studio (tools/assets/README.md). Blocs de remplacement en attendant.")
-		end
+		warnFailure()
 		local block = Instance.new("Part")
 		block.TopSurface = Enum.SurfaceType.Smooth
 		block.BottomSurface = Enum.SurfaceType.Smooth
@@ -146,7 +151,9 @@ local function prewarm()
 			table.insert(names, piece.Mesh)
 		end
 	end
-	local nextIndex = 0
+	local imported = ReplicatedStorage:FindFirstChild(KitMesh.ImportedFolderName) ~= nil
+	local started = os.clock()
+	local nextIndex, ready, running = 0, 0, PREWARM_THREADS
 	for _ = 1, PREWARM_THREADS do
 		task.spawn(function()
 			while KitMesh.LastError == nil do
@@ -155,7 +162,19 @@ local function prewarm()
 				if not name then
 					break
 				end
-				KitMesh.GetTemplate(name)
+				if KitMesh.GetTemplate(name) then
+					ready += 1
+				end
+			end
+			running -= 1
+			if running > 0 then
+				return
+			end
+			-- Bilan dans la sortie (Studio : premier contrôle du protocole de test)
+			if KitMesh.LastError then
+				warnFailure()
+			else
+				print(string.format("[Kit] %d/%d meshes du kit prêts en %.1f s (%s)", ready, #names, os.clock() - started, imported and "importés dans Studio" or "construits par ce client"))
 			end
 		end)
 	end

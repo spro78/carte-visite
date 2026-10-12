@@ -3,15 +3,31 @@
 Ce protocole couvre ce que la simulation (`tools/check.sh`) ne peut pas prouver : le rendu et la physique réels de Roblox.
 - **Seules des captures de la vraie fenêtre Studio comptent comme preuve.**
 - Les rendus de `tools/preview` (mention « RENDU SIMULÉ »), les planches Blender (« RENDU BLENDER ») et la simulation ne valent pas un test Studio.
-- Durée : 45 à 60 minutes.
+- Durée : 10 minutes pour le démarrage rapide (§0), 45 à 60 minutes pour tout le protocole.
 
-## 1. Préparer la place
+## 0. Démarrage rapide (10 minutes)
+
+1. Télécharger `dist/HuntOrHide.rbxl` depuis la branche `claude/nice-albattani-2x8yqo` (PR #1). Sur GitHub : ouvrir le fichier, puis *Download raw file*.
+2. L'ouvrir dans Studio : double-clic, ou *File > Open from File*. La place est prête : rien à installer, rien à supprimer.
+3. Ouvrir *View > Output*, puis *Test > Play*. On joue seul : les bots complètent les trois équipes.
+4. Dans *Output*, deux lignes disent si la carte marche :
+   - `[Kit] 189/189 meshes du kit prêts en … s (construits par ce client)` : les meshes 3D fonctionnent. La ligne apparaît pendant le lobby.
+   - `[Carousel Valley] carte construite : … assets du kit, … volumes de collision` : la carte est posée. La ligne apparaît à la fin du vote.
+   - Si `[Kit] Meshes non construits (…)` apparaît à la place : la raison est entre parenthèses. Il faut alors importer le kit (§1, étape 5B). En attendant, la carte s'affiche en blocs de remplacement, mais reste jouable.
+5. Jouer une manche : vote, composition des équipes, puis la manche. Regarder la carte (§2), un objectif (§4 : ramener un œuf ou tenir un anneau) et une conversion (§5, ligne 4).
+6. Renvoyer :
+   - trois captures de la fenêtre Studio (vote, vue de la carte, une poursuite) ;
+   - le texte de *Output*, copié-collé ;
+   - ce qui ne va pas.
+
+## 1. Préparer la place (protocole complet)
 
 1. Récupérer la branche `claude/nice-albattani-2x8yqo` (PR #1).
-2. Générer la place ou synchroniser :
-   - `rojo build -o HuntOrHide.rbxl`, puis ouvrir le fichier dans Studio ;
-   - ou `rojo serve` puis *Plugins > Rojo > Connect*.
-3. Supprimer `Workspace.Baseplate` et `Workspace.SpawnLocation` s'ils existent.
+2. Trois façons d'avoir la place, toutes vérifiées hors Studio (`tools/check.sh place`, `rojo serve` répond) :
+   - ouvrir `dist/HuntOrHide.rbxl`, déjà construite (reconstruite par `tools/check.sh` à chaque poussée) ;
+   - ou `rojo build default.project.json -o HuntOrHide.rbxl` (Rojo 7.4.4, version fixée dans `rokit.toml`), puis ouvrir le fichier ;
+   - ou, pour modifier le code en direct : `rojo serve`, puis dans Studio *Plugins > Rojo > Connect* (plugin Rojo 7.4.x, port 34872).
+3. Avec `rojo serve` dans une place existante : supprimer `Workspace.Baseplate` et `Workspace.SpawnLocation` s'ils existent.
 4. Ouvrir la fenêtre *Output* : aucune ligne rouge ne doit apparaître pendant les tests.
 5. Meshes du kit 3D, deux possibilités (détails dans `tools/assets/README.md`) :
    - **A. Rien à faire** : au *Play*, chaque client construit les meshes (EditableMesh). C'est le premier test à faire.
@@ -75,7 +91,8 @@ Ce protocole couvre ce que la simulation (`tools/check.sh`) ne peut pas prouver 
 | 1 | Avatars | Intacts ; contour lumineux seul : renards orange, poules jaunes, vipères vertes |
 | 2 | Zone sûre de son camp | Liseré pointillé, « SAFE ZONE » ; impossible d'y être attrapé ou mordu |
 | 3 | Mise à terre et portage (C, bouton CARRY) | Comme dans la version précédente : porté jusqu'à la zone sûre, relevé sur la plateforme |
-| 4 | Téléphone (*Test > Device*, paysage et portrait) | Vote lisible (une règle par carte en petit écran), composition des équipes, pastille d'état, bouton CARRY |
+| 4 | Conversion : se faire attraper, puis rester à terre 15 s sans secours | On se relève dans l'équipe du chasseur : contour, ruban et tableau des équipes changent ; pas de prison |
+| 5 | Téléphone (*Test > Device*, paysage et portrait) | Vote lisible (une règle par carte en petit écran), composition des équipes, pastille d'état, bouton CARRY |
 
 ## 6. Captures à envoyer
 
@@ -83,7 +100,23 @@ Une capture de la vraie fenêtre Studio pour chaque ligne marquée ✔, plus :
 - la fenêtre *Output* en fin de manche ;
 - le panneau *Stats* (`Shift+F5`) pendant une poursuite.
 
-## 7. Ce qui peut différer de la simulation (à regarder en priorité)
+## 7. Publier dans « Mes expériences »
+
+1. Dans Studio : *File > Publish to Roblox As…*, puis *Create new experience* (nom, description). L'expérience apparaît dans *Mes expériences* du Creator Hub.
+2. *Game Settings* :
+   - *Security* : **Allow Mesh & Image APIs**, pour que les meshes du kit se construisent dans l'expérience publiée (compte de 13 ans ou plus, à l'identité vérifiée) ;
+   - *Security* : **Studio Access to API Services** (sauvegarde, classements) ;
+   - *Avatar* : R6.
+3. Si l'option des meshes n'est pas disponible : importer le kit (§1, étape 5B) avant de publier.
+4. Pour que Claude publie lui-même les mises à jour depuis le cloud (facultatif) :
+   - créer une clé d'API sur create.roblox.com/credentials, limitée à cette expérience, avec le droit d'écrire les places ;
+   - l'ajouter dans les réglages de l'environnement cloud, en secret `ROBLOX_API_KEY`, jamais dans la conversation ;
+   - autoriser le domaine `apis.roblox.com` dans l'accès réseau de l'environnement ;
+   - donner l'identifiant de l'univers et celui de la place (ce ne sont pas des secrets).
+
+   Commande alors utilisée : `rojo upload --api_key "$ROBLOX_API_KEY" --universe_id <univers> --asset_id <place> default.project.json`.
+
+## 8. Ce qui peut différer de la simulation (à regarder en priorité)
 
 | Domaine | Risque |
 |---|---|

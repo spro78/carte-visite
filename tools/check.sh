@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Vérification complète hors Studio :
-#   1. construit la place avec Rojo
+#   1. construit la place avec Rojo (dist/HuntOrHide.rbxl, à ouvrir dans Studio)
+#      et contrôle son contenu (tools/check_place.luau)
 #   2. vérifie les types avec luau-lsp et les définitions de l'API Roblox
-#   3. lance la simulation de test (tools/sim/test.luau)
+#   3. lance les simulations (tools/sim/test*.luau)
 # Usage : tools/check.sh            (tout)
+#         tools/check.sh place      (place Roblox dist/HuntOrHide.rbxl seulement)
 #         tools/check.sh types      (types seulement)
 #         tools/check.sh sim        (simulation seulement)
 #         tools/check.sh preview [groupe] [map]   (rendus simulés dans tools/preview/out)
@@ -29,9 +31,15 @@ fetch luau-lsp "https://github.com/JohnnyMorganz/luau-lsp/releases/download/1.70
 what=${1:-all}
 "$BIN/rojo" sourcemap default.project.json -o sourcemap.json >/dev/null
 
+if [ "$what" = all ] || [ "$what" = place ]; then
+  echo "== Place Roblox (dist/HuntOrHide.rbxl)"
+  mkdir -p dist
+  "$BIN/rojo" build default.project.json -o dist/HuntOrHide.rbxl >/dev/null
+  "$BIN/lune" run tools/check_place.luau dist/HuntOrHide.rbxl || { echo "PLACE INCOMPLÈTE"; exit 1; }
+fi
+
 if [ "$what" = all ] || [ "$what" = types ]; then
   echo "== Types (luau-lsp + API Roblox)"
-  "$BIN/rojo" build default.project.json -o "$BIN/HuntOrHide.rbxl" >/dev/null
   if "$BIN/luau-lsp" analyze --definitions="$BIN/globalTypes.d.luau" --sourcemap=sourcemap.json \
       --ignore="tools/**" src; then echo "types OK"; else echo "ERREURS DE TYPES"; exit 1; fi
 fi
@@ -41,7 +49,8 @@ if [ "$what" = all ] || [ "$what" = sim ]; then
   status=0
   for t in tools/sim/test*.luau; do
     echo "-- $t"
-    "$BIN/lune" run "$t" sourcemap.json || status=1
+    # Délai maximal : un blocage devient un échec visible au lieu d'attendre sans fin
+    timeout 900 "$BIN/lune" run "$t" sourcemap.json || { rc=$?; [ $rc -eq 124 ] && echo "BLOCAGE : $t dépasse 15 minutes"; status=1; }
   done
   [ $status -eq 0 ] || { echo "ÉCHEC DE LA SIMULATION"; exit 1; }
 fi

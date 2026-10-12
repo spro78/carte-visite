@@ -228,8 +228,10 @@ automatiquement en fin de manche. La carte entre dans le vote et la rotation.
 
 ## Publier une version jouable
 
-1. `rojo build -o HuntOrHide.rbxl`, ouvrir le fichier dans Studio (ou `rojo serve`).
-2. Supprimer la Baseplate et la SpawnLocation d'origine si elles existent.
+1. Ouvrir `dist/HuntOrHide.rbxl` dans Studio : la place est déjà construite et
+   contrôlée par `tools/check.sh`. Ou `rojo build -o HuntOrHide.rbxl`, ou `rojo serve`.
+   Démarrage rapide et protocole : `reference/TEST_STUDIO.md`.
+2. Avec `rojo serve` dans une place existante : supprimer la Baseplate et la SpawnLocation d'origine.
 3. *Game Settings* : Avatar Type = R6 ; *Security* : activer **Studio Access to
    API Services** (sauvegarde et classements) et **Allow Mesh & Image APIs**
    (meshes du kit 3D construits par chaque client). Sans cette option, importer

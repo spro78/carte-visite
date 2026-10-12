@@ -445,6 +445,16 @@ function Map.Build(mapOrigin: Vector3, _context: MapContext)
 	buildNests(f)
 	f.Parent = workspace
 	folder = f
+	-- Bilan dans la sortie (Studio : premier contrôle du protocole de test)
+	local assets, colliders = 0, 0
+	for _, item in f:GetDescendants() do
+		if item:IsA("Model") and item:GetAttribute("KitAsset") ~= nil then
+			assets += 1
+		elseif item.Name == "KitCollider" then
+			colliders += 1
+		end
+	end
+	print(string.format("[Carousel Valley] carte construite : %d assets du kit, %d volumes de collision", assets, colliders))
 end
 
 function Map.GetSpawns(teamId: string): { CFrame }

@@ -1,6 +1,8 @@
-# Fichiers de place Roblox générés localement
+# Fichiers de place Roblox générés localement (sauf la place prête à ouvrir,
+# reconstruite par tools/check.sh)
 *.rbxl
 *.rbxlx
+!dist/HuntOrHide.rbxl
 *.rbxl.lock
 *.rbxlx.lock
 
