@@ -1,0 +1,11 @@
+{
+  "name": "hunt-or-hide-preview",
+  "private": true,
+  "description": "Rendus 3D hors Studio de la g\u00e9om\u00e9trie g\u00e9n\u00e9r\u00e9e par le jeu (outil de d\u00e9veloppement).",
+  "type": "module",
+  "dependencies": {
+    "three": "0.160.0",
+    "@fontsource/fredoka-one": "5.2.5",
+    "@fontsource/montserrat": "5.2.5"
+  }
+}

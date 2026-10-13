@@ -1,0 +1,281 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Hunt or Hide preview</title>
+<style>
+  @font-face { font-family: "Fredoka One"; src: url("node_modules/@fontsource/fredoka-one/files/fredoka-one-latin-400-normal.woff2") format("woff2"); }
+  @font-face { font-family: "GothamLike"; font-weight: 700; src: url("node_modules/@fontsource/montserrat/files/montserrat-latin-700-normal.woff2") format("woff2"); }
+  @font-face { font-family: "GothamLike"; font-weight: 900; src: url("node_modules/@fontsource/montserrat/files/montserrat-latin-900-normal.woff2") format("woff2"); }
+  @font-face { font-family: "GothamLike"; font-weight: 700; font-style: italic; src: url("node_modules/@fontsource/montserrat/files/montserrat-latin-700-italic.woff2") format("woff2"); }
+  @font-face { font-family: "GothamLike"; font-weight: 900; font-style: italic; src: url("node_modules/@fontsource/montserrat/files/montserrat-latin-900-italic.woff2") format("woff2"); }
+  html, body { margin: 0; padding: 0; overflow: hidden; background: #8ec5ff; font-family: "Fredoka One", sans-serif; }
+  #wrap { position: relative; }
+  canvas#gl { display: block; }
+  #hud { position: absolute; left: 0; top: 0; pointer-events: none; overflow: hidden; }
+  .g { position: absolute; box-sizing: border-box; display: flex; overflow: visible; }
+  .t { width: 100%; height: 100%; display: flex; white-space: pre-line; line-height: 1; }
+  #caption { position: absolute; left: 12px; bottom: 10px; color: #fff; font-size: 15px; text-shadow: 0 1px 3px #000a; }
+  #tagbar { height: 26px; line-height: 26px; padding: 0 10px; background: #0a1418; color: #fff; font-family: "Fredoka One", sans-serif; font-size: 13px; white-space: nowrap; overflow: hidden; }
+</style>
+<script type="importmap">{ "imports": { "three": "./node_modules/three/build/three.module.js", "three/addons/": "./node_modules/three/examples/jsm/" } }</script>
+</head>
+<body>
+<div id="frame"><div id="wrap"><canvas id="gl"></canvas><div id="hud"></div><div id="caption"></div></div><div id="tagbar"></div></div>
+<script type="module">
+import * as THREE from "three";
+import { render3D } from "./scene3d.js";
+
+const data = window.__SCENE__;
+const W = data.width, H = data.height;
+document.getElementById("wrap").style.width = W + "px";
+document.getElementById("wrap").style.height = H + "px";
+const hud = document.getElementById("hud");
+hud.style.width = W + "px"; hud.style.height = H + "px";
+// Pas de légende incrustée : l'image doit montrer uniquement ce que voit le joueur
+// (le nom de la scène sert de nom de fichier).
+
+await document.fonts.load('40px "Fredoka One"');
+await document.fonts.load('700 40px "GothamLike"');
+await document.fonts.load('900 40px "GothamLike"');
+await document.fonts.load('italic 900 40px "GothamLike"');
+await document.fonts.load('italic 700 40px "GothamLike"');
+// Police Roblox -> police CSS de substitution
+const FONTS = { FredokaOne: '"Fredoka One"', GothamBold: '700 X "GothamLike"', GothamBlack: '900 X "GothamLike"', BuilderSansBold: '700 X "GothamLike"', BuilderSansExtraBold: '900 X "GothamLike"' };
+const WEIGHTS = { Thin: 300, Light: 300, Regular: 500, Medium: 600, SemiBold: 600, Bold: 700, ExtraBold: 800, Heavy: 900 };
+const fontCss = (el, size) => {
+  if (el.font === "Face") return `${el.italic ? "italic " : ""}${WEIGHTS[el.weight] || 700} ${size}px "GothamLike"`;
+  const f = FONTS[el.font] || '"Fredoka One"'; return f.includes(" X ") ? f.replace("X", size + "px") : `${size}px ${f}`;
+};
+// Texte enrichi minimal : <font color="#rrggbb">...</font>
+function richSegments(text, base) {
+  text = String(text).replace(/<\/?b>/g, "");
+  const out = []; const re = /<font color="([^"]+)">(.*?)<\/font>/g; let last = 0, m;
+  while ((m = re.exec(text))) { if (m.index > last) out.push([text.slice(last, m.index), base]); out.push([m[2], m[1]]); last = re.lastIndex; }
+  if (last < text.length) out.push([text.slice(last), base]); return out;
+}
+const plain = (el) => el.rich ? String(el.text).replace(/<[^>]+>/g, "") : String(el.text);
+
+const arr = x => Array.isArray(x) ? x : [];
+const toCss = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+
+// ---------- GUI (SurfaceGui et HUD) ----------
+function resolveRect(el, px, py, pw, ph, k) {
+  const s = el.size || [0, 100, 0, 100], p = el.position || [0, 0, 0, 0], a = el.anchor || [0, 0];
+  let w = s[0] * pw + s[1] * k, h = s[2] * ph + s[3] * k;
+  if (el.aspect) { const r = el.aspect; if (w / h > r) w = h * r; else h = w / r; }
+  // UISizeConstraint (en pixels), puis UIScale (taille de l'élément et de ses enfants)
+  if (el.maxSize) { w = Math.min(w, el.maxSize[0] * k); h = Math.min(h, el.maxSize[1] * k); }
+  if (el.minSize) { w = Math.max(w, el.minSize[0] * k); h = Math.max(h, el.minSize[1] * k); }
+  if (el.uiScale) { w *= el.uiScale; h *= el.uiScale; }
+  const x = px + p[0] * pw + p[1] * k - a[0] * w;
+  const y = py + p[2] * ph + p[3] * k - a[1] * h;
+  return [x, y, w, h];
+}
+
+function layoutChildren(el, rect, k) {
+  const [x, y, w, h] = rect;
+  let inner = [x, y, w, h];
+  if (el.padding) {
+    const [t, r, b, l] = el.padding;
+    const pt = t[0] * h + t[1] * k, pr = r[0] * w + r[1] * k, pb = b[0] * h + b[1] * k, pl = l[0] * w + l[1] * k;
+    inner = [x + pl, y + pt, w - pl - pr, h - pt - pb];
+  }
+  const kids = [...arr(el.children)];
+  const out = [];
+  if (el.list || el.grid) {
+    kids.sort((a, b) => (a.layoutOrder || 0) - (b.layoutOrder || 0));
+    if (el.grid) {
+      const cw = el.grid.cell[0] * inner[2] + el.grid.cell[1] * k, ch = el.grid.cell[2] * inner[3] + el.grid.cell[3] * k;
+      const gx = el.grid.padding[0] * inner[2] + el.grid.padding[1] * k, gy = el.grid.padding[2] * inner[3] + el.grid.padding[3] * k;
+      const perRow = Math.max(1, Math.floor((inner[2] + gx) / (cw + gx)));
+      kids.forEach((kid, i) => out.push([kid, [inner[0] + (i % perRow) * (cw + gx), inner[1] + Math.floor(i / perRow) * (ch + gy), cw, ch]]));
+      return out;
+    }
+    const vertical = el.list.dir === "Vertical";
+    const pad = vertical ? el.list.padding[0] * inner[3] + el.list.padding[1] * k : el.list.padding[0] * inner[2] + el.list.padding[1] * k;
+    const sizes = kids.map(kid => { const r = resolveRect({ ...kid, position: [0, 0, 0, 0], anchor: [0, 0] }, 0, 0, inner[2], inner[3], k); return [r[2], r[3]]; });
+    const total = sizes.reduce((s, z) => s + (vertical ? z[1] : z[0]), 0) + pad * Math.max(0, kids.length - 1);
+    let cursor;
+    const align = vertical ? el.list.v : el.list.h;
+    const span = vertical ? inner[3] : inner[2];
+    if (align === "Center") cursor = (span - total) / 2; else if (align === "Bottom" || align === "Right") cursor = span - total; else cursor = 0;
+    kids.forEach((kid, i) => {
+      const [kw, kh] = sizes[i];
+      let kx, ky;
+      if (vertical) {
+        ky = inner[1] + cursor;
+        kx = el.list.h === "Center" ? inner[0] + (inner[2] - kw) / 2 : el.list.h === "Right" ? inner[0] + inner[2] - kw : inner[0];
+        cursor += kh + pad;
+      } else {
+        kx = inner[0] + cursor;
+        ky = el.list.v === "Center" ? inner[1] + (inner[3] - kh) / 2 : el.list.v === "Bottom" ? inner[1] + inner[3] - kh : inner[1];
+        cursor += kw + pad;
+      }
+      out.push([kid, [kx, ky, kw, kh]]);
+    });
+    return out;
+  }
+  kids.sort((a, b) => (a.zindex || 1) - (b.zindex || 1));
+  for (const kid of kids) out.push([kid, resolveRect(kid, inner[0], inner[1], inner[2], inner[3], k)]);
+  return out;
+}
+
+// Retour à la ligne aux espaces (TextWrapped de Roblox)
+function wrapLines(ctx, text, w) {
+  const out = [];
+  for (const para of String(text).split("\n")) {
+    const words = para.split(" "); let line = "";
+    for (const word of words) {
+      const test = line ? line + " " + word : word;
+      if (line && ctx.measureText(test).width > w) { out.push(line); line = word; } else line = test;
+    }
+    out.push(line);
+  }
+  return out;
+}
+function fitFont(ctx, el, text, w, h, max) {
+  let size = Math.min(h, max || 1000);
+  while (size > 4) {
+    ctx.font = fontCss(el, size);
+    const lines = el.wrapped ? wrapLines(ctx, text, w) : String(text).split("\n");
+    const widest = Math.max(...lines.map(l => ctx.measureText(l).width));
+    if (widest <= w && size * lines.length <= h) break;
+    size -= 1;
+  }
+  return size;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+function drawGui(ctx, el, rect, k) {
+  const [x, y, w, h] = rect;
+  const radius = el.corner ? el.corner[0] * Math.min(w, h) + el.corner[1] * k : 0;
+  if (el.bg && el.bgT < 1 && el.class !== "TextLabel" || (el.bg && el.bgT < 1 && el.class === "TextLabel")) {
+    ctx.fillStyle = toCss(el.bg, 1 - el.bgT);
+    roundRect(ctx, x, y, w, h, radius); ctx.fill();
+  }
+  const borderStroke = el.uiStroke && (!el.text || el.uiStroke.mode === "Border");
+  if (borderStroke && el.uiStroke.transparency < 1 && el.uiStroke.thickness > 0) {
+    ctx.strokeStyle = toCss(el.uiStroke.color, 1 - el.uiStroke.transparency);
+    ctx.lineWidth = el.uiStroke.thickness * k;
+    roundRect(ctx, x, y, w, h, radius); ctx.stroke();
+  }
+  if (el.text && el.textT < 1 && plain(el).length) {
+    ctx.save();
+    const cx = x + w / 2, cy = y + h / 2;
+    if (el.rotation) { ctx.translate(cx, cy); ctx.rotate(el.rotation * Math.PI / 180); ctx.translate(-cx, -cy); }
+    const size = el.scaled ? fitFont(ctx, el, plain(el), w, h, el.maxText ? el.maxText * k : null) : (el.textSize || 14) * k;
+    ctx.font = fontCss(el, size);
+    ctx.textBaseline = "middle";
+    const lines = el.wrapped ? wrapLines(ctx, plain(el), w) : plain(el).split("\n");
+    const lh = size * 1.0;
+    const totalH = lh * lines.length;
+    let ty = el.yAlign === "Top" ? y + lh / 2 : el.yAlign === "Bottom" ? y + h - totalH + lh / 2 : cy - totalH / 2 + lh / 2;
+    for (const line of lines) {
+      let tx; ctx.textAlign = el.xAlign === "Left" ? "left" : el.xAlign === "Right" ? "right" : "center";
+      tx = el.xAlign === "Left" ? x : el.xAlign === "Right" ? x + w : cx;
+      if (el.stroke) { ctx.strokeStyle = toCss(el.stroke, 0.9); ctx.lineWidth = Math.max(2, size * 0.12); ctx.lineJoin = "round"; ctx.strokeText(line, tx, ty); }
+      if (el.uiStroke && !borderStroke && el.uiStroke.thickness > 0) { ctx.strokeStyle = toCss(el.uiStroke.color, 1 - el.uiStroke.transparency); ctx.lineWidth = el.uiStroke.thickness * k * 2; ctx.lineJoin = "round"; ctx.strokeText(line, tx, ty); }
+      if (el.rich && lines.length === 1) {
+        const segs = richSegments(String(el.text), toCss(el.textColor, 1 - el.textT));
+        const total = segs.reduce((acc, sg) => acc + ctx.measureText(sg[0]).width, 0);
+        let sx = ctx.textAlign === "center" ? tx - total / 2 : ctx.textAlign === "right" ? tx - total : tx;
+        ctx.textAlign = "left";
+        for (const [t, col] of segs) { ctx.fillStyle = col; ctx.fillText(t, sx, ty); sx += ctx.measureText(t).width; }
+      } else {
+        ctx.fillStyle = toCss(el.textColor, 1 - el.textT);
+        ctx.fillText(line, tx, ty);
+      }
+      ty += lh;
+    }
+    ctx.restore();
+  }
+  if (el.image && String(el.image).startsWith("rbxthumb")) {
+    ctx.save(); ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.beginPath(); ctx.arc(x + w / 2, y + h * 0.38, Math.min(w, h) * 0.22, 0, Math.PI * 2); ctx.fill();
+    roundRect(ctx, x + w * 0.2, y + h * 0.62, w * 0.6, h * 0.34, w * 0.12); ctx.fill(); ctx.restore();
+  }
+  const kk = k * (el.uiScale || 1);
+  for (const [kid, r] of layoutChildren(el, rect, kk)) drawGui(ctx, kid, r, kk);
+}
+
+// ---------- Scène 3D (scene3d.js) ----------
+const { camera } = await render3D(data, { W, H, drawGui, layoutChildren });
+
+// ---------- BillboardGui (badges au-dessus des têtes) ----------
+const billboards = [];
+for (const p of arr(data.parts)) {
+  for (const b of arr(p.billboards)) {
+    const m = p.cf;
+    const v = new THREE.Vector3(m[0] + b.offset[0], m[1] + b.offset[1], m[2] + b.offset[2]);
+    const dist = v.distanceTo(camera.position);
+    v.project(camera);
+    if (v.z < 1 && v.z > -1 && dist < 90) billboards.push({ b, x: (v.x + 1) / 2 * W, y: (1 - v.y) / 2 * H, dist });
+  }
+}
+if (billboards.length) {
+  const bc = document.createElement("canvas"); bc.width = W; bc.height = H;
+  bc.style.position = "absolute"; bc.style.left = "0"; bc.style.top = "0";
+  hud.appendChild(bc);
+  const ctx = bc.getContext("2d");
+  billboards.sort((a, b) => b.dist - a.dist);
+  const fovRad = (camera.fov || 60) * Math.PI / 180;
+  for (const { b, x, y, dist } of billboards) {
+    // Taille : composante Scale = studs (dépend de la distance), Offset = pixels
+    const pxPerStud = H / (2 * Math.tan(fovRad / 2) * Math.max(dist, 1));
+    const w = b.size[0] * pxPerStud + b.size[1], h = b.size[2] * pxPerStud + b.size[3];
+    if (w < 4 || h < 4) continue;
+    for (const [kid, r] of layoutChildren({ children: arr(b.children) }, [x - w / 2, y - h / 2, w, h], 1)) drawGui(ctx, kid, r, 1);
+  }
+}
+
+// ---------- HUD (ScreenGui) ----------
+if (arr(data.hud).length) {
+  const hc = document.createElement("canvas"); hc.width = W; hc.height = H;
+  hc.style.position = "absolute"; hc.style.left = "0"; hc.style.top = "0";
+  hud.appendChild(hc);
+  const ctx = hc.getContext("2d");
+  const k = data.hudScale || 1;
+  for (const screen of arr(data.hud)) {
+    const inset = screen.inset ? 0 : 36 * k;
+    for (const [kid, r] of layoutChildren({ children: arr(screen.children) }, [0, inset, W, H - inset], k)) drawGui(ctx, kid, r, k);
+  }
+}
+// ---------- Contrôles tactiles de Roblox (interface du moteur, absente de la simulation) ----------
+// Dessinés à leur place par défaut pour vérifier qu'ils ne gênent pas nos boutons :
+// bouton de saut (géométrie du module TouchJump) et anneau du joystick.
+if (data.coreTouch) {
+  const tc = document.createElement("canvas"); tc.width = W; tc.height = H;
+  tc.style.position = "absolute"; tc.style.left = "0"; tc.style.top = "0";
+  hud.appendChild(tc);
+  const ctx = tc.getContext("2d");
+  const small = Math.min(W, H) <= 500;
+  const js = small ? 70 : 120;
+  const jx = W - (js * 1.5 - 10) + js / 2, jy = H - (small ? js + 20 : js * 1.75) + js / 2;
+  const ring = (x, y, r, fill) => {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.stroke();
+  };
+  ring(jx, jy, js / 2 - 2, "rgba(30,30,30,0.35)");
+  ctx.beginPath(); ctx.moveTo(jx - js * 0.18, jy + js * 0.08); ctx.lineTo(jx, jy - js * 0.12); ctx.lineTo(jx + js * 0.18, jy + js * 0.08);
+  ctx.lineWidth = js * 0.08; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.stroke();
+  const tr = js * 0.75, tx = tr + 30, ty = H - tr - 24;
+  ring(tx, ty, tr, "rgba(30,30,30,0.18)");
+  ring(tx, ty, tr * 0.42, "rgba(255,255,255,0.35)");
+  ctx.font = `600 ${small ? 10 : 12}px sans-serif`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.fillText("Roblox jump", jx, jy + js / 2 + (small ? 12 : 15));
+  ctx.fillText("Roblox joystick", tx, ty - tr - 6);
+}
+// ---------- Mention obligatoire, hors de l'image : ce n'est pas une capture de Roblox ----------
+document.getElementById("tagbar").textContent = "RENDU SIMULÉ (three.js) · pas une capture Roblox Studio · " + (data.caption || data.name || "");
+window.__DONE__ = true;
+</script>
+</body>
+</html>

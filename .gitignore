@@ -1,0 +1,22 @@
+# Fichiers de place Roblox générés localement (sauf la place prête à ouvrir,
+# reconstruite par tools/check.sh)
+*.rbxl
+*.rbxlx
+!dist/HuntOrHide.rbxl
+*.rbxl.lock
+*.rbxlx.lock
+
+# Système
+.DS_Store
+Thumbs.db
+
+# Outils de prévisualisation
+tools/preview/node_modules/
+tools/preview/out/
+tools/bin/
+sourcemap.json
+.claude/
+
+# Python (scripts Blender)
+__pycache__/
+*.pyc
